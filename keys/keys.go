@@ -42,6 +42,7 @@ const (
 	KeyLeft
 	KeyRight
 	KeyScrollLock
+	KeyOpenInIDE
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -81,6 +82,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"?":          KeyHelp,
 	"l":          KeyErrorLog,
 	"w":          KeyWebStorm,
+	"i":          KeyOpenInIDE,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -144,6 +146,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyScrollLock: key.NewBinding(
 		key.WithKeys("s"),
 		key.WithHelp("s", "toggle scroll lock"),
+	),
+	KeyOpenInIDE: key.NewBinding(
+		key.WithKeys("i"),
+		key.WithHelp("i", "open in IDE"),
 	),
 	KeyEnter: key.NewBinding(
 		key.WithKeys("enter", "o"),

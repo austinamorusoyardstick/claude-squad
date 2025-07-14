@@ -268,6 +268,44 @@ func (d *DiffPane) NavigateToPrevCommit() {
 	}
 }
 
+// GetCurrentFile returns the file path at the current viewport position
+func (d *DiffPane) GetCurrentFile() string {
+	if d.viewport.TotalLineCount() == 0 || d.diff == "" {
+		return ""
+	}
+	
+	// Get the current line we're looking at in the viewport
+	currentLine := d.viewport.YOffset
+	lines := strings.Split(d.diff, "\n")
+	
+	// Search backwards from current position to find the most recent file header
+	for i := currentLine; i >= 0; i-- {
+		if i < len(lines) {
+			line := lines[i]
+			// Look for diff header
+			if strings.HasPrefix(line, "diff --git") {
+				parts := strings.Fields(line)
+				if len(parts) >= 4 {
+					// Remove the "a/" prefix from the file path
+					filePath := strings.TrimPrefix(parts[2], "a/")
+					return filePath
+				}
+			}
+			// Also check for +++ header which is more reliable
+			if strings.HasPrefix(line, "+++") && !strings.HasPrefix(line, "+++ /dev/null") {
+				// Format is "+++ b/path/to/file"
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					filePath := strings.TrimPrefix(parts[1], "b/")
+					return filePath
+				}
+			}
+		}
+	}
+	
+	return ""
+}
+
 // NavigateToNextCommit moves to the next (newer) commit
 func (d *DiffPane) NavigateToNextCommit() {
 	if d.mode == DiffModeLastCommit {

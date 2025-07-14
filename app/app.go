@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -644,6 +645,23 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			m.menu.SetScrollLocked(m.scrollLocked)
 		}
 		return m, nil
+	case keys.KeyOpenInIDE:
+		// Only handle 'i' when in diff view
+		if m.tabbedWindow.IsInDiffTab() {
+			selected := m.list.GetSelectedInstance()
+			if selected == nil {
+				return m, nil
+			}
+			// Get the current file from diff view
+			currentFile := m.tabbedWindow.GetCurrentDiffFile()
+			if currentFile == "" {
+				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+			}
+			// Open the file in WebStorm
+			cmd := m.openFileInWebStorm(selected, currentFile)
+			return m, cmd
+		}
+		return m, nil
 	case keys.KeyKill:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -731,8 +749,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if selected == nil {
 			return m, nil
 		}
-		// Open WebStorm at the instance's path
-		cmd := m.openWebStorm(selected.Path)
+		// Open WebStorm at the instance's path and connect Claude
+		cmd := m.openWebStorm(selected)
 		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
@@ -771,24 +789,41 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 // instanceChanged updates the AI pane, menu, diff pane, and terminal pane based on the selected instance. It returns an error
 // Cmd if there was any error.
-func (m *home) openWebStorm(path string) tea.Cmd {
+func (m *home) openWebStorm(instance *session.Instance) tea.Cmd {
 	return func() tea.Msg {
-		// Open WebStorm at the specified path
-		cmd := exec.Command("webstorm", path)
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+		
+		// Open WebStorm at the worktree path (not the git root)
+		worktreePath := gitWorktree.GetWorktreePath()
+		cmd := exec.Command("webstorm", worktreePath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open WebStorm: %w", err)
 		}
 		
-		// Give WebStorm a moment to start up
-		time.Sleep(1 * time.Second)
+		return nil
+	}
+}
+
+func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
 		
-		// Connect Claude to WebStorm by simulating the keyboard shortcut
-		// This assumes the WebStorm plugin is installed and the shortcut is configured
-		// The default shortcut is Cmd+Esc on Mac or Ctrl+Esc on Windows/Linux
-		connectCmd := exec.Command("osascript", "-e", `tell application "System Events" to keystroke "escape" using command down`)
-		if err := connectCmd.Run(); err != nil {
-			// Log the error but don't fail - WebStorm is already open
-			log.WarningLog.Printf("could not send connect shortcut to WebStorm: %v", err)
+		// Construct the full path to the file using the worktree path
+		worktreePath := gitWorktree.GetWorktreePath()
+		fullPath := filepath.Join(worktreePath, filePath)
+		
+		// Open WebStorm with the specific file
+		cmd := exec.Command("webstorm", fullPath)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open file in WebStorm: %w", err)
 		}
 		
 		return nil

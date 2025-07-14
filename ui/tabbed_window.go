@@ -203,6 +203,14 @@ func (w *TabbedWindow) NavigateToNextCommit() {
 	}
 }
 
+// GetCurrentDiffFile returns the file path currently being viewed in the diff tab
+func (w *TabbedWindow) GetCurrentDiffFile() string {
+	if w.activeTab == 1 { // Diff tab
+		return w.diff.GetCurrentFile()
+	}
+	return ""
+}
+
 func (w *TabbedWindow) String() string {
 	if w.width == 0 || w.height == 0 {
 		return ""
