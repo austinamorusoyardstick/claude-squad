@@ -24,6 +24,8 @@ const (
 	KeyResume
 	KeyPrompt // New key for entering a prompt
 	KeyHelp   // Key for showing help screen
+	KeyExistingBranch // Key for creating instance from existing branch
+	KeyErrorLog // Key for showing error log
 
 	// Diff keybindings
 	KeyShiftUp
@@ -51,6 +53,10 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"shift+down": KeyShiftDown,
 	"home":       KeyHome,
 	"end":        KeyEnd,
+	"ctrl+a":     KeyHome,
+	"ctrl+e":     KeyEnd,
+	"ctrl+home":  KeyHome,
+	"ctrl+end":   KeyEnd,
 	"pgup":       KeyPageUp,
 	"pgdown":     KeyPageDown,
 	"alt+up":     KeyAltUp,
@@ -64,6 +70,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"enter":      KeyEnter,
 	"o":          KeyEnter,
 	"n":          KeyNew,
+	"e":          KeyExistingBranch,
 	"D":          KeyKill,
 	"q":          KeyQuit,
 	"tab":        KeyTab,
@@ -71,6 +78,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"r":          KeyResume,
 	"p":          KeySubmit,
 	"?":          KeyHelp,
+	"l":          KeyErrorLog,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -92,12 +100,12 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithHelp("shift+↓", "scroll"),
 	),
 	KeyHome: key.NewBinding(
-		key.WithKeys("home"),
-		key.WithHelp("home", "scroll to top"),
+		key.WithKeys("home", "ctrl+a", "ctrl+home"),
+		key.WithHelp("home/ctrl+a", "scroll to top"),
 	),
 	KeyEnd: key.NewBinding(
-		key.WithKeys("end"),
-		key.WithHelp("end", "scroll to bottom"),
+		key.WithKeys("end", "ctrl+e", "ctrl+end"),
+		key.WithHelp("end/ctrl+e", "scroll to bottom"),
 	),
 	KeyPageUp: key.NewBinding(
 		key.WithKeys("pgup"),
@@ -143,6 +151,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("n"),
 		key.WithHelp("n", "new"),
 	),
+	KeyExistingBranch: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "existing branch"),
+	),
 	KeyKill: key.NewBinding(
 		key.WithKeys("D"),
 		key.WithHelp("D", "kill"),
@@ -174,6 +186,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyResume: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "resume"),
+	),
+	KeyErrorLog: key.NewBinding(
+		key.WithKeys("l"),
+		key.WithHelp("l", "error log"),
 	),
 
 	// -- Special keybindings --

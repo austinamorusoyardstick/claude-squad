@@ -5,6 +5,7 @@ import (
 	"claude-squad/keys"
 	"claude-squad/log"
 	"claude-squad/session"
+	"claude-squad/session/git"
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
@@ -42,6 +43,10 @@ const (
 	stateHelp
 	// stateConfirm is the state when a confirmation modal is displayed.
 	stateConfirm
+	// stateBranchSelect is the state when the user is selecting a branch.
+	stateBranchSelect
+	// stateErrorLog is the state when displaying the error log.
+	stateErrorLog
 )
 
 type home struct {
@@ -93,6 +98,11 @@ type home struct {
 	textOverlay *overlay.TextOverlay
 	// confirmationOverlay displays confirmation modals
 	confirmationOverlay *overlay.ConfirmationOverlay
+	// branchSelectorOverlay displays branch selection interface
+	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	
+	// errorLog stores all error messages for display
+	errorLog []string
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -186,6 +196,31 @@ func (m *home) Init() tea.Cmd {
 }
 
 func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle branch selector updates when in that state
+	if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
+		if _, ok := msg.(tea.KeyMsg); ok {
+			// Update the branch selector
+			_, cmd := m.branchSelectorOverlay.Update(msg)
+			
+			// Check if selection is complete
+			if m.branchSelectorOverlay.IsSelected() {
+				selectedBranch := m.branchSelectorOverlay.SelectedBranch()
+				if selectedBranch == "" {
+					// User cancelled
+					m.state = stateDefault
+					m.menu.SetState(ui.StateDefault)
+					m.branchSelectorOverlay = nil
+					return m, nil
+				}
+				
+				// Create instance with selected branch
+				return m.createInstanceWithBranch(selectedBranch)
+			}
+			
+			return m, cmd
+		}
+	}
+
 	switch msg := msg.(type) {
 	case hideErrMsg:
 		m.errBox.Clear()
@@ -304,6 +339,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 	if m.state == stateHelp {
 		return m.handleHelpState(msg)
+	}
+	
+	if m.state == stateErrorLog {
+		return m.handleErrorLogState(msg)
 	}
 
 	if m.state == stateNew {
@@ -449,6 +488,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	switch name {
 	case keys.KeyHelp:
 		return m.showHelpScreen(helpTypeGeneral{}, nil)
+	case keys.KeyErrorLog:
+		return m.showErrorLog()
 	case keys.KeyPrompt:
 		if m.list.NumInstances() >= GlobalInstanceLimit {
 			return m, m.handleError(
@@ -490,6 +531,34 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.menu.SetState(ui.StateNewInstance)
 
 		return m, nil
+	case keys.KeyExistingBranch:
+		if m.list.NumInstances() >= GlobalInstanceLimit {
+			return m, m.handleError(
+				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
+		}
+		
+		// Show branch selector
+		m.state = stateBranchSelect
+		m.menu.SetState(ui.StateNewInstance)
+		
+		// Get list of remote branches
+		branches, err := git.ListRemoteBranchesFromRepo(".")
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to list remote branches: %w", err))
+		}
+		
+		// Check if there are any branches
+		if len(branches) == 0 {
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return m, m.handleError(fmt.Errorf("no remote branches found"))
+		}
+		
+		// Create branch selector overlay
+		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(branches)
+
+		// Initialize the branch selector
+		return m, m.branchSelectorOverlay.Init()
 	case keys.KeyUp:
 		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
 			m.tabbedWindow.ScrollUp()
@@ -746,6 +815,17 @@ var tickUpdateMetadataCmd = func() tea.Msg {
 func (m *home) handleError(err error) tea.Cmd {
 	log.ErrorLog.Printf("%v", err)
 	m.errBox.SetError(err)
+	
+	// Store error in the error log with timestamp
+	timestamp := time.Now().Format("15:04:05")
+	errorMsg := fmt.Sprintf("[%s] %v", timestamp, err)
+	m.errorLog = append(m.errorLog, errorMsg)
+	
+	// Keep only the last 100 errors to prevent memory issues
+	if len(m.errorLog) > 100 {
+		m.errorLog = m.errorLog[len(m.errorLog)-100:]
+	}
+	
 	return func() tea.Msg {
 		select {
 		case <-m.ctx.Done():
@@ -808,7 +888,109 @@ func (m *home) View() string {
 			log.ErrorLog.Printf("confirmation overlay is nil")
 		}
 		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
+	} else if m.state == stateBranchSelect {
+		if m.branchSelectorOverlay == nil {
+			log.ErrorLog.Printf("branch selector overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.branchSelectorOverlay.View(), mainView, true, true)
+	} else if m.state == stateErrorLog {
+		if m.textOverlay == nil {
+			log.ErrorLog.Printf("error log overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
+}
+
+func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any key press closes the error log
+	m.state = stateDefault
+	m.textOverlay = nil
+	return m, nil
+}
+
+func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
+	// Create content for error log
+	var content string
+	if len(m.errorLog) == 0 {
+		content = "No errors have been logged."
+	} else {
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render("Error Log"),
+			"",
+			"Recent errors (newest first):",
+			"")
+		
+		// Show errors in reverse order (newest first)
+		for i := len(m.errorLog) - 1; i >= 0; i-- {
+			content = lipgloss.JoinVertical(lipgloss.Left,
+				content,
+				m.errorLog[i])
+		}
+		
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			content,
+			"",
+			dimStyle.Render("Press any key to close"))
+	}
+	
+	// Create text overlay
+	m.textOverlay = overlay.NewTextOverlay(content)
+	m.state = stateErrorLog
+	m.menu.SetState(ui.StateDefault)
+	
+	return m, nil
+}
+
+func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) {
+	// Create a unique title by adding a timestamp suffix
+	// This prevents tmux session name conflicts when checking out the same branch multiple times
+	timestamp := time.Now().Format("150405") // HHMMSS format
+	title := fmt.Sprintf("%s-%s", branchName, timestamp)
+	
+	// Create a new instance with the selected branch
+	instance, err := session.NewInstanceWithBranch(session.InstanceOptions{
+		Title:      title,
+		Path:       ".",
+		Program:    m.program,
+		BranchName: branchName,
+	})
+	if err != nil {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.branchSelectorOverlay = nil
+		return m, m.handleError(err)
+	}
+
+	m.newInstanceFinalizer = m.list.AddInstance(instance)
+	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
+	m.branchSelectorOverlay = nil
+	
+	// Start the instance immediately without prompting for a name
+	// since we already have a title from the branch name
+	if err := instance.Start(true); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Save after adding new instance
+	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Instance added successfully, call the finalizer
+	m.newInstanceFinalizer()
+	
+	// Set state back to default and show help
+	m.state = stateDefault
+	m.menu.SetState(ui.StateDefault)
+	m.showHelpScreen(helpStart(instance), nil)
+
+	return m, m.instanceChanged()
 }

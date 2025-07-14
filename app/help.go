@@ -57,6 +57,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("shift-↓/↑")+descStyle.Render(" - Scroll in diff view"),
 		keyStyle.Render("s")+descStyle.Render("         - Toggle scroll lock (↓/↑ scrolls diff)"),
 		keyStyle.Render("home/end")+descStyle.Render("  - Scroll to top/bottom in diff view"),
+		keyStyle.Render("ctrl+a/e")+descStyle.Render("  - Alternative: scroll to top/bottom"),
 		keyStyle.Render("pgup/pgdn")+descStyle.Render(" - Page up/down in diff view"),
 		keyStyle.Render("alt-↓/↑")+descStyle.Render("  - Jump to next/prev file in diff view"),
 		keyStyle.Render("a")+descStyle.Render("         - Show all changes in diff view"),
@@ -131,6 +132,7 @@ var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#36CFC9"))
 	keyStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFCC00"))
 	descStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 )
 
 // showHelpScreen displays the help screen overlay if it hasn't been shown before
