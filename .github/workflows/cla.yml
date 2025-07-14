@@ -29,4 +29,8 @@ jobs:
           remote-organization-name: 'smtg-ai'
           remote-repository-name: 'claude-squad-clas'
 
+          # Exempt members of the smtg-ai organization from signing the CLA
+          allowlist: '*[bot],mufeez-amjad,jayshrivastava'
+          exempt-organizations: 'smtg-ai'
+
           custom-notsigned-prcomment: 'Thank you for your contribution! Please sign the [CLA](https://github.com/smtg-ai/claude-squad/blob/main/CLA.md) before we can merge your pull request. You can sign the CLA by just posting a comment following the below format.'
