@@ -145,7 +145,7 @@ func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
 
 // Add these new methods for handling scroll events
 func (w *TabbedWindow) ScrollUp() {
-	if w.activeTab == PreviewTab {
+	if w.activeTab == AITab {
 		err := w.preview.ScrollUp(w.instance)
 		if err != nil {
 			log.InfoLog.Printf("tabbed window failed to scroll up: %v", err)
@@ -156,7 +156,7 @@ func (w *TabbedWindow) ScrollUp() {
 }
 
 func (w *TabbedWindow) ScrollDown() {
-	if w.activeTab == PreviewTab {
+	if w.activeTab == AITab {
 		err := w.preview.ScrollDown(w.instance)
 		if err != nil {
 			log.InfoLog.Printf("tabbed window failed to scroll down: %v", err)

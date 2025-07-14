@@ -131,8 +131,8 @@ func (t *TmuxSession) Start(workDir string) error {
 	historyCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "history-limit", "10000")
 	if err := t.cmdExec.Run(historyCmd); err != nil {
 		log.InfoLog.Printf("Warning: failed to set history-limit for session %s: %v", t.sanitizedName, err)
-  }
-  
+    }
+
 	// Set status-position to top
 	statusCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "status-position", "top")
 	if err := t.cmdExec.Run(statusCmd); err != nil {
@@ -254,14 +254,14 @@ func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
 // AttachToPane attaches to the tmux session and selects the specified pane
 func (t *TmuxSession) AttachToPane(paneIndex int) (chan struct{}, error) {
 	t.attachCh = make(chan struct{})
-	
+
 	// First, ensure we're on the correct window (window 0)
 	selectWindowCmd := exec.Command("tmux", "select-window", "-t", t.sanitizedName+":0")
 	t.cmdExec.Run(selectWindowCmd)
-	
+
 	// Select and zoom the specified pane
 	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
-	
+
 	// Select the pane
 	selectCmd := exec.Command("tmux", "select-pane", "-t", targetPane)
 	if err := t.cmdExec.Run(selectCmd); err == nil {
@@ -383,6 +383,7 @@ func (t *TmuxSession) DetachSafely() error {
 		return fmt.Errorf("errors during detach: %v", errs)
 	}
 	return nil
+}
 
 // Attach attaches to the tmux session (defaults to pane 0)
 func (t *TmuxSession) Attach() (chan struct{}, error) {
@@ -395,11 +396,11 @@ func (t *TmuxSession) Attach() (chan struct{}, error) {
 func (t *TmuxSession) Detach() {
 	// TODO: control flow is a bit messy here. If there's an error,
 	// I'm not sure if we get into a bad state. Needs testing.
-	
+
 	// Unzoom any zoomed pane before detaching
 	unzoomCmd := exec.Command("tmux", "resize-pane", "-Z", "-t", t.sanitizedName)
 	t.cmdExec.Run(unzoomCmd)
-	
+
 	defer func() {
 		close(t.attachCh)
 		t.attachCh = nil
@@ -519,24 +520,24 @@ func (t *TmuxSession) CreateTerminalPane(workDir string) error {
 	if err != nil {
 		return fmt.Errorf("error listing panes: %v", err)
 	}
-	
+
 	panes := strings.Split(strings.TrimSpace(string(output)), "\n")
 	if len(panes) >= 2 {
 		// Terminal pane already exists
 		return nil
 	}
-	
+
 	// Create a vertical split for the terminal
 	// Using -b flag to create new pane to the left/above and keep AI in pane 1
 	cmd := exec.Command("tmux", "split-window", "-t", t.sanitizedName, "-v", "-b", "-d", "-c", workDir)
 	if err := t.cmdExec.Run(cmd); err != nil {
 		return fmt.Errorf("error creating terminal pane: %v", err)
 	}
-	
+
 	// Clear the terminal pane (now pane 0)
 	clearCmd := exec.Command("tmux", "send-keys", "-t", t.sanitizedName+".0", "clear", "Enter")
 	t.cmdExec.Run(clearCmd)
-	
+
 	return nil
 }
 
