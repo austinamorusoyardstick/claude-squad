@@ -126,10 +126,18 @@ func (t *TmuxSession) Start(workDir string) error {
 	}
 	ptmx.Close()
 
+
 	// Set history limit to enable scrollback (default is 2000, we'll use 10000 for more history)
 	historyCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "history-limit", "10000")
 	if err := t.cmdExec.Run(historyCmd); err != nil {
 		log.InfoLog.Printf("Warning: failed to set history-limit for session %s: %v", t.sanitizedName, err)
+  }
+  
+	// Set status-position to top
+	statusCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "status-position", "top")
+	if err := t.cmdExec.Run(statusCmd); err != nil {
+		// Non-fatal error, just log it
+		// The session will still work without this setting
 	}
 
 	err = t.Restore()
@@ -243,8 +251,24 @@ func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
 	return false, hasPrompt
 }
 
-func (t *TmuxSession) Attach() (chan struct{}, error) {
+// AttachToPane attaches to the tmux session and selects the specified pane
+func (t *TmuxSession) AttachToPane(paneIndex int) (chan struct{}, error) {
 	t.attachCh = make(chan struct{})
+	
+	// First, ensure we're on the correct window (window 0)
+	selectWindowCmd := exec.Command("tmux", "select-window", "-t", t.sanitizedName+":0")
+	t.cmdExec.Run(selectWindowCmd)
+	
+	// Select and zoom the specified pane
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	
+	// Select the pane
+	selectCmd := exec.Command("tmux", "select-pane", "-t", targetPane)
+	if err := t.cmdExec.Run(selectCmd); err == nil {
+		// Zoom the pane to fill the window
+		zoomCmd := exec.Command("tmux", "resize-pane", "-Z", "-t", targetPane)
+		t.cmdExec.Run(zoomCmd)
+	}
 
 	t.wg = &sync.WaitGroup{}
 	t.wg.Add(1)
@@ -359,6 +383,11 @@ func (t *TmuxSession) DetachSafely() error {
 		return fmt.Errorf("errors during detach: %v", errs)
 	}
 	return nil
+
+// Attach attaches to the tmux session (defaults to pane 0)
+func (t *TmuxSession) Attach() (chan struct{}, error) {
+	// Default to pane 0 for backward compatibility
+	return t.AttachToPane(0)
 }
 
 // Detach disconnects from the current tmux session. It panics if detaching fails. At the moment, there's no
@@ -366,6 +395,11 @@ func (t *TmuxSession) DetachSafely() error {
 func (t *TmuxSession) Detach() {
 	// TODO: control flow is a bit messy here. If there's an error,
 	// I'm not sure if we get into a bad state. Needs testing.
+	
+	// Unzoom any zoomed pane before detaching
+	unzoomCmd := exec.Command("tmux", "resize-pane", "-Z", "-t", t.sanitizedName)
+	t.cmdExec.Run(unzoomCmd)
+	
 	defer func() {
 		close(t.attachCh)
 		t.attachCh = nil
@@ -449,10 +483,10 @@ func (t *TmuxSession) DoesSessionExist() bool {
 	return t.cmdExec.Run(existsCmd) == nil
 }
 
-// CapturePaneContent captures the content of the tmux pane
+// CapturePaneContent captures the content of pane 0 (terminal after split)
 func (t *TmuxSession) CapturePaneContent() (string, error) {
 	// Add -e flag to preserve escape sequences (ANSI color codes)
-	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName)
+	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".0")
 	output, err := t.cmdExec.Output(cmd)
 	if err != nil {
 		return "", fmt.Errorf("error capturing pane content: %v", err)
@@ -470,6 +504,58 @@ func (t *TmuxSession) CapturePaneContentWithOptions(start, end string) (string, 
 		return "", fmt.Errorf("failed to capture tmux pane content with options: %v", err)
 	}
 	return string(output), nil
+}
+
+// GetSessionName returns the sanitized tmux session name
+func (t *TmuxSession) GetSessionName() string {
+	return t.sanitizedName
+}
+
+// CreateTerminalPane creates a terminal pane if it doesn't exist
+func (t *TmuxSession) CreateTerminalPane(workDir string) error {
+	// Check if we already have a second pane
+	listCmd := exec.Command("tmux", "list-panes", "-t", t.sanitizedName, "-F", "#{pane_index}")
+	output, err := t.cmdExec.Output(listCmd)
+	if err != nil {
+		return fmt.Errorf("error listing panes: %v", err)
+	}
+	
+	panes := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(panes) >= 2 {
+		// Terminal pane already exists
+		return nil
+	}
+	
+	// Create a vertical split for the terminal
+	// Using -b flag to create new pane to the left/above and keep AI in pane 1
+	cmd := exec.Command("tmux", "split-window", "-t", t.sanitizedName, "-v", "-b", "-d", "-c", workDir)
+	if err := t.cmdExec.Run(cmd); err != nil {
+		return fmt.Errorf("error creating terminal pane: %v", err)
+	}
+	
+	// Clear the terminal pane (now pane 0)
+	clearCmd := exec.Command("tmux", "send-keys", "-t", t.sanitizedName+".0", "clear", "Enter")
+	t.cmdExec.Run(clearCmd)
+	
+	return nil
+}
+
+
+// CaptureTerminalContent captures the content of pane 1 (AI after split)
+func (t *TmuxSession) CaptureTerminalContent() (string, error) {
+	// Capture from pane index 1 (AI pane after split)
+	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".1")
+	output, err := t.cmdExec.Output(cmd)
+	if err != nil {
+		return "", fmt.Errorf("error capturing terminal content: %v", err)
+	}
+	return string(output), nil
+}
+
+// SendKeysToTerminal sends keystrokes to the terminal pane
+func (t *TmuxSession) SendKeysToTerminal(keys string) error {
+	cmd := exec.Command("tmux", "send-keys", "-t", t.sanitizedName+".1", keys)
+	return t.cmdExec.Run(cmd)
 }
 
 // CleanupSessions kills all tmux sessions that start with "session-"

@@ -62,6 +62,8 @@ type Instance struct {
 	tmuxSession *tmux.TmuxSession
 	// gitWorktree is the git worktree for the instance.
 	gitWorktree *git.GitWorktree
+	// existingBranch indicates if this instance is using an existing branch
+	existingBranch bool
 }
 
 // ToInstanceData converts an Instance to its serializable form
@@ -150,6 +152,8 @@ type InstanceOptions struct {
 	Program string
 	// If AutoYes is true, then
 	AutoYes bool
+	// BranchName is the name of an existing branch to checkout (optional)
+	BranchName string
 }
 
 func NewInstance(opts InstanceOptions) (*Instance, error) {
@@ -172,6 +176,39 @@ func NewInstance(opts InstanceOptions) (*Instance, error) {
 		UpdatedAt: t,
 		AutoYes:   false,
 	}, nil
+}
+
+// NewInstanceWithBranch creates a new instance that will use an existing branch
+func NewInstanceWithBranch(opts InstanceOptions) (*Instance, error) {
+	t := time.Now()
+
+	// Convert path to absolute
+	absPath, err := filepath.Abs(opts.Path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	// If title is empty, use branch name
+	title := opts.Title
+	if title == "" {
+		title = opts.BranchName
+	}
+
+	instance := &Instance{
+		Title:     title,
+		Status:    Ready,
+		Path:      absPath,
+		Program:   opts.Program,
+		Branch:    opts.BranchName, // Set the branch name
+		Height:    0,
+		Width:     0,
+		CreatedAt: t,
+		UpdatedAt: t,
+		AutoYes:   opts.AutoYes,
+		existingBranch: true, // Mark this as using an existing branch
+	}
+
+	return instance, nil
 }
 
 func (i *Instance) RepoName() (string, error) {
@@ -202,12 +239,22 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 	i.tmuxSession = tmuxSession
 
 	if firstTimeSetup {
-		gitWorktree, branchName, err := git.NewGitWorktree(i.Path, i.Title)
-		if err != nil {
-			return fmt.Errorf("failed to create git worktree: %w", err)
+		if i.existingBranch && i.Branch != "" {
+			// Create worktree for existing branch
+			gitWorktree, _, err := git.NewGitWorktreeForBranch(i.Path, i.Title, i.Branch)
+			if err != nil {
+				return fmt.Errorf("failed to create git worktree for branch %s: %w", i.Branch, err)
+			}
+			i.gitWorktree = gitWorktree
+		} else {
+			// Create new worktree with auto-generated branch
+			gitWorktree, branchName, err := git.NewGitWorktree(i.Path, i.Title)
+			if err != nil {
+				return fmt.Errorf("failed to create git worktree: %w", err)
+			}
+			i.gitWorktree = gitWorktree
+			i.Branch = branchName
 		}
-		i.gitWorktree = gitWorktree
-		i.Branch = branchName
 	}
 
 	// Setup error handler to cleanup resources on any error
@@ -298,7 +345,10 @@ func (i *Instance) Preview() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", nil
 	}
-	return i.tmuxSession.CapturePaneContent()
+	// Ensure terminal pane exists first
+	i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath())
+	// AI content is in pane 1 after terminal split
+	return i.tmuxSession.CaptureTerminalContent()
 }
 
 func (i *Instance) HasUpdated() (updated bool, hasPrompt bool) {
@@ -323,6 +373,38 @@ func (i *Instance) Attach() (chan struct{}, error) {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
 	}
 	return i.tmuxSession.Attach()
+}
+
+// AttachToPane attaches to the instance and focuses on the specified pane
+func (i *Instance) AttachToPane(paneIndex int) (chan struct{}, error) {
+	if !i.started {
+		return nil, fmt.Errorf("cannot attach instance that has not been started")
+	}
+	
+	// If attaching to terminal pane, ensure it exists first
+	if paneIndex == 1 {
+		if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+			// Log error but continue - attach will handle missing pane
+			log.ErrorLog.Printf("failed to create terminal pane: %v", err)
+		}
+	}
+	
+	return i.tmuxSession.AttachToPane(paneIndex)
+}
+
+// GetTerminalContent returns the content of the terminal pane
+func (i *Instance) GetTerminalContent() (string, error) {
+	if !i.started || i.Status == Paused {
+		return "", fmt.Errorf("instance not available")
+	}
+	
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return "", fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+	
+	// Terminal is in pane 0 (original pane)
+	return i.tmuxSession.CapturePaneContent()
 }
 
 func (i *Instance) SetPreviewSize(width, height int) error {
@@ -509,6 +591,55 @@ func (i *Instance) UpdateDiffStats() error {
 // GetDiffStats returns the current git diff statistics
 func (i *Instance) GetDiffStats() *git.DiffStats {
 	return i.diffStats
+}
+
+// GetLastCommitDiffStats returns the diff statistics for uncommitted changes if they exist, otherwise the last commit
+func (i *Instance) GetLastCommitDiffStats() *git.DiffStats {
+	if !i.started {
+		return nil
+	}
+
+	if i.Status == Paused {
+		// For paused instances, we can still get the diff
+		return i.gitWorktree.DiffUncommittedOrLastCommit()
+	}
+
+	return i.gitWorktree.DiffUncommittedOrLastCommit()
+}
+
+// GetCommitDiffAtOffset returns the diff statistics for a commit at the specified offset
+// offset -1 = uncommitted changes, offset 0 = HEAD, offset 1 = HEAD~1, etc.
+func (i *Instance) GetCommitDiffAtOffset(offset int) *git.DiffStats {
+	if !i.started {
+		return nil
+	}
+
+	if offset == -1 {
+		uncommittedStats := i.gitWorktree.DiffUncommitted()
+		// If there are no uncommitted changes, show the last commit instead
+		if uncommittedStats.IsEmpty() && uncommittedStats.Error == nil {
+			// Return the HEAD commit stats, but preserve that we tried to get uncommitted changes
+			headStats := i.gitWorktree.DiffCommitAtOffset(0)
+			if headStats != nil {
+				// Mark that this is showing HEAD because there were no uncommitted changes
+				headStats.IsUncommitted = false
+			}
+			return headStats
+		}
+		uncommittedStats.IsUncommitted = true
+		return uncommittedStats
+	}
+
+	return i.gitWorktree.DiffCommitAtOffset(offset)
+}
+
+// GetCommitInfo returns the commit hash and message at the specified offset
+func (i *Instance) GetCommitInfo(offset int) (hash string, message string, err error) {
+	if !i.started {
+		return "", "", fmt.Errorf("instance not started")
+	}
+
+	return i.gitWorktree.GetCommitInfo(offset)
 }
 
 // SendPrompt sends a prompt to the tmux session

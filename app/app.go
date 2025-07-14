@@ -5,11 +5,14 @@ import (
 	"claude-squad/keys"
 	"claude-squad/log"
 	"claude-squad/session"
+	"claude-squad/session/git"
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -42,6 +45,10 @@ const (
 	stateHelp
 	// stateConfirm is the state when a confirmation modal is displayed.
 	stateConfirm
+	// stateBranchSelect is the state when the user is selecting a branch.
+	stateBranchSelect
+	// stateErrorLog is the state when displaying the error log.
+	stateErrorLog
 )
 
 type home struct {
@@ -63,6 +70,8 @@ type home struct {
 
 	// state is the current discrete state of the application
 	state state
+	// scrollLocked indicates if up/down keys should scroll in diff view without shift
+	scrollLocked bool
 	// newInstanceFinalizer is called when the state is stateNew and then you press enter.
 	// It registers the new instance in the list after the instance has been started.
 	newInstanceFinalizer func()
@@ -79,7 +88,7 @@ type home struct {
 	list *ui.List
 	// menu displays the bottom menu
 	menu *ui.Menu
-	// tabbedWindow displays the tabbed window with preview and diff panes
+	// tabbedWindow displays the tabbed window with AI, diff, and terminal panes
 	tabbedWindow *ui.TabbedWindow
 	// errBox displays error messages
 	errBox *ui.ErrBox
@@ -91,6 +100,11 @@ type home struct {
 	textOverlay *overlay.TextOverlay
 	// confirmationOverlay displays confirmation modals
 	confirmationOverlay *overlay.ConfirmationOverlay
+	// branchSelectorOverlay displays branch selection interface
+	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	
+	// errorLog stores all error messages for display
+	errorLog []string
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -111,7 +125,7 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 		ctx:          ctx,
 		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		menu:         ui.NewMenu(),
-		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane()),
+		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane()),
 		errBox:       ui.NewErrBox(),
 		storage:      storage,
 		appConfig:    appConfig,
@@ -184,6 +198,31 @@ func (m *home) Init() tea.Cmd {
 }
 
 func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle branch selector updates when in that state
+	if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
+		if _, ok := msg.(tea.KeyMsg); ok {
+			// Update the branch selector
+			_, cmd := m.branchSelectorOverlay.Update(msg)
+			
+			// Check if selection is complete
+			if m.branchSelectorOverlay.IsSelected() {
+				selectedBranch := m.branchSelectorOverlay.SelectedBranch()
+				if selectedBranch == "" {
+					// User cancelled
+					m.state = stateDefault
+					m.menu.SetState(ui.StateDefault)
+					m.branchSelectorOverlay = nil
+					return m, nil
+				}
+				
+				// Create instance with selected branch
+				return m.createInstanceWithBranch(selectedBranch)
+			}
+			
+			return m, cmd
+		}
+	}
+
 	switch msg := msg.(type) {
 	case hideErrMsg:
 		m.errBox.Clear()
@@ -305,6 +344,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 	if m.state == stateHelp {
 		return m.handleHelpState(msg)
+	}
+	
+	if m.state == stateErrorLog {
+		return m.handleErrorLogState(msg)
 	}
 
 	if m.state == stateNew {
@@ -466,6 +509,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	switch name {
 	case keys.KeyHelp:
 		return m.showHelpScreen(helpTypeGeneral{}, nil)
+	case keys.KeyErrorLog:
+		return m.showErrorLog()
 	case keys.KeyPrompt:
 		if m.list.NumInstances() >= GlobalInstanceLimit {
 			return m, m.handleError(
@@ -507,11 +552,47 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.menu.SetState(ui.StateNewInstance)
 
 		return m, nil
+	case keys.KeyExistingBranch:
+		if m.list.NumInstances() >= GlobalInstanceLimit {
+			return m, m.handleError(
+				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
+		}
+		
+		// Show branch selector
+		m.state = stateBranchSelect
+		m.menu.SetState(ui.StateNewInstance)
+		
+		// Get list of remote branches
+		branches, err := git.ListRemoteBranchesFromRepo(".")
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to list remote branches: %w", err))
+		}
+		
+		// Check if there are any branches
+		if len(branches) == 0 {
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return m, m.handleError(fmt.Errorf("no remote branches found"))
+		}
+		
+		// Create branch selector overlay
+		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(branches)
+
+		// Initialize the branch selector
+		return m, m.branchSelectorOverlay.Init()
 	case keys.KeyUp:
-		m.list.Up()
+		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.ScrollUp()
+		} else {
+			m.list.Up()
+		}
 		return m, m.instanceChanged()
 	case keys.KeyDown:
-		m.list.Down()
+		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.ScrollDown()
+		} else {
+			m.list.Down()
+		}
 		return m, m.instanceChanged()
 	case keys.KeyShiftUp:
 		m.tabbedWindow.ScrollUp()
@@ -519,10 +600,83 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	case keys.KeyShiftDown:
 		m.tabbedWindow.ScrollDown()
 		return m, m.instanceChanged()
+	case keys.KeyHome:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.ScrollToTop()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyEnd:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.ScrollToBottom()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyPageUp:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.PageUp()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyPageDown:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.PageDown()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyAltUp:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.JumpToPrevFile()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyAltDown:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.JumpToNextFile()
+		}
+		return m, m.instanceChanged()
 	case keys.KeyTab:
 		m.tabbedWindow.Toggle()
 		m.menu.SetInDiffTab(m.tabbedWindow.IsInDiffTab())
 		return m, m.instanceChanged()
+	case keys.KeyDiffAll:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.SetDiffModeAll()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyDiffLastCommit:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.SetDiffModeLastCommit()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyLeft:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.NavigateToPrevCommit()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyRight:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.tabbedWindow.NavigateToNextCommit()
+		}
+		return m, m.instanceChanged()
+	case keys.KeyScrollLock:
+		if m.tabbedWindow.IsInDiffTab() {
+			m.scrollLocked = !m.scrollLocked
+			m.menu.SetScrollLocked(m.scrollLocked)
+		}
+		return m, nil
+	case keys.KeyOpenInIDE:
+		// Only handle 'i' when in diff view
+		if m.tabbedWindow.IsInDiffTab() {
+			selected := m.list.GetSelectedInstance()
+			if selected == nil {
+				return m, nil
+			}
+			// Get the current file from diff view
+			currentFile := m.tabbedWindow.GetCurrentDiffFile()
+			if currentFile == "" {
+				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+			}
+			// Open the file in WebStorm
+			cmd := m.openFileInWebStorm(selected, currentFile)
+			return m, cmd
+		}
+		return m, nil
 	case keys.KeyKill:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -605,6 +759,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(err)
 		}
 		return m, tea.WindowSize()
+	case keys.KeyWebStorm:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Open WebStorm at the instance's path and connect Claude
+		cmd := m.openWebStorm(selected)
+		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -615,7 +777,18 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		// Show help screen before attaching
 		m.showHelpScreen(helpTypeInstanceAttach{}, func() {
-			ch, err := m.list.Attach()
+			var ch chan struct{}
+			var err error
+			
+			// Determine which pane to attach to based on active tab
+			if m.tabbedWindow.IsInTerminalTab() {
+				// If terminal tab is active, attach to terminal pane (pane 0)
+				ch, err = m.list.AttachToPane(0)
+			} else {
+				// Otherwise, attach to AI pane (pane 1)
+				ch, err = m.list.AttachToPane(1)
+			}
+			
 			if err != nil {
 				m.handleError(err)
 				return
@@ -629,14 +802,55 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	}
 }
 
-// instanceChanged updates the preview pane, menu, and diff pane based on the selected instance. It returns an error
+// instanceChanged updates the AI pane, menu, diff pane, and terminal pane based on the selected instance. It returns an error
 // Cmd if there was any error.
+func (m *home) openWebStorm(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+		
+		// Open WebStorm at the worktree path (not the git root)
+		worktreePath := gitWorktree.GetWorktreePath()
+		cmd := exec.Command("webstorm", worktreePath)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open WebStorm: %w", err)
+		}
+		
+		return nil
+	}
+}
+
+func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+		
+		// Construct the full path to the file using the worktree path
+		worktreePath := gitWorktree.GetWorktreePath()
+		fullPath := filepath.Join(worktreePath, filePath)
+		
+		// Open WebStorm with the specific file
+		cmd := exec.Command("webstorm", fullPath)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open file in WebStorm: %w", err)
+		}
+		
+		return nil
+	}
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
 
 	m.tabbedWindow.UpdateDiff(selected)
-	m.tabbedWindow.SetInstance(selected)
+	m.tabbedWindow.UpdateTerminal(selected)
 	// Update menu with current instance
 	m.menu.SetInstance(selected)
 
@@ -684,6 +898,17 @@ var tickUpdateMetadataCmd = func() tea.Msg {
 func (m *home) handleError(err error) tea.Cmd {
 	log.ErrorLog.Printf("%v", err)
 	m.errBox.SetError(err)
+	
+	// Store error in the error log with timestamp
+	timestamp := time.Now().Format("15:04:05")
+	errorMsg := fmt.Sprintf("[%s] %v", timestamp, err)
+	m.errorLog = append(m.errorLog, errorMsg)
+	
+	// Keep only the last 100 errors to prevent memory issues
+	if len(m.errorLog) > 100 {
+		m.errorLog = m.errorLog[len(m.errorLog)-100:]
+	}
+	
 	return func() tea.Msg {
 		select {
 		case <-m.ctx.Done():
@@ -746,7 +971,109 @@ func (m *home) View() string {
 			log.ErrorLog.Printf("confirmation overlay is nil")
 		}
 		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
+	} else if m.state == stateBranchSelect {
+		if m.branchSelectorOverlay == nil {
+			log.ErrorLog.Printf("branch selector overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.branchSelectorOverlay.View(), mainView, true, true)
+	} else if m.state == stateErrorLog {
+		if m.textOverlay == nil {
+			log.ErrorLog.Printf("error log overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
+}
+
+func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any key press closes the error log
+	m.state = stateDefault
+	m.textOverlay = nil
+	return m, nil
+}
+
+func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
+	// Create content for error log
+	var content string
+	if len(m.errorLog) == 0 {
+		content = "No errors have been logged."
+	} else {
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render("Error Log"),
+			"",
+			"Recent errors (newest first):",
+			"")
+		
+		// Show errors in reverse order (newest first)
+		for i := len(m.errorLog) - 1; i >= 0; i-- {
+			content = lipgloss.JoinVertical(lipgloss.Left,
+				content,
+				m.errorLog[i])
+		}
+		
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			content,
+			"",
+			dimStyle.Render("Press any key to close"))
+	}
+	
+	// Create text overlay
+	m.textOverlay = overlay.NewTextOverlay(content)
+	m.state = stateErrorLog
+	m.menu.SetState(ui.StateDefault)
+	
+	return m, nil
+}
+
+func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) {
+	// Create a unique title by adding a timestamp suffix
+	// This prevents tmux session name conflicts when checking out the same branch multiple times
+	timestamp := time.Now().Format("150405") // HHMMSS format
+	title := fmt.Sprintf("%s-%s", branchName, timestamp)
+	
+	// Create a new instance with the selected branch
+	instance, err := session.NewInstanceWithBranch(session.InstanceOptions{
+		Title:      title,
+		Path:       ".",
+		Program:    m.program,
+		BranchName: branchName,
+	})
+	if err != nil {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.branchSelectorOverlay = nil
+		return m, m.handleError(err)
+	}
+
+	m.newInstanceFinalizer = m.list.AddInstance(instance)
+	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
+	m.branchSelectorOverlay = nil
+	
+	// Start the instance immediately without prompting for a name
+	// since we already have a title from the branch name
+	if err := instance.Start(true); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Save after adding new instance
+	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Instance added successfully, call the finalizer
+	m.newInstanceFinalizer()
+	
+	// Set state back to default and show help
+	m.state = stateDefault
+	m.menu.SetState(ui.StateDefault)
+	m.showHelpScreen(helpStart(instance), nil)
+
+	return m, m.instanceChanged()
 }

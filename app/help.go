@@ -53,8 +53,16 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("r")+descStyle.Render("         - Resume a paused session"),
 		"",
 		headerStyle.Render("Other:"),
-		keyStyle.Render("tab")+descStyle.Render("       - Switch between preview and diff tabs"),
+		keyStyle.Render("tab")+descStyle.Render("       - Switch between AI, diff, and terminal tabs"),
 		keyStyle.Render("shift-↓/↑")+descStyle.Render(" - Scroll in diff view"),
+		keyStyle.Render("s")+descStyle.Render("         - Toggle scroll lock (↓/↑ scrolls diff)"),
+		keyStyle.Render("home/end")+descStyle.Render("  - Scroll to top/bottom in diff view"),
+		keyStyle.Render("ctrl+a/e")+descStyle.Render("  - Alternative: scroll to top/bottom"),
+		keyStyle.Render("pgup/pgdn")+descStyle.Render(" - Page up/down in diff view"),
+		keyStyle.Render("alt-↓/↑")+descStyle.Render("  - Jump to next/prev file in diff view"),
+		keyStyle.Render("a")+descStyle.Render("         - Show all changes in diff view"),
+		keyStyle.Render("d")+descStyle.Render("         - Show commit history (use ←/→ to navigate)"),
+		keyStyle.Render("←/→")+descStyle.Render("       - Navigate commits (when viewing last commit)"),
 		keyStyle.Render("q")+descStyle.Render("         - Quit the application"),
 	)
 	return content
@@ -72,7 +80,7 @@ func (h helpTypeInstanceStart) toContent() string {
 		"",
 		headerStyle.Render("Managing:"),
 		keyStyle.Render("↵/o")+descStyle.Render("   - Attach to the session to interact with it directly"),
-		keyStyle.Render("tab")+descStyle.Render("   - Switch preview panes to view session diff"),
+		keyStyle.Render("tab")+descStyle.Render("   - Switch between AI, diff, and terminal tabs"),
 		keyStyle.Render("D")+descStyle.Render("     - Kill (delete) the selected session"),
 		"",
 		headerStyle.Render("Handoff:"),
@@ -124,6 +132,7 @@ var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#36CFC9"))
 	keyStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFCC00"))
 	descStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 )
 
 // showHelpScreen displays the help screen overlay if it hasn't been shown before

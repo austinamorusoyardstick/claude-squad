@@ -48,12 +48,13 @@ type Menu struct {
 	state         MenuState
 	instance      *session.Instance
 	isInDiffTab   bool
+	scrollLocked  bool
 
 	// keyDown is the key which is pressed. The default is -1.
 	keyDown keys.KeyName
 }
 
-var defaultMenuOptions = []keys.KeyName{keys.KeyNew, keys.KeyPrompt, keys.KeyHelp, keys.KeyQuit}
+var defaultMenuOptions = []keys.KeyName{keys.KeyNew, keys.KeyExistingBranch, keys.KeyPrompt, keys.KeyHelp, keys.KeyErrorLog, keys.KeyQuit}
 var newInstanceMenuOptions = []keys.KeyName{keys.KeySubmitName}
 var promptMenuOptions = []keys.KeyName{keys.KeySubmitName}
 
@@ -100,6 +101,10 @@ func (m *Menu) SetInDiffTab(inDiffTab bool) {
 	m.updateOptions()
 }
 
+func (m *Menu) SetScrollLocked(locked bool) {
+	m.scrollLocked = locked
+}
+
 // updateOptions updates the menu options based on current state and instance
 func (m *Menu) updateOptions() {
 	switch m.state {
@@ -122,7 +127,7 @@ func (m *Menu) updateOptions() {
 
 func (m *Menu) addInstanceOptions() {
 	// Instance management group
-	options := []keys.KeyName{keys.KeyNew, keys.KeyKill}
+	options := []keys.KeyName{keys.KeyNew, keys.KeyExistingBranch, keys.KeyKill}
 
 	// Action group
 	actionGroup := []keys.KeyName{keys.KeyEnter, keys.KeySubmit}
@@ -134,7 +139,7 @@ func (m *Menu) addInstanceOptions() {
 
 	// Navigation group (when in diff tab)
 	if m.isInDiffTab {
-		actionGroup = append(actionGroup, keys.KeyShiftUp)
+		actionGroup = append(actionGroup, keys.KeyShiftUp, keys.KeyScrollLock)
 	}
 
 	// System group
@@ -161,9 +166,9 @@ func (m *Menu) String() string {
 		start int
 		end   int
 	}{
-		{0, 2}, // Instance management group (n, d)
-		{2, 5}, // Action group (enter, submit, pause/resume)
-		{6, 8}, // System group (tab, help, q)
+		{0, 3}, // Instance management group (n, e, d)
+		{3, 6}, // Action group (enter, submit, pause/resume)
+		{7, 9}, // System group (tab, help, q)
 	}
 
 	for i, k := range m.options {
@@ -214,6 +219,15 @@ func (m *Menu) String() string {
 				s.WriteString(sepStyle.Render(separator))
 			}
 		}
+	}
+
+	// Add scroll lock indicator at the end if in diff tab
+	if m.isInDiffTab && m.scrollLocked {
+		s.WriteString(sepStyle.Render(verticalSeparator))
+		scrollLockStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("220")).
+			Bold(true)
+		s.WriteString(scrollLockStyle.Render("[SCROLL LOCK]"))
 	}
 
 	centeredMenuText := menuStyle.Render(s.String())

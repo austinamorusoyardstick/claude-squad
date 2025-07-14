@@ -31,8 +31,9 @@ var (
 )
 
 const (
-	PreviewTab int = iota
+	AITab = iota
 	DiffTab
+	TerminalTab
 )
 
 type Tab struct {
@@ -52,16 +53,19 @@ type TabbedWindow struct {
 	preview  *PreviewPane
 	diff     *DiffPane
 	instance *session.Instance
+	terminal *TerminalPane
 }
 
-func NewTabbedWindow(preview *PreviewPane, diff *DiffPane) *TabbedWindow {
+func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPane) *TabbedWindow {
 	return &TabbedWindow{
 		tabs: []string{
-			"Preview",
+			"AI",
 			"Diff",
+			"Terminal",
 		},
-		preview: preview,
-		diff:    diff,
+		preview:  preview,
+		diff:     diff,
+		terminal: terminal,
 	}
 }
 
@@ -88,6 +92,7 @@ func (w *TabbedWindow) SetSize(width, height int) {
 
 	w.preview.SetSize(contentWidth, contentHeight)
 	w.diff.SetSize(contentWidth, contentHeight)
+	w.terminal.SetSize(contentWidth, contentHeight)
 }
 
 func (w *TabbedWindow) GetPreviewSize() (width, height int) {
@@ -97,6 +102,7 @@ func (w *TabbedWindow) GetPreviewSize() (width, height int) {
 func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
+
 
 // ToggleWithReset toggles the tab and resets preview pane to normal mode
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
@@ -108,9 +114,10 @@ func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
 	return nil
 }
 
-// UpdatePreview updates the content of the preview pane. instance may be nil.
+
+// UpdatePreview updates the content of the AI pane. instance may be nil.
 func (w *TabbedWindow) UpdatePreview(instance *session.Instance) error {
-	if w.activeTab != PreviewTab {
+	if w.activeTab != AITab {
 		return nil
 	}
 	return w.preview.UpdateContent(instance)
@@ -123,9 +130,17 @@ func (w *TabbedWindow) UpdateDiff(instance *session.Instance) {
 	w.diff.SetDiff(instance)
 }
 
+
 // ResetPreviewToNormalMode resets the preview pane to normal mode
 func (w *TabbedWindow) ResetPreviewToNormalMode(instance *session.Instance) error {
 	return w.preview.ResetToNormalMode(instance)
+}
+
+func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
+	if w.activeTab != TerminalTab {
+		return
+	}
+	w.terminal.UpdateContent(instance)
 }
 
 // Add these new methods for handling scroll events
@@ -151,14 +166,87 @@ func (w *TabbedWindow) ScrollDown() {
 	}
 }
 
+func (w *TabbedWindow) ScrollToTop() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.ScrollToTop()
+	}
+}
+
+func (w *TabbedWindow) ScrollToBottom() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.ScrollToBottom()
+	}
+}
+
+func (w *TabbedWindow) PageUp() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.PageUp()
+	}
+}
+
+func (w *TabbedWindow) PageDown() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.PageDown()
+	}
+}
+
+func (w *TabbedWindow) JumpToNextFile() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.JumpToNextFile()
+	}
+}
+
+func (w *TabbedWindow) JumpToPrevFile() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.JumpToPrevFile()
+	}
+}
+
 // IsInDiffTab returns true if the diff tab is currently active
 func (w *TabbedWindow) IsInDiffTab() bool {
 	return w.activeTab == 1
 }
 
+
 // IsPreviewInScrollMode returns true if the preview pane is in scroll mode
 func (w *TabbedWindow) IsPreviewInScrollMode() bool {
 	return w.preview.isScrolling
+}
+// IsInTerminalTab returns true if the terminal tab is currently active
+func (w *TabbedWindow) IsInTerminalTab() bool {
+	return w.activeTab == 2
+}
+
+// SetDiffModeAll sets the diff view to show all changes
+func (w *TabbedWindow) SetDiffModeAll() {
+	w.diff.SetDiffMode(DiffModeAll)
+}
+
+// SetDiffModeLastCommit sets the diff view to show only the last commit
+func (w *TabbedWindow) SetDiffModeLastCommit() {
+	w.diff.SetDiffMode(DiffModeLastCommit)
+}
+
+// NavigateToPrevCommit moves to the previous (older) commit in diff view
+func (w *TabbedWindow) NavigateToPrevCommit() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.NavigateToPrevCommit()
+	}
+}
+
+// NavigateToNextCommit moves to the next (newer) commit in diff view
+func (w *TabbedWindow) NavigateToNextCommit() {
+	if w.activeTab == 1 { // Diff tab
+		w.diff.NavigateToNextCommit()
+	}
+}
+
+// GetCurrentDiffFile returns the file path currently being viewed in the diff tab
+func (w *TabbedWindow) GetCurrentDiffFile() string {
+	if w.activeTab == 1 { // Diff tab
+		return w.diff.GetCurrentFile()
+	}
+	return ""
 }
 
 func (w *TabbedWindow) String() string {
@@ -202,10 +290,13 @@ func (w *TabbedWindow) String() string {
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
 	var content string
-	if w.activeTab == 0 {
+	switch w.activeTab {
+	case 0:
 		content = w.preview.String()
-	} else {
+	case 1:
 		content = w.diff.String()
+	case 2:
+		content = w.terminal.String()
 	}
 	window := windowStyle.Render(
 		lipgloss.Place(
