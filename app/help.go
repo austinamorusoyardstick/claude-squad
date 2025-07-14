@@ -131,6 +131,7 @@ var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#36CFC9"))
 	keyStyle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFCC00"))
 	descStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 )
 
 // showHelpScreen displays the help screen overlay if it hasn't been shown before

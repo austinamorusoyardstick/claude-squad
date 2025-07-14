@@ -21,17 +21,23 @@ func (g *GitWorktree) Setup() error {
 		return fmt.Errorf("failed to open repository: %w", err)
 	}
 
-	// Check for local branch
+	// Check for local branch first - this handles branches with "/" in their names
 	branchRef := plumbing.NewBranchReferenceName(g.branchName)
 	if _, err := repo.Reference(branchRef, false); err == nil {
 		// Local branch exists, use SetupFromExistingBranch
 		return g.SetupFromExistingBranch()
 	}
+	
+	// Also check using git command for local branch (more reliable for complex branch names)
+	if _, err := g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/heads/"+g.branchName); err == nil {
+		// Local branch exists, use SetupFromExistingBranch
+		return g.SetupFromExistingBranch()
+	}
 
 	// Check for remote branch
-	// First try with "origin/" prefix if not already present
 	remoteBranchName := g.branchName
-	if !strings.Contains(g.branchName, "/") {
+	// Only add origin/ prefix if it's not already a remote reference
+	if !strings.HasPrefix(g.branchName, "origin/") && !strings.Contains(g.branchName, "/") {
 		remoteBranchName = "origin/" + g.branchName
 	}
 	
@@ -82,13 +88,30 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 	isRemoteBranch := false
 	remoteBranchName := ""
 	
-	// Try to parse as remote branch (e.g., "origin/branch-name" becomes "branch-name")
-	if strings.Contains(g.branchName, "/") {
+	// Check if this is actually a remote branch (starts with "origin/" or other remote prefix)
+	if strings.HasPrefix(g.branchName, "origin/") {
 		parts := strings.SplitN(g.branchName, "/", 2)
 		if len(parts) == 2 {
 			remoteBranchName = g.branchName
 			g.branchName = parts[1] // Use just the branch name without remote
 			isRemoteBranch = true
+		}
+	} else {
+		// Check if it's a different remote (not origin)
+		refs, err := g.runGitCommand(g.repoPath, "remote")
+		if err == nil && len(refs) > 0 {
+			remotes := strings.Split(strings.TrimSpace(string(refs)), "\n")
+			for _, remote := range remotes {
+				if remote != "" && strings.HasPrefix(g.branchName, remote+"/") {
+					parts := strings.SplitN(g.branchName, "/", 2)
+					if len(parts) == 2 {
+						remoteBranchName = g.branchName
+						g.branchName = parts[1]
+						isRemoteBranch = true
+						break
+					}
+				}
+			}
 		}
 	}
 

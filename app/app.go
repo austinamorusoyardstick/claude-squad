@@ -45,6 +45,8 @@ const (
 	stateConfirm
 	// stateBranchSelect is the state when the user is selecting a branch.
 	stateBranchSelect
+	// stateErrorLog is the state when displaying the error log.
+	stateErrorLog
 )
 
 type home struct {
@@ -98,6 +100,9 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	
+	// errorLog stores all error messages for display
+	errorLog []string
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -335,6 +340,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	if m.state == stateHelp {
 		return m.handleHelpState(msg)
 	}
+	
+	if m.state == stateErrorLog {
+		return m.handleErrorLogState(msg)
+	}
 
 	if m.state == stateNew {
 		// Handle quit commands first. Don't handle q because the user might want to type that.
@@ -479,6 +488,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	switch name {
 	case keys.KeyHelp:
 		return m.showHelpScreen(helpTypeGeneral{}, nil)
+	case keys.KeyErrorLog:
+		return m.showErrorLog()
 	case keys.KeyPrompt:
 		if m.list.NumInstances() >= GlobalInstanceLimit {
 			return m, m.handleError(
@@ -536,10 +547,18 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(fmt.Errorf("failed to list remote branches: %w", err))
 		}
 		
+		// Check if there are any branches
+		if len(branches) == 0 {
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return m, m.handleError(fmt.Errorf("no remote branches found"))
+		}
+		
 		// Create branch selector overlay
 		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(branches)
 
-		return m, nil
+		// Initialize the branch selector
+		return m, m.branchSelectorOverlay.Init()
 	case keys.KeyUp:
 		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
 			m.tabbedWindow.ScrollUp()
@@ -796,6 +815,17 @@ var tickUpdateMetadataCmd = func() tea.Msg {
 func (m *home) handleError(err error) tea.Cmd {
 	log.ErrorLog.Printf("%v", err)
 	m.errBox.SetError(err)
+	
+	// Store error in the error log with timestamp
+	timestamp := time.Now().Format("15:04:05")
+	errorMsg := fmt.Sprintf("[%s] %v", timestamp, err)
+	m.errorLog = append(m.errorLog, errorMsg)
+	
+	// Keep only the last 100 errors to prevent memory issues
+	if len(m.errorLog) > 100 {
+		m.errorLog = m.errorLog[len(m.errorLog)-100:]
+	}
+	
 	return func() tea.Msg {
 		select {
 		case <-m.ctx.Done():
@@ -861,11 +891,62 @@ func (m *home) View() string {
 	} else if m.state == stateBranchSelect {
 		if m.branchSelectorOverlay == nil {
 			log.ErrorLog.Printf("branch selector overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.branchSelectorOverlay.View(), mainView, true, true)
+	} else if m.state == stateErrorLog {
+		if m.textOverlay == nil {
+			log.ErrorLog.Printf("error log overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
+}
+
+func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Any key press closes the error log
+	m.state = stateDefault
+	m.textOverlay = nil
+	return m, nil
+}
+
+func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
+	// Create content for error log
+	var content string
+	if len(m.errorLog) == 0 {
+		content = "No errors have been logged."
+	} else {
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			titleStyle.Render("Error Log"),
+			"",
+			"Recent errors (newest first):",
+			"")
+		
+		// Show errors in reverse order (newest first)
+		for i := len(m.errorLog) - 1; i >= 0; i-- {
+			content = lipgloss.JoinVertical(lipgloss.Left,
+				content,
+				m.errorLog[i])
+		}
+		
+		content = lipgloss.JoinVertical(lipgloss.Left,
+			content,
+			"",
+			dimStyle.Render("Press any key to close"))
+	}
+	
+	// Create text overlay
+	m.textOverlay = overlay.NewTextOverlay(content)
+	m.state = stateErrorLog
+	m.menu.SetState(ui.StateDefault)
+	
+	return m, nil
 }
 
 func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) {
