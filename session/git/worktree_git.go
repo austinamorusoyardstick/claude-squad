@@ -14,7 +14,14 @@ func (g *GitWorktree) runGitCommand(path string, args ...string) (string, error)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("git command failed: %s (%w)", output, err)
+		// Include the full command in the error for debugging
+		fullCmd := fmt.Sprintf("git %s", strings.Join(append(baseArgs, args...), " "))
+		// Trim the output to avoid extremely long error messages, but keep enough for debugging
+		outputStr := string(output)
+		if len(outputStr) > 500 {
+			outputStr = outputStr[:500] + "... (truncated)"
+		}
+		return "", fmt.Errorf("git command failed: %s\nCommand: %s\nError: %w", outputStr, fullCmd, err)
 	}
 
 	return string(output), nil

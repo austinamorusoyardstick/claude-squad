@@ -869,9 +869,14 @@ func (m *home) View() string {
 }
 
 func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) {
+	// Create a unique title by adding a timestamp suffix
+	// This prevents tmux session name conflicts when checking out the same branch multiple times
+	timestamp := time.Now().Format("150405") // HHMMSS format
+	title := fmt.Sprintf("%s-%s", branchName, timestamp)
+	
 	// Create a new instance with the selected branch
 	instance, err := session.NewInstanceWithBranch(session.InstanceOptions{
-		Title:      branchName, // Use branch name as title
+		Title:      title,
 		Path:       ".",
 		Program:    m.program,
 		BranchName: branchName,
@@ -885,10 +890,26 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 
 	m.newInstanceFinalizer = m.list.AddInstance(instance)
 	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
-	m.state = stateNew
-	m.menu.SetState(ui.StateNewInstance)
 	m.branchSelectorOverlay = nil
-	m.promptAfterName = true
+	
+	// Start the instance immediately without prompting for a name
+	// since we already have a title from the branch name
+	if err := instance.Start(true); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Save after adding new instance
+	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
+		return m, m.handleError(err)
+	}
+	
+	// Instance added successfully, call the finalizer
+	m.newInstanceFinalizer()
+	
+	// Set state back to default and show help
+	m.state = stateDefault
+	m.menu.SetState(ui.StateDefault)
+	m.showHelpScreen(helpStart(instance), nil)
 
-	return m, nil
+	return m, m.instanceChanged()
 }
