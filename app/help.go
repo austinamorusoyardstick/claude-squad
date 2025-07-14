@@ -57,6 +57,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("shift-↓/↑")+descStyle.Render(" - Scroll in diff view"),
 		keyStyle.Render("s")+descStyle.Render("         - Toggle scroll lock (↓/↑ scrolls diff)"),
 		keyStyle.Render("home/end")+descStyle.Render("  - Scroll to top/bottom in diff view"),
+		keyStyle.Render("ctrl+a/e")+descStyle.Render("  - Alternative: scroll to top/bottom"),
 		keyStyle.Render("pgup/pgdn")+descStyle.Render(" - Page up/down in diff view"),
 		keyStyle.Render("alt-↓/↑")+descStyle.Render("  - Jump to next/prev file in diff view"),
 		keyStyle.Render("a")+descStyle.Render("         - Show all changes in diff view"),

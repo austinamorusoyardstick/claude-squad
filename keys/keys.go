@@ -53,6 +53,10 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"shift+down": KeyShiftDown,
 	"home":       KeyHome,
 	"end":        KeyEnd,
+	"ctrl+a":     KeyHome,
+	"ctrl+e":     KeyEnd,
+	"ctrl+home":  KeyHome,
+	"ctrl+end":   KeyEnd,
 	"pgup":       KeyPageUp,
 	"pgdown":     KeyPageDown,
 	"alt+up":     KeyAltUp,
@@ -96,12 +100,12 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithHelp("shift+↓", "scroll"),
 	),
 	KeyHome: key.NewBinding(
-		key.WithKeys("home"),
-		key.WithHelp("home", "scroll to top"),
+		key.WithKeys("home", "ctrl+a", "ctrl+home"),
+		key.WithHelp("home/ctrl+a", "scroll to top"),
 	),
 	KeyEnd: key.NewBinding(
-		key.WithKeys("end"),
-		key.WithHelp("end", "scroll to bottom"),
+		key.WithKeys("end", "ctrl+e", "ctrl+end"),
+		key.WithHelp("end/ctrl+e", "scroll to bottom"),
 	),
 	KeyPageUp: key.NewBinding(
 		key.WithKeys("pgup"),
