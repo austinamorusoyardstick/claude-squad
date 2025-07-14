@@ -26,6 +26,7 @@ const (
 	KeyHelp   // Key for showing help screen
 	KeyExistingBranch // Key for creating instance from existing branch
 	KeyErrorLog // Key for showing error log
+	KeyWebStorm // Key for opening WebStorm
 
 	// Diff keybindings
 	KeyShiftUp
@@ -79,6 +80,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"p":          KeySubmit,
 	"?":          KeyHelp,
 	"l":          KeyErrorLog,
+	"w":          KeyWebStorm,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -190,6 +192,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyErrorLog: key.NewBinding(
 		key.WithKeys("l"),
 		key.WithHelp("l", "error log"),
+	),
+	KeyWebStorm: key.NewBinding(
+		key.WithKeys("w"),
+		key.WithHelp("w", "open WebStorm"),
 	),
 
 	// -- Special keybindings --

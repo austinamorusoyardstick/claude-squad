@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -725,6 +726,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(err)
 		}
 		return m, tea.WindowSize()
+	case keys.KeyWebStorm:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Open WebStorm at the instance's path
+		cmd := m.openWebStorm(selected.Path)
+		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -762,6 +771,30 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 // instanceChanged updates the AI pane, menu, diff pane, and terminal pane based on the selected instance. It returns an error
 // Cmd if there was any error.
+func (m *home) openWebStorm(path string) tea.Cmd {
+	return func() tea.Msg {
+		// Open WebStorm at the specified path
+		cmd := exec.Command("webstorm", path)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open WebStorm: %w", err)
+		}
+		
+		// Give WebStorm a moment to start up
+		time.Sleep(1 * time.Second)
+		
+		// Connect Claude to WebStorm by simulating the keyboard shortcut
+		// This assumes the WebStorm plugin is installed and the shortcut is configured
+		// The default shortcut is Cmd+Esc on Mac or Ctrl+Esc on Windows/Linux
+		connectCmd := exec.Command("osascript", "-e", `tell application "System Events" to keystroke "escape" using command down`)
+		if err := connectCmd.Run(); err != nil {
+			// Log the error but don't fail - WebStorm is already open
+			log.WarningLog.Printf("could not send connect shortcut to WebStorm: %v", err)
+		}
+		
+		return nil
+	}
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
