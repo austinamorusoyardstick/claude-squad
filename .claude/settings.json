@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(afplay:*)",
+      "Bash(say:*)",
+      "WebFetch(domain:*)",
+      "Edit(src/**)"
+    ],
+    "deny": [
+      "Bash(aws:*)"
+    ]
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "say \"Ready for instruction\""
+          }
+        ]
+      }
+    ]
+  }
+}
