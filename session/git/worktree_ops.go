@@ -241,30 +241,62 @@ func (g *GitWorktree) SetupNewWorktree() error {
 		return fmt.Errorf("failed to cleanup existing branch '%s': %w\nCurrent worktrees:\n%s", g.branchName, err, worktreeListOutput)
 	}
 
-	output, err := g.runGitCommand(g.repoPath, "rev-parse", "HEAD")
-	if err != nil {
-		if strings.Contains(err.Error(), "fatal: ambiguous argument 'HEAD'") ||
-			strings.Contains(err.Error(), "fatal: not a valid object name") ||
-			strings.Contains(err.Error(), "fatal: HEAD: not a valid object name") {
-			return fmt.Errorf("this appears to be a brand new repository: please create an initial commit before creating an instance")
-		}
-		return fmt.Errorf("failed to get HEAD commit hash: %w", err)
+	// First, fetch the latest from origin to ensure we have the most recent remote state
+	if _, err := g.runGitCommand(g.repoPath, "fetch", "origin"); err != nil {
+		// If fetch fails, log it but continue - we might be offline
+		fmt.Printf("Warning: Could not fetch from origin: %v\n", err)
 	}
-	headCommit := strings.TrimSpace(string(output))
-	g.baseCommitSHA = headCommit
 
-	// Create a new worktree from the HEAD commit
-	// Otherwise, we'll inherit uncommitted changes from the previous worktree.
-	// This way, we can start the worktree with a clean slate.
-	// TODO: we might want to give an option to use main/master instead of the current branch.
-	if _, err := g.runGitCommand(g.repoPath, "worktree", "add", "-b", g.branchName, g.worktreePath, headCommit); err != nil {
+	// Get the remote HEAD reference to determine the default branch
+	remoteHeadOutput, err := g.runGitCommand(g.repoPath, "symbolic-ref", "refs/remotes/origin/HEAD")
+	var targetCommit string
+	if err != nil {
+		// If we can't get the remote HEAD, fall back to trying origin/main or origin/master
+		mainOutput, mainErr := g.runGitCommand(g.repoPath, "rev-parse", "origin/main")
+		masterOutput, masterErr := g.runGitCommand(g.repoPath, "rev-parse", "origin/master")
+		
+		if mainErr == nil {
+			targetCommit = strings.TrimSpace(string(mainOutput))
+		} else if masterErr == nil {
+			targetCommit = strings.TrimSpace(string(masterOutput))
+		} else {
+			// Final fallback to local HEAD if we can't find remote default branch
+			output, err := g.runGitCommand(g.repoPath, "rev-parse", "HEAD")
+			if err != nil {
+				if strings.Contains(err.Error(), "fatal: ambiguous argument 'HEAD'") ||
+					strings.Contains(err.Error(), "fatal: not a valid object name") ||
+					strings.Contains(err.Error(), "fatal: HEAD: not a valid object name") {
+					return fmt.Errorf("this appears to be a brand new repository: please create an initial commit before creating an instance")
+				}
+				return fmt.Errorf("failed to get HEAD commit hash: %w", err)
+			}
+			targetCommit = strings.TrimSpace(string(output))
+			fmt.Println("Warning: Could not determine remote default branch, using local HEAD")
+		}
+	} else {
+		// Successfully got remote HEAD, extract the branch name and get its commit
+		remoteHead := strings.TrimSpace(string(remoteHeadOutput))
+		// remoteHead will be something like "refs/remotes/origin/main"
+		// We need to get the commit it points to
+		commitOutput, err := g.runGitCommand(g.repoPath, "rev-parse", remoteHead)
+		if err != nil {
+			return fmt.Errorf("failed to get commit for remote HEAD %s: %w", remoteHead, err)
+		}
+		targetCommit = strings.TrimSpace(string(commitOutput))
+	}
+	
+	g.baseCommitSHA = targetCommit
+
+	// Create a new worktree from the target commit (remote HEAD or fallback)
+	// This ensures we start from the latest state of the main branch
+	if _, err := g.runGitCommand(g.repoPath, "worktree", "add", "-b", g.branchName, g.worktreePath, targetCommit); err != nil {
 		// Check if the branch already exists
 		if strings.Contains(err.Error(), "already exists") || strings.Contains(err.Error(), "is not a valid branch name") {
 			// Try to get more information about existing branches
 			branchListOutput, _ := g.runGitCommand(g.repoPath, "branch", "-a")
-			return fmt.Errorf("failed to create worktree with branch '%s' from commit %s: %w\nExisting branches:\n%s", g.branchName, headCommit, err, branchListOutput)
+			return fmt.Errorf("failed to create worktree with branch '%s' from commit %s: %w\nExisting branches:\n%s", g.branchName, targetCommit, err, branchListOutput)
 		}
-		return fmt.Errorf("failed to create worktree from commit %s with branch '%s': %w\nWorktree path: %s", headCommit, g.branchName, err, g.worktreePath)
+		return fmt.Errorf("failed to create worktree from commit %s with branch '%s': %w\nWorktree path: %s", targetCommit, g.branchName, err, g.worktreePath)
 	}
 
 	return nil
