@@ -134,6 +134,10 @@ func (r *InstanceRenderer) Render(i *session.Instance, idx int, selected bool, h
 		join = readyStyle.Render(readyIcon)
 	case session.Paused:
 		join = pausedStyle.Render(pausedIcon)
+	case session.Creating:
+		join = fmt.Sprintf("%s ", r.spinner.View())
+	case session.Deleting:
+		join = fmt.Sprintf("%s ", r.spinner.View())
 	default:
 	}
 

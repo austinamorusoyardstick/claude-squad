@@ -81,6 +81,9 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
+	
+	// pendingCmd stores a command to be executed after confirmation
+	pendingCmd tea.Cmd
 
 	// -- UI Components --
 
@@ -287,6 +290,22 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case instanceChangedMsg:
 		// Handle instance changed after confirmation action
 		return m, m.instanceChanged()
+	case instanceCreatedMsg:
+		// Handle instance creation completion
+		if msg.err != nil {
+			// Remove the instance on error
+			m.list.Kill()
+			return m, m.handleError(msg.err)
+		}
+		// Show help screen on successful creation
+		m.showHelpScreen(helpStart(msg.instance), nil)
+		return m, m.instanceChanged()
+	case instanceDeletedMsg:
+		// Handle instance deletion completion
+		if msg.err != nil {
+			return m, m.handleError(msg.err)
+		}
+		return m, m.instanceChanged()
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -373,22 +392,20 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				return m, m.handleError(fmt.Errorf("title cannot be empty"))
 			}
 
-			if err := instance.Start(true); err != nil {
-				m.list.Kill()
-				m.state = stateDefault
-				return m, m.handleError(err)
-			}
+			// Start the instance asynchronously
+			cmd := m.startInstanceAsync(instance)
+			
 			// Save after adding new instance
 			if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
 				return m, m.handleError(err)
 			}
+			
 			// Instance added successfully, call the finalizer.
 			m.newInstanceFinalizer()
 			if m.autoYes {
 				instance.AutoYes = true
 			}
 
-			m.newInstanceFinalizer()
 			m.state = stateDefault
 			if m.promptAfterName {
 				m.state = statePrompt
@@ -398,10 +415,9 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				m.promptAfterName = false
 			} else {
 				m.menu.SetState(ui.StateDefault)
-				m.showHelpScreen(helpStart(instance), nil)
 			}
 
-			return m, tea.Batch(tea.WindowSize(), m.instanceChanged())
+			return m, tea.Batch(tea.WindowSize(), m.instanceChanged(), cmd)
 		case tea.KeyRunes:
 			if len(instance.Title) >= 32 {
 				return m, m.handleError(fmt.Errorf("title cannot be longer than 32 characters"))
@@ -473,8 +489,25 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	if m.state == stateConfirm {
 		shouldClose := m.confirmationOverlay.HandleKeyPress(msg)
 		if shouldClose {
+			// Capture confirmation state before clearing overlay
+			wasConfirmed := m.confirmationOverlay.IsConfirmed()
 			m.state = stateDefault
 			m.confirmationOverlay = nil
+			
+			// Execute pending command if confirmed
+			if wasConfirmed && m.pendingCmd != nil {
+				cmd := m.pendingCmd
+				m.pendingCmd = nil
+				// Execute the action and get the result
+				result := cmd()
+				// If result is a tea.Cmd, return it to be executed
+				if resultCmd, ok := result.(tea.Cmd); ok {
+					return m, resultCmd
+				}
+				// Otherwise handle as a message
+				return m.Update(result)
+			}
+			m.pendingCmd = nil
 			return m, nil
 		}
 		return m, nil
@@ -705,9 +738,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				return err
 			}
 
-			// Then kill the instance
-			m.list.Kill()
-			return instanceChangedMsg{}
+			// Start async kill and return a command
+			return m.killInstanceAsync(selected)
 		}
 
 		// Show confirmation modal
@@ -886,11 +918,71 @@ type tickUpdateMetadataMessage struct{}
 
 type instanceChangedMsg struct{}
 
+// instanceCreatedMsg is sent when an instance has been created successfully
+type instanceCreatedMsg struct {
+	instance *session.Instance
+	err      error
+}
+
+// instanceDeletedMsg is sent when an instance has been deleted successfully
+type instanceDeletedMsg struct {
+	title string
+	err   error
+}
+
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
 // overall the instances and capture their output. It's a pretty expensive operation. Let's do it 2x a second only.
 var tickUpdateMetadataCmd = func() tea.Msg {
 	time.Sleep(500 * time.Millisecond)
 	return tickUpdateMetadataMessage{}
+}
+
+// startInstanceAsync starts an instance asynchronously and returns a tea.Cmd
+func (m *home) startInstanceAsync(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		var resultErr error
+		done := make(chan struct{})
+		
+		instance.StartAsync(true, func(err error) {
+			resultErr = err
+			close(done)
+		})
+		
+		// Wait for completion
+		<-done
+		
+		return instanceCreatedMsg{
+			instance: instance,
+			err:      resultErr,
+		}
+	}
+}
+
+// killInstanceAsync kills an instance asynchronously and returns a tea.Cmd
+func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		var resultErr error
+		done := make(chan struct{})
+		title := instance.Title
+		
+		instance.KillAsync(func(err error) {
+			resultErr = err
+			close(done)
+		})
+		
+		// Wait for completion
+		<-done
+		
+		// Remove from UI list after kill completes
+		if resultErr == nil {
+			m.list.Kill()
+		}
+		
+		return instanceDeletedMsg{
+			title: title,
+			err:   resultErr,
+		}
+	}
 }
 
 // handleError handles all errors which get bubbled up to the app. sets the error message. We return a callback tea.Cmd that returns a hideErrMsg message
@@ -928,17 +1020,17 @@ func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	// Set a fixed width for consistent appearance
 	m.confirmationOverlay.SetWidth(50)
 
+	// Store the pending command
+	m.pendingCmd = action
+
 	// Set callbacks for confirmation and cancellation
 	m.confirmationOverlay.OnConfirm = func() {
 		m.state = stateDefault
-		// Execute the action if it exists
-		if action != nil {
-			_ = action()
-		}
 	}
 
 	m.confirmationOverlay.OnCancel = func() {
 		m.state = stateDefault
+		m.pendingCmd = nil
 	}
 
 	return nil
@@ -1056,11 +1148,8 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
 	m.branchSelectorOverlay = nil
 	
-	// Start the instance immediately without prompting for a name
-	// since we already have a title from the branch name
-	if err := instance.Start(true); err != nil {
-		return m, m.handleError(err)
-	}
+	// Start the instance asynchronously
+	cmd := m.startInstanceAsync(instance)
 	
 	// Save after adding new instance
 	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
@@ -1070,10 +1159,9 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 	// Instance added successfully, call the finalizer
 	m.newInstanceFinalizer()
 	
-	// Set state back to default and show help
+	// Set state back to default
 	m.state = stateDefault
 	m.menu.SetState(ui.StateDefault)
-	m.showHelpScreen(helpStart(instance), nil)
 
-	return m, m.instanceChanged()
+	return m, tea.Batch(m.instanceChanged(), cmd)
 }
