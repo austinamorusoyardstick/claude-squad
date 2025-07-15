@@ -25,6 +25,10 @@ const (
 	Loading
 	// Paused is if the instance is paused (worktree removed but branch preserved).
 	Paused
+	// Creating is if the instance is being created (worktree setup, tmux session creation).
+	Creating
+	// Deleting is if the instance is being deleted (cleanup in progress).
+	Deleting
 )
 
 // Instance is a running instance of claude code.
@@ -222,6 +226,25 @@ func (i *Instance) SetStatus(status Status) {
 	i.Status = status
 }
 
+// StartAsync starts the instance asynchronously, returning immediately.
+// The onComplete callback is called when the operation completes (with error if failed).
+func (i *Instance) StartAsync(firstTimeSetup bool, onComplete func(error)) {
+	// Set status to Creating immediately
+	i.SetStatus(Creating)
+	
+	// Run the actual start operation in a goroutine
+	go func() {
+		err := i.Start(firstTimeSetup)
+		if err != nil {
+			// Reset status on error
+			i.SetStatus(Ready)
+		}
+		if onComplete != nil {
+			onComplete(err)
+		}
+	}()
+}
+
 // firstTimeSetup is true if this is a new instance. Otherwise, it's one loaded from storage.
 func (i *Instance) Start(firstTimeSetup bool) error {
 	if i.Title == "" {
@@ -296,6 +319,25 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 	i.SetStatus(Running)
 
 	return nil
+}
+
+// KillAsync terminates the instance asynchronously, returning immediately.
+// The onComplete callback is called when the operation completes (with error if failed).
+func (i *Instance) KillAsync(onComplete func(error)) {
+	// Set status to Deleting immediately
+	i.SetStatus(Deleting)
+	
+	// Run the actual kill operation in a goroutine
+	go func() {
+		err := i.Kill()
+		if err != nil {
+			// Reset status on error
+			i.SetStatus(Ready)
+		}
+		if onComplete != nil {
+			onComplete(err)
+		}
+	}()
 }
 
 // Kill terminates the instance and cleans up all resources
