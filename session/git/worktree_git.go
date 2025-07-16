@@ -146,8 +146,32 @@ func (g *GitWorktree) OpenBranchURL() error {
 
 // RebaseWithMain rebases the current branch with the main branch
 func (g *GitWorktree) RebaseWithMain() error {
-	// First, create a backup branch
-	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, time.Now().Unix())
+	// First, create a backup branch with a unique name
+	timestamp := time.Now().Unix()
+	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+	
+	// Ensure the backup branch name is unique by checking if it exists
+	for {
+		// Check if the branch already exists locally or remotely
+		localExists := false
+		remoteExists := false
+		
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", backupBranch); err == nil {
+			localExists = true
+		}
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", fmt.Sprintf("origin/%s", backupBranch)); err == nil {
+			remoteExists = true
+		}
+		
+		if !localExists && !remoteExists {
+			break
+		}
+		
+		// If it exists, add a counter to make it unique
+		timestamp++
+		backupBranch = fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+	}
+	
 	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
 		return fmt.Errorf("failed to create backup branch: %w", err)
 	}
@@ -163,17 +187,15 @@ func (g *GitWorktree) RebaseWithMain() error {
 		return fmt.Errorf("failed to fetch from origin: %w", err)
 	}
 	
-	// Determine the main branch name by checking remote HEAD
+	// Determine the main branch name using git remote show origin
 	mainBranch := "main"
-	remoteHeadOutput, err := g.runGitCommand(g.worktreePath, "symbolic-ref", "refs/remotes/origin/HEAD")
-	if err == nil {
-		// Extract branch name from refs/remotes/origin/main
-		parts := strings.Split(strings.TrimSpace(remoteHeadOutput), "/")
-		if len(parts) > 0 {
-			mainBranch = parts[len(parts)-1]
-		}
+	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd.Dir = g.worktreePath
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		mainBranch = strings.TrimSpace(string(output))
 	} else {
-		// Try common defaults
+		// Fallback: Try common defaults if the command fails
 		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/main"); err != nil {
 			if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/master"); err == nil {
 				mainBranch = "master"
