@@ -825,8 +825,24 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				m.handleError(err)
 				return
 			}
+			
+			// Store selected instance for reload handling
+			selected := m.list.GetSelectedInstance()
+			
 			<-ch
 			m.state = stateDefault
+			
+			// Check if reload was requested (set by the tmux reload handler)
+			if selected != nil && selected.NeedsReload() {
+				selected.SetNeedsReload(false)
+				// Reload the session
+				if err := selected.ReloadSession(); err != nil {
+					m.handleError(err)
+					return
+				}
+				// Show a message that reload completed
+				fmt.Fprintf(os.Stderr, "\n\033[32mSession reloaded. Press Enter to re-attach.\033[0m\n")
+			}
 		})
 		return m, nil
 	default:

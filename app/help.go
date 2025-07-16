@@ -95,6 +95,7 @@ func (h helpTypeInstanceAttach) toContent() string {
 		titleStyle.Render("Attaching to Instance"),
 		"",
 		descStyle.Render("To detach from a session, press ")+keyStyle.Render("ctrl-q"),
+		descStyle.Render("To reload the session, press ")+keyStyle.Render("ctrl-r"),
 	)
 	return content
 }

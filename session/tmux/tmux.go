@@ -50,11 +50,17 @@ type TmuxSession struct {
 	//
 	// Channel to be closed at the very end of detaching. Used to signal callers.
 	attachCh chan struct{}
+	// Channel to signal reload request (Ctrl+R)
+	reloadCh chan struct{}
+	// needsReload indicates if a reload was requested
+	needsReload bool
 	// While attached, we use some goroutines to manage the window size and stdin/stdout. This stuff
 	// is used to terminate them on Detach. We don't want them to outlive the attached window.
 	ctx    context.Context
 	cancel func()
 	wg     *sync.WaitGroup
+	// isReloading tracks if we're in the middle of a reload operation
+	isReloading bool
 }
 
 const TmuxPrefix = "claudesquad_"
@@ -222,6 +228,11 @@ func (t *TmuxSession) TapDAndEnter() error {
 }
 
 func (t *TmuxSession) SendKeys(keys string) error {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	_, err := t.ptmx.Write([]byte(keys))
 	return err
 }
@@ -229,6 +240,11 @@ func (t *TmuxSession) SendKeys(keys string) error {
 // HasUpdated checks if the tmux pane content has changed since the last tick. It also returns true if
 // the tmux pane has a prompt for aider or claude code.
 func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return false, false
+	}
+	
 	content, err := t.CapturePaneContent()
 	if err != nil {
 		log.ErrorLog.Printf("error capturing pane content in status monitor: %v", err)
@@ -283,15 +299,17 @@ func (t *TmuxSession) AttachToPane(paneIndex int) (chan struct{}, error) {
 		defer t.wg.Done()
 		_, _ = io.Copy(os.Stdout, t.ptmx)
 		// When io.Copy returns, it means the connection was closed
-		// This could be due to normal detach or Ctrl-D
-		// Check if the context is done to determine if it was a normal detach
+		// This could be due to normal detach, reload, or Ctrl-D
+		// Check if the context is done or we're reloading to determine if it was a normal operation
 		select {
 		case <-t.ctx.Done():
 			// Normal detach, do nothing
 		default:
-			// If context is not done, it was likely an abnormal termination (Ctrl-D)
+			// If context is not done and we're not reloading, it was likely an abnormal termination (Ctrl-D)
 			// Print warning message
-			fmt.Fprintf(os.Stderr, "\n\033[31mError: Session terminated without detaching. Use Ctrl-Q to properly detach from tmux sessions.\033[0m\n")
+			if !t.isReloading {
+				fmt.Fprintf(os.Stderr, "\n\033[31mError: Session terminated without detaching. Use Ctrl-Q to properly detach from tmux sessions.\033[0m\n")
+			}
 		}
 	}()
 
@@ -335,6 +353,17 @@ func (t *TmuxSession) AttachToPane(paneIndex int) (chan struct{}, error) {
 				return
 			}
 
+			// Check for Ctrl+r (ASCII 18)
+			if nr == 1 && buf[0] == 18 {
+				// Print reload message
+				fmt.Fprintf(os.Stderr, "\n\033[33mReloading tmux session...\033[0m\n")
+				// Set reload flag
+				t.needsReload = true
+				// Trigger detach to properly reload
+				t.Detach()
+				return
+			}
+
 			// Forward other input to tmux
 			_, _ = t.ptmx.Write(buf[:nr])
 		}
@@ -365,6 +394,10 @@ func (t *TmuxSession) DetachSafely() error {
 	if t.attachCh != nil {
 		close(t.attachCh)
 		t.attachCh = nil
+	}
+
+	if t.reloadCh != nil {
+		t.reloadCh = nil
 	}
 
 	if t.cancel != nil {
@@ -404,6 +437,7 @@ func (t *TmuxSession) Detach() {
 	defer func() {
 		close(t.attachCh)
 		t.attachCh = nil
+		t.reloadCh = nil
 		t.cancel = nil
 		t.ctx = nil
 		t.wg = nil
@@ -486,6 +520,11 @@ func (t *TmuxSession) DoesSessionExist() bool {
 
 // CapturePaneContent captures the content of pane 0 (terminal after split)
 func (t *TmuxSession) CapturePaneContent() (string, error) {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	// Add -e flag to preserve escape sequences (ANSI color codes)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".0")
 	output, err := t.cmdExec.Output(cmd)
@@ -498,6 +537,11 @@ func (t *TmuxSession) CapturePaneContent() (string, error) {
 // CapturePaneContentWithOptions captures the pane content with additional options
 // start and end specify the starting and ending line numbers (use "-" for the start/end of history)
 func (t *TmuxSession) CapturePaneContentWithOptions(start, end string) (string, error) {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	// Add -e flag to preserve escape sequences (ANSI color codes)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", start, "-E", end, "-t", t.sanitizedName)
 	output, err := t.cmdExec.Output(cmd)
@@ -512,8 +556,51 @@ func (t *TmuxSession) GetSessionName() string {
 	return t.sanitizedName
 }
 
+// GetReloadChannel returns the reload channel for handling Ctrl+R
+func (t *TmuxSession) GetReloadChannel() <-chan struct{} {
+	return t.reloadCh
+}
+
+// NeedsReload returns true if a reload was requested
+func (t *TmuxSession) NeedsReload() bool {
+	return t.needsReload
+}
+
+// ClearReloadFlag clears the reload flag
+func (t *TmuxSession) ClearReloadFlag() {
+	t.needsReload = false
+}
+
+// ReloadSession kills and recreates the tmux session in the specified directory
+func (t *TmuxSession) ReloadSession(workDir string) error {
+	// Set reloading flag to prevent error message
+	t.isReloading = true
+	
+	// Kill existing session if it exists
+	if t.DoesSessionExist() {
+		cmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
+		t.cmdExec.Run(cmd) // Ignore error as session might not exist
+	}
+	
+	// Close existing PTY if any
+	if t.ptmx != nil {
+		t.ptmx.Close()
+		t.ptmx = nil
+	}
+	
+	// Recreate the session
+	err := t.Start(workDir)
+	t.isReloading = false
+	return err
+}
+
 // CreateTerminalPane creates a terminal pane if it doesn't exist
 func (t *TmuxSession) CreateTerminalPane(workDir string) error {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	// Check if we already have a second pane
 	listCmd := exec.Command("tmux", "list-panes", "-t", t.sanitizedName, "-F", "#{pane_index}")
 	output, err := t.cmdExec.Output(listCmd)
@@ -544,6 +631,11 @@ func (t *TmuxSession) CreateTerminalPane(workDir string) error {
 
 // CaptureTerminalContent captures the content of pane 1 (AI after split)
 func (t *TmuxSession) CaptureTerminalContent() (string, error) {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	// Capture from pane index 1 (AI pane after split)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".1")
 	output, err := t.cmdExec.Output(cmd)
@@ -555,6 +647,11 @@ func (t *TmuxSession) CaptureTerminalContent() (string, error) {
 
 // SendKeysToTerminal sends keystrokes to the terminal pane
 func (t *TmuxSession) SendKeysToTerminal(keys string) error {
+	// First check if the session exists
+	if !t.DoesSessionExist() {
+		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
+	}
+	
 	cmd := exec.Command("tmux", "send-keys", "-t", t.sanitizedName+".1", keys)
 	return t.cmdExec.Run(cmd)
 }
