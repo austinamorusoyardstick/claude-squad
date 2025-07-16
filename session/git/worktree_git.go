@@ -3,6 +3,7 @@ package git
 import (
 	"claude-squad/log"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -10,6 +11,11 @@ import (
 
 // runGitCommand executes a git command and returns any error
 func (g *GitWorktree) runGitCommand(path string, args ...string) (string, error) {
+	// Check if the path exists before running git command
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "", fmt.Errorf("directory does not exist: %s", path)
+	}
+	
 	baseArgs := []string{"-C", path}
 	cmd := exec.Command("git", append(baseArgs, args...)...)
 
@@ -122,9 +128,28 @@ func (g *GitWorktree) IsDirty() (bool, error) {
 
 // IsBranchCheckedOut checks if the instance branch is currently checked out
 func (g *GitWorktree) IsBranchCheckedOut() (bool, error) {
-	output, err := g.runGitCommand(g.repoPath, "branch", "--show-current")
+	// If worktree doesn't exist, the branch can't be checked out there
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		// Check in the main repo instead
+		output, err := g.runGitCommand(g.repoPath, "branch", "--show-current")
+		if err != nil {
+			// If we can't check, assume it's not checked out to be safe
+			if strings.Contains(err.Error(), "directory does not exist") {
+				return false, nil
+			}
+			return false, fmt.Errorf("failed to get current branch: %w", err)
+		}
+		return strings.TrimSpace(string(output)) == g.branchName, nil
+	}
+	
+	// Check if branch is checked out in the worktree
+	output, err := g.runGitCommand(g.worktreePath, "branch", "--show-current")
 	if err != nil {
-		return false, fmt.Errorf("failed to get current branch: %w", err)
+		// If worktree path doesn't exist anymore, it's not checked out
+		if strings.Contains(err.Error(), "directory does not exist") {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get current branch in worktree: %w", err)
 	}
 	return strings.TrimSpace(string(output)) == g.branchName, nil
 }

@@ -1,6 +1,7 @@
 package git
 
 import (
+	"os"
 	"strings"
 )
 
@@ -26,6 +27,12 @@ func (d *DiffStats) IsEmpty() bool {
 // Diff returns the git diff between the worktree and the base branch along with statistics
 func (g *GitWorktree) Diff() *DiffStats {
 	stats := &DiffStats{}
+
+	// Check if worktree path exists
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		// Return empty stats for non-existent worktree
+		return stats
+	}
 
 	// -N stages untracked files (intent to add), including them in the diff
 	_, err := g.runGitCommand(g.worktreePath, "add", "-N", ".")
@@ -55,6 +62,12 @@ func (g *GitWorktree) Diff() *DiffStats {
 // DiffUncommittedOrLastCommit returns uncommitted changes if they exist, otherwise the last commit diff
 func (g *GitWorktree) DiffUncommittedOrLastCommit() *DiffStats {
 	stats := &DiffStats{}
+
+	// Check if worktree path exists
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		// Return empty stats for non-existent worktree
+		return stats
+	}
 
 	// First, check if there are any uncommitted changes
 	// Stage untracked files with intent to add

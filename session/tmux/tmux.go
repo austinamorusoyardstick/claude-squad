@@ -477,9 +477,12 @@ func (t *TmuxSession) Close() error {
 		t.ptmx = nil
 	}
 
-	cmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
-	if err := t.cmdExec.Run(cmd); err != nil {
-		errs = append(errs, fmt.Errorf("error killing tmux session: %w", err))
+	// Only try to kill session if it exists
+	if t.DoesSessionExist() {
+		cmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
+		if err := t.cmdExec.Run(cmd); err != nil {
+			errs = append(errs, fmt.Errorf("error killing tmux session: %w", err))
+		}
 	}
 
 	if len(errs) == 0 {
