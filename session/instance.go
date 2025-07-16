@@ -387,6 +387,12 @@ func (i *Instance) Preview() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", nil
 	}
+	
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return "", err
+	}
+	
 	// Ensure terminal pane exists first
 	i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath())
 	// AI content is in pane 1 after terminal split
@@ -397,6 +403,12 @@ func (i *Instance) HasUpdated() (updated bool, hasPrompt bool) {
 	if !i.started {
 		return false, false
 	}
+	
+	// Check if tmux session still exists
+	if !i.tmuxSession.DoesSessionExist() {
+		return false, false
+	}
+	
 	return i.tmuxSession.HasUpdated()
 }
 
@@ -414,6 +426,12 @@ func (i *Instance) Attach() (chan struct{}, error) {
 	if !i.started {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
 	}
+	
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return nil, err
+	}
+	
 	return i.tmuxSession.Attach()
 }
 
@@ -421,6 +439,11 @@ func (i *Instance) Attach() (chan struct{}, error) {
 func (i *Instance) AttachToPane(paneIndex int) (chan struct{}, error) {
 	if !i.started {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
+	}
+	
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return nil, err
 	}
 	
 	// If attaching to terminal pane, ensure it exists first
@@ -438,6 +461,11 @@ func (i *Instance) AttachToPane(paneIndex int) (chan struct{}, error) {
 func (i *Instance) GetTerminalContent() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", fmt.Errorf("instance not available")
+	}
+	
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return "", err
 	}
 	
 	// Ensure terminal pane exists
@@ -486,6 +514,51 @@ func (i *Instance) Paused() bool {
 // TmuxAlive returns true if the tmux session is alive. This is a sanity check before attaching.
 func (i *Instance) TmuxAlive() bool {
 	return i.tmuxSession.DoesSessionExist()
+}
+
+// ensureTmuxSession checks if the tmux session exists and recreates it if needed
+func (i *Instance) ensureTmuxSession() error {
+	if !i.tmuxSession.DoesSessionExist() {
+		log.InfoLog.Printf("tmux session %s was killed, recreating in %s...", i.tmuxSession.GetSessionName(), i.gitWorktree.GetWorktreePath())
+		// Recreate the session in the correct worktree directory
+		if err := i.tmuxSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
+			return fmt.Errorf("failed to recreate tmux session: %v", err)
+		}
+	}
+	return nil
+}
+
+// GetReloadChannel returns the reload channel for handling Ctrl+R
+func (i *Instance) GetReloadChannel() <-chan struct{} {
+	if i.tmuxSession == nil {
+		return nil
+	}
+	return i.tmuxSession.GetReloadChannel()
+}
+
+// ReloadSession kills and recreates the tmux session
+func (i *Instance) ReloadSession() error {
+	if !i.started {
+		return fmt.Errorf("cannot reload session that has not been started")
+	}
+	
+	log.InfoLog.Printf("Reloading tmux session %s in %s...", i.tmuxSession.GetSessionName(), i.gitWorktree.GetWorktreePath())
+	return i.tmuxSession.ReloadSession(i.gitWorktree.GetWorktreePath())
+}
+
+// NeedsReload returns true if the instance needs to be reloaded
+func (i *Instance) NeedsReload() bool {
+	if i.tmuxSession == nil {
+		return false
+	}
+	return i.tmuxSession.NeedsReload()
+}
+
+// SetNeedsReload sets whether the instance needs to be reloaded
+func (i *Instance) SetNeedsReload(needs bool) {
+	if i.tmuxSession != nil && !needs {
+		i.tmuxSession.ClearReloadFlag()
+	}
 }
 
 // Pause stops the tmux session and removes the worktree, preserving the branch
