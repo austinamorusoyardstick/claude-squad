@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // runGitCommand executes a git command and returns any error
@@ -140,5 +141,76 @@ func (g *GitWorktree) OpenBranchURL() error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to open branch URL: %w", err)
 	}
+	return nil
+}
+
+// RebaseWithMain rebases the current branch with the main branch
+func (g *GitWorktree) RebaseWithMain() error {
+	// First, create a backup branch with a unique name
+	timestamp := time.Now().Unix()
+	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+	
+	// Ensure the backup branch name is unique by checking if it exists
+	for {
+		// Check if the branch already exists locally or remotely
+		localExists := false
+		remoteExists := false
+		
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", backupBranch); err == nil {
+			localExists = true
+		}
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", fmt.Sprintf("origin/%s", backupBranch)); err == nil {
+			remoteExists = true
+		}
+		
+		if !localExists && !remoteExists {
+			break
+		}
+		
+		// If it exists, add a counter to make it unique
+		timestamp++
+		backupBranch = fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+	}
+	
+	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
+		return fmt.Errorf("failed to create backup branch: %w", err)
+	}
+	
+	// Push the backup branch with --no-verify for speed
+	if _, err := g.runGitCommand(g.worktreePath, "push", "origin", backupBranch, "--no-verify"); err != nil {
+		// If push fails, just log it but continue
+		log.WarningLog.Printf("failed to push backup branch %s: %v", backupBranch, err)
+	}
+	
+	// Fetch the latest from origin
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", "origin"); err != nil {
+		return fmt.Errorf("failed to fetch from origin: %w", err)
+	}
+	
+	// Determine the main branch name using git remote show origin
+	mainBranch := "main"
+	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd.Dir = g.worktreePath
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		mainBranch = strings.TrimSpace(string(output))
+	} else {
+		// Fallback: Try common defaults if the command fails
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/main"); err != nil {
+			if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/master"); err == nil {
+				mainBranch = "master"
+			} else if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/dev"); err == nil {
+				mainBranch = "dev"
+			}
+		}
+	}
+	
+	// Perform the rebase
+	if _, err := g.runGitCommand(g.worktreePath, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
+		// If rebase fails, try to abort and restore
+		g.runGitCommand(g.worktreePath, "rebase", "--abort")
+		return fmt.Errorf("rebase failed with origin/%s. Backup branch created: %s", mainBranch, backupBranch)
+	}
+	
 	return nil
 }
