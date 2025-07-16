@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -9,6 +10,12 @@ import (
 // offset 0 = HEAD, offset 1 = HEAD~1, etc.
 func (g *GitWorktree) DiffCommitAtOffset(offset int) *DiffStats {
 	stats := &DiffStats{}
+
+	// Check if worktree path exists
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		// Return empty stats for non-existent worktree
+		return stats
+	}
 
 	// Get the diff of the commit at the specified offset
 	var content string
@@ -55,6 +62,11 @@ func (g *GitWorktree) DiffCommitAtOffset(offset int) *DiffStats {
 
 // GetCommitInfo returns the commit hash and message at the specified offset
 func (g *GitWorktree) GetCommitInfo(offset int) (hash string, message string, err error) {
+	// Check if worktree path exists
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("worktree does not exist")
+	}
+
 	ref := "HEAD"
 	if offset > 0 {
 		ref = fmt.Sprintf("HEAD~%d", offset)
@@ -80,6 +92,12 @@ func (g *GitWorktree) GetCommitInfo(offset int) (hash string, message string, er
 // DiffUncommitted returns only the uncommitted changes (staged and unstaged)
 func (g *GitWorktree) DiffUncommitted() *DiffStats {
 	stats := &DiffStats{}
+
+	// Check if worktree path exists
+	if _, err := os.Stat(g.worktreePath); os.IsNotExist(err) {
+		// Return empty stats for non-existent worktree
+		return stats
+	}
 
 	// Stage untracked files with intent to add
 	_, err := g.runGitCommand(g.worktreePath, "add", "-N", ".")

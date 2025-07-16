@@ -283,6 +283,11 @@ func (l *List) Kill() {
 	// Kill the tmux session
 	if err := targetInstance.Kill(); err != nil {
 		log.ErrorLog.Printf("could not kill instance: %v", err)
+		// If normal kill fails, try force kill
+		log.InfoLog.Printf("attempting force kill for instance: %s", targetInstance.Title)
+		if forceErr := targetInstance.ForceKill(); forceErr != nil {
+			log.ErrorLog.Printf("force kill also failed: %v", forceErr)
+		}
 	}
 
 	// If you delete the last one in the list, select the previous one.

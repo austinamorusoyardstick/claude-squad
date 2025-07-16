@@ -718,27 +718,13 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Create the kill action as a tea.Cmd
 		killAction := func() tea.Msg {
-			// Get worktree and check if branch is checked out
-			worktree, err := selected.GetGitWorktree()
-			if err != nil {
-				return err
-			}
-
-			checkedOut, err := worktree.IsBranchCheckedOut()
-			if err != nil {
-				return err
-			}
-
-			if checkedOut {
-				return fmt.Errorf("instance %s is currently checked out", selected.Title)
-			}
-
 			// Delete from storage first
 			if err := m.storage.DeleteInstance(selected.Title); err != nil {
 				return err
 			}
 
 			// Start async kill and return a command
+			// The kill logic will handle checked out branches
 			return m.killInstanceAsync(selected)
 		}
 
@@ -1016,17 +1002,40 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 		title := instance.Title
 		
 		instance.KillAsync(func(err error) {
-			resultErr = err
+			if err != nil {
+				// If normal kill fails, try force kill
+				log.InfoLog.Printf("Normal kill failed for %s: %v. Attempting force kill...", title, err)
+				forceDone := make(chan struct{})
+				var forceErr error
+				
+				instance.ForceKillAsync(func(err error) {
+					forceErr = err
+					close(forceDone)
+				})
+				
+				<-forceDone
+				
+				if forceErr != nil {
+					// Log the error but don't fail - we still want to remove the instance
+					log.ErrorLog.Printf("Force kill encountered errors for %s: %v", title, forceErr)
+					resultErr = nil // Set to nil so instance is removed from UI
+				} else {
+					// Force kill succeeded
+					resultErr = nil
+					log.InfoLog.Printf("Force kill succeeded for %s", title)
+				}
+			} else {
+				resultErr = nil
+			}
 			close(done)
 		})
 		
 		// Wait for completion
 		<-done
 		
-		// Remove from UI list after kill completes
-		if resultErr == nil {
-			m.list.Kill()
-		}
+		// Always remove from UI list after kill attempt
+		// Even if there were errors, the instance should be considered gone
+		m.list.Kill()
 		
 		return instanceDeletedMsg{
 			title: title,

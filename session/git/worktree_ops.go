@@ -306,6 +306,16 @@ func (g *GitWorktree) SetupNewWorktree() error {
 func (g *GitWorktree) Cleanup() error {
 	var errs []error
 
+	// First check if branch is checked out in main repo
+	isCheckedOut, _ := g.IsBranchCheckedOut()
+	if isCheckedOut {
+		// Try to switch to a safe branch (main/master)
+		if err := g.switchToSafeBranch(); err != nil {
+			// Log but don't fail - we'll try force delete
+			log.WarningLog.Printf("failed to switch to safe branch: %v", err)
+		}
+	}
+
 	// Check if worktree path exists before attempting removal
 	if _, err := os.Stat(g.worktreePath); err == nil {
 		// Remove the worktree using git command
@@ -320,6 +330,15 @@ func (g *GitWorktree) Cleanup() error {
 	// Open the repository for branch cleanup
 	repo, err := git.PlainOpen(g.repoPath)
 	if err != nil {
+		// If repo doesn't exist, we can't clean up the branch but that's okay
+		if os.IsNotExist(err) || strings.Contains(err.Error(), "repository does not exist") {
+			log.InfoLog.Printf("Repository doesn't exist at %s, skipping branch cleanup", g.repoPath)
+			// Still try to prune worktrees
+			if err := g.Prune(); err != nil {
+				errs = append(errs, err)
+			}
+			return g.combineErrors(errs)
+		}
 		errs = append(errs, fmt.Errorf("failed to open repository for cleanup: %w", err))
 		return g.combineErrors(errs)
 	}
@@ -328,8 +347,12 @@ func (g *GitWorktree) Cleanup() error {
 
 	// Check if branch exists before attempting removal
 	if _, err := repo.Reference(branchRef, false); err == nil {
+		// First try normal deletion
 		if err := repo.Storer.RemoveReference(branchRef); err != nil {
-			errs = append(errs, fmt.Errorf("failed to remove branch %s: %w", g.branchName, err))
+			// If that fails, try command line force delete
+			if _, cmdErr := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); cmdErr != nil {
+				errs = append(errs, fmt.Errorf("failed to remove branch %s: %w (force delete also failed: %v)", g.branchName, err, cmdErr))
+			}
 		}
 	} else if err != plumbing.ErrReferenceNotFound {
 		errs = append(errs, fmt.Errorf("error checking branch %s existence: %w", g.branchName, err))
@@ -344,6 +367,114 @@ func (g *GitWorktree) Cleanup() error {
 		return g.combineErrors(errs)
 	}
 
+	return nil
+}
+
+// switchToSafeBranch attempts to switch to main or master branch
+func (g *GitWorktree) switchToSafeBranch() error {
+	// Try to find a safe branch to switch to
+	safeBranches := []string{"main", "master"}
+	
+	for _, branch := range safeBranches {
+		// Check if the branch exists
+		if _, err := g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/heads/"+branch); err == nil {
+			// Try to checkout the branch
+			if _, err := g.runGitCommand(g.repoPath, "checkout", branch); err == nil {
+				return nil
+			}
+		}
+	}
+	
+	// If no safe branch found, try to checkout the first available branch that's not our branch
+	output, err := g.runGitCommand(g.repoPath, "branch", "--format=%(refname:short)")
+	if err == nil {
+		branches := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, branch := range branches {
+			branch = strings.TrimSpace(branch)
+			if branch != "" && branch != g.branchName {
+				if _, err := g.runGitCommand(g.repoPath, "checkout", branch); err == nil {
+					return nil
+				}
+			}
+		}
+	}
+	
+	return fmt.Errorf("no safe branch found to switch to")
+}
+
+// ForceCleanup performs aggressive cleanup of the worktree and branch
+// This method attempts multiple fallback strategies to ensure cleanup succeeds
+func (g *GitWorktree) ForceCleanup() error {
+	var errs []error
+
+	// First try normal cleanup
+	if err := g.Cleanup(); err == nil {
+		return nil
+	} else {
+		errs = append(errs, fmt.Errorf("normal cleanup failed: %w", err))
+	}
+
+	// If branch is still checked out, force switch
+	isCheckedOut, _ := g.IsBranchCheckedOut()
+	if isCheckedOut {
+		// Try harder to switch branches
+		if _, err := g.runGitCommand(g.repoPath, "checkout", "--detach"); err != nil {
+			// If detach fails, try to create and switch to a temporary branch
+			tempBranch := fmt.Sprintf("temp-cleanup-%d", time.Now().Unix())
+			if _, err := g.runGitCommand(g.repoPath, "checkout", "-b", tempBranch); err != nil {
+				errs = append(errs, fmt.Errorf("failed to switch away from branch: %w", err))
+			}
+		}
+	}
+
+	// Try more aggressive cleanup methods
+
+	// 1. Force remove worktree with git command (ignoring current state)
+	if _, err := g.runGitCommand(g.repoPath, "worktree", "remove", "-f", g.worktreePath); err != nil {
+		// If that fails, try to manually remove from worktree list
+		if _, err2 := g.runGitCommand(g.repoPath, "worktree", "prune"); err2 != nil {
+			errs = append(errs, fmt.Errorf("failed to prune after force remove: %w", err2))
+		}
+	}
+
+	// 2. Force delete the branch with -D flag
+	if g.branchName != "" {
+		// Try force delete with -D
+		if _, err := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); err != nil {
+			errs = append(errs, fmt.Errorf("failed to force delete branch %s: %w", g.branchName, err))
+			
+			// If branch delete fails, try to remove the ref directly
+			repo, openErr := git.PlainOpen(g.repoPath)
+			if openErr == nil {
+				branchRef := plumbing.NewBranchReferenceName(g.branchName)
+				if err := repo.Storer.RemoveReference(branchRef); err != nil {
+					errs = append(errs, fmt.Errorf("failed to remove branch ref directly: %w", err))
+				}
+			} else if !os.IsNotExist(openErr) && !strings.Contains(openErr.Error(), "repository does not exist") {
+				// Only log error if it's not just a missing repo
+				errs = append(errs, fmt.Errorf("failed to open repo for ref cleanup: %w", openErr))
+			}
+		}
+	}
+
+	// 3. Manual filesystem cleanup as last resort
+	if g.worktreePath != "" && g.worktreePath != "/" && strings.Contains(g.worktreePath, "worktrees") {
+		if err := os.RemoveAll(g.worktreePath); err != nil {
+			if !os.IsNotExist(err) {
+				errs = append(errs, fmt.Errorf("failed to manually remove worktree directory: %w", err))
+			}
+		}
+	}
+
+	// 4. Final prune to clean up any remaining references
+	if _, err := g.runGitCommand(g.repoPath, "worktree", "prune"); err != nil {
+		errs = append(errs, fmt.Errorf("final prune failed: %w", err))
+	}
+
+	if len(errs) > 0 {
+		return g.combineErrors(errs)
+	}
+	
 	return nil
 }
 

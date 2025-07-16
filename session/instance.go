@@ -8,6 +8,7 @@ import (
 
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -340,6 +341,22 @@ func (i *Instance) KillAsync(onComplete func(error)) {
 	}()
 }
 
+// ForceKillAsync terminates the instance with force, using aggressive cleanup methods
+// The onComplete callback is called when the operation completes (with error if failed).
+func (i *Instance) ForceKillAsync(onComplete func(error)) {
+	// Set status to Deleting immediately
+	i.SetStatus(Deleting)
+	
+	// Run the actual force kill operation in a goroutine
+	go func() {
+		err := i.ForceKill()
+		// Force kill always succeeds, so don't reset status on error
+		if onComplete != nil {
+			onComplete(err)
+		}
+	}()
+}
+
 // Kill terminates the instance and cleans up all resources
 func (i *Instance) Kill() error {
 	if !i.started {
@@ -365,6 +382,71 @@ func (i *Instance) Kill() error {
 	}
 
 	return i.combineErrors(errs)
+}
+
+// ForceKill terminates the instance using aggressive cleanup methods
+// This method attempts to ensure cleanup succeeds even if standard methods fail
+func (i *Instance) ForceKill() error {
+	if !i.started {
+		// If instance was never started, just return success
+		return nil
+	}
+
+	var errs []error
+
+	// First, try normal kill
+	if err := i.Kill(); err == nil {
+		// Normal kill succeeded, we're done
+		return nil
+	} else {
+		errs = append(errs, fmt.Errorf("normal kill failed: %w", err))
+	}
+
+	// If normal kill failed, try more aggressive cleanup methods
+	
+	// Force close tmux session
+	if i.tmuxSession != nil {
+		// Try to force kill the tmux session
+		sessionName := i.tmuxSession.GetSessionName()
+		if sessionName != "" {
+			// Check if session exists before trying to kill it
+			checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
+			if checkErr := checkCmd.Run(); checkErr == nil {
+				// Session exists, try to kill it
+				killCmd := exec.Command("tmux", "kill-session", "-t", sessionName)
+				if err := killCmd.Run(); err != nil {
+					errs = append(errs, fmt.Errorf("failed to force kill tmux session: %w", err))
+				}
+			}
+		}
+	}
+
+	// Force cleanup git worktree
+	if i.gitWorktree != nil {
+		// Try force cleanup
+		if err := i.gitWorktree.ForceCleanup(); err != nil {
+			errs = append(errs, fmt.Errorf("git worktree force cleanup failed: %w", err))
+			
+			// If git cleanup failed, try manual filesystem cleanup
+			worktreePath := i.gitWorktree.GetWorktreePath()
+			if worktreePath != "" && worktreePath != "/" && strings.Contains(worktreePath, "worktrees") {
+				if err := os.RemoveAll(worktreePath); err != nil {
+					errs = append(errs, fmt.Errorf("failed to manually remove worktree directory: %w", err))
+				}
+			}
+		}
+	}
+
+	// Mark as not started regardless of errors
+	i.started = false
+
+	// Return combined errors but consider the operation successful
+	// (instance is effectively killed even if cleanup wasn't perfect)
+	if len(errs) > 0 {
+		return fmt.Errorf("force kill completed with errors: %w", i.combineErrors(errs))
+	}
+	
+	return nil
 }
 
 // combineErrors combines multiple errors into a single error
