@@ -799,6 +799,40 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Open WebStorm at the instance's path and connect Claude
 		cmd := m.openWebStorm(selected)
 		return m, cmd
+	case keys.KeyRebase:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Create the rebase action as a tea.Cmd
+		rebaseAction := func() tea.Msg {
+			worktree, err := selected.GetGitWorktree()
+			if err != nil {
+				return err
+			}
+
+			// Check if there are uncommitted changes
+			isDirty, err := worktree.IsDirty()
+			if err != nil {
+				return err
+			}
+
+			if isDirty {
+				return fmt.Errorf("cannot rebase: you have uncommitted changes. Please commit or stash them first")
+			}
+
+			// Perform the rebase
+			if err := worktree.RebaseWithMain(); err != nil {
+				return err
+			}
+
+			return instanceChangedMsg{}
+		}
+
+		// Show confirmation modal
+		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
+		return m, m.confirmAction(message, rebaseAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
