@@ -1168,6 +1168,32 @@ func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.keybindingEditorOverlay == nil {
+		m.state = stateDefault
+		return m, nil
+	}
+
+	// Let the overlay handle the key press
+	if m.keybindingEditorOverlay.HandleKeyPress(msg) {
+		// Overlay was dismissed, reload keybindings
+		m.state = stateDefault
+		m.keybindingEditorOverlay = nil
+		
+		// Reload keybindings
+		if err := keys.InitializeCustomKeyBindings(); err != nil {
+			log.Error("Failed to reload custom keybindings: %v", err)
+		}
+		
+		// Update menu to reflect new keybindings
+		m.menu = ui.NewMenu()
+		
+		return m, nil
+	}
+
+	return m, nil
+}
+
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
 	// Create content for error log
 	var content string
