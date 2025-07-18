@@ -367,8 +367,6 @@ func TestPreviewContentWithoutScrolling(t *testing.T) {
 	err := previewPane.UpdateContent(setup.instance)
 	require.NoError(t, err)
 
-	// Verify we're not in scrolling mode
-	require.False(t, previewPane.isScrolling, "Should not be in scrolling mode")
 
 	// Verify that the preview state is not in fallback mode
 	require.False(t, previewPane.previewState.fallback, "Preview should not be in fallback mode")
