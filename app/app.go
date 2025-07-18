@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// stateBookmark is the state when creating a bookmark commit.
+	stateBookmark
 )
 
 type home struct {
@@ -483,6 +485,37 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 
 		return m, nil
+	} else if m.state == stateBookmark {
+		// Handle bookmark state
+		shouldClose := m.textInputOverlay.HandleKeyPress(msg)
+
+		if shouldClose {
+			selected := m.list.GetSelectedInstance()
+			if selected == nil {
+				return m, nil
+			}
+
+			if m.textInputOverlay.IsSubmitted() {
+				// Create bookmark commit
+				commitMsg := m.textInputOverlay.GetValue()
+				cmd := m.createBookmarkCommit(selected, commitMsg)
+				
+				// Close the overlay and reset state
+				m.textInputOverlay = nil
+				m.state = stateDefault
+				m.menu.SetState(ui.StateDefault)
+				
+				return m, tea.Batch(tea.WindowSize(), cmd)
+			}
+
+			// User cancelled
+			m.textInputOverlay = nil
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+			return m, tea.WindowSize()
+		}
+
+		return m, nil
 	}
 
 	// Handle confirmation state
@@ -819,6 +852,16 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyBookmark:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Show the bookmark creation state
+		m.state = stateBookmark
+		m.menu.SetState(ui.StateBookmark)
+		m.textInputOverlay = overlay.NewTextInputOverlay("Enter bookmark message (or leave empty for auto-generated)", "")
+		return m, nil
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -910,6 +953,57 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 		}
 
 		return nil
+	}
+}
+
+func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
+	return func() tea.Msg {
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+
+		// Get current branch name
+		currentBranch, err := worktree.GetCurrentBranch()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+
+		var commitMessage string
+		if userMessage != "" {
+			// Use user-provided message
+			commitMessage = fmt.Sprintf("[BOOKMARK] %s", userMessage)
+		} else {
+			// Generate message from commits since last bookmark
+			lastBookmarkSHA, err := worktree.FindLastBookmarkCommit(currentBranch)
+			if err != nil {
+				return fmt.Errorf("failed to find last bookmark: %w", err)
+			}
+
+			// Get commit messages since last bookmark
+			messages, err := worktree.GetCommitMessagesSince(lastBookmarkSHA, currentBranch)
+			if err != nil {
+				return fmt.Errorf("failed to get commit messages: %w", err)
+			}
+
+			if len(messages) == 0 {
+				commitMessage = "[BOOKMARK] No changes since last bookmark"
+			} else {
+				// Use Claude to generate a summary if available, otherwise concatenate
+				summary := strings.Join(messages, "; ")
+				if len(summary) > 100 {
+					summary = summary[:97] + "..."
+				}
+				commitMessage = fmt.Sprintf("[BOOKMARK] %s", summary)
+			}
+		}
+
+		// Create the bookmark commit (allow empty)
+		if err := worktree.CreateBookmarkCommit(commitMessage); err != nil {
+			return fmt.Errorf("failed to create bookmark commit: %w", err)
+		}
+
+		return instanceChangedMsg{}
 	}
 }
 
