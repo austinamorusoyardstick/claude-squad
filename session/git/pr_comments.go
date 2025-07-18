@@ -29,6 +29,16 @@ type PRComment struct {
 	Accepted           bool      `json:"-"`
 }
 
+type PRReview struct {
+	ID          int       `json:"id"`
+	Body        string    `json:"body"`
+	State       string    `json:"state"`
+	Author      string    `json:"author"`
+	SubmittedAt time.Time `json:"submitted_at"`
+	CommitID    string    `json:"commit_id"`
+	Comments    []PRComment
+}
+
 type PullRequest struct {
 	Number   int    `json:"number"`
 	Title    string `json:"title"`
@@ -36,7 +46,9 @@ type PullRequest struct {
 	HeadRef  string `json:"headRef"`
 	BaseRef  string `json:"baseRef"`
 	URL      string `json:"url"`
+	HeadSHA  string `json:"headSHA"`
 	Comments []PRComment
+	Reviews  []PRReview
 }
 
 func GetCurrentPR(workingDir string) (*PullRequest, error) {
