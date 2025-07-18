@@ -228,7 +228,10 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 			continue
 		}
 
-		submittedAt, _ := time.Parse(time.RFC3339, r.SubmittedAt)
+		submittedAt, err := time.Parse(time.RFC3339, r.SubmittedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse submittedAt for review ID %d: %w", r.ID, err)
+		}
 		
 		// Check if review is outdated (not from the current head commit)
 		isOutdated := r.CommitID != pr.HeadSHA
