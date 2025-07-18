@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"claude-squad/config"
+	"claude-squad/keys"
 )
 
 type keybindingEditorMode int
