@@ -276,6 +276,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case tea.MouseButtonWheelDown:
 					m.tabbedWindow.ScrollDown()
 				}
+				return m, nil
 			}
 		}
 		return m, nil
