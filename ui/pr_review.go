@@ -64,12 +64,14 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight)
 			m.viewport.HighPerformanceRendering = false
 			m.ready = true
+			m.viewport.SetYOffset(0)
 		} else {
 			m.viewport.Width = m.width
 			m.viewport.Height = m.height - headerHeight - footerHeight
 		}
 		
 		m.updateViewportContent()
+		m.viewport.SetYOffset(0) // Reset scroll position
 		return m, nil
 
 	case tea.KeyMsg:
