@@ -145,13 +145,10 @@ func (t *TmuxSession) Start(workDir string) error {
 		// The session will still work without this setting
 	}
 
-	err = t.Restore()
-	if err != nil {
-		if cleanupErr := t.Close(); cleanupErr != nil {
-			err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
-		}
-		return fmt.Errorf("error restoring tmux session: %w", err)
-	}
+	// Don't call Restore() here - keep the session detached
+	// Initialize monitor and channels without PTY
+	t.monitor = newStatusMonitor()
+	t.reloadCh = make(chan struct{})
 
 	if t.program == ProgramClaude || strings.HasPrefix(t.program, ProgramAider) || strings.HasPrefix(t.program, ProgramGemini) {
 		searchString := "Do you trust the files in this folder?"
