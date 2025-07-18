@@ -585,6 +585,32 @@ func (i *Instance) GetTerminalFullHistory() (string, error) {
 	return string(output), nil
 }
 
+// GetAIFullHistory captures the entire AI pane output including full scrollback history
+func (i *Instance) GetAIFullHistory() (string, error) {
+	if !i.started || i.Status == Paused {
+		return "", fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return "", err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return "", fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	// AI is in pane 1, capture with full history (-S - means from start of history)
+	// We need to specify the target pane explicitly
+	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".1")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to capture AI full history: %v", err)
+	}
+	return string(output), nil
+}
+
 func (i *Instance) SetPreviewSize(width, height int) error {
 	if !i.started || i.Status == Paused {
 		return fmt.Errorf("cannot set preview size for instance that has not been started or " +
