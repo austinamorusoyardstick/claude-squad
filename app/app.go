@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// stateHistory is the state when displaying the history overlay.
+	stateHistory
 )
 
 type home struct {
