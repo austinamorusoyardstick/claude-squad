@@ -1239,7 +1239,8 @@ func (m *home) View() string {
 			m.state = stateDefault
 			return mainView
 		}
-		return overlay.PlaceOverlay(0, 0, m.prReviewOverlay.View(), mainView, true, true)
+		// Return PR review directly as it manages its own full-screen layout
+		return m.prReviewOverlay.View()
 	}
 
 	return mainView
