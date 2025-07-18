@@ -40,6 +40,7 @@ const (
 	StateEmpty
 	StateNewInstance
 	StatePrompt
+	StateBookmark
 )
 
 type Menu struct {

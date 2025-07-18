@@ -51,6 +51,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("p")+descStyle.Render("         - Commit and push branch to github"),
 		keyStyle.Render("c")+descStyle.Render("         - Checkout: commit changes and pause session"),
 		keyStyle.Render("r")+descStyle.Render("         - Resume a paused session"),
+		keyStyle.Render("B")+descStyle.Render("         - Create bookmark commit"),
 		"",
 		headerStyle.Render("Other:"),
 		keyStyle.Render("tab")+descStyle.Render("       - Switch between AI, diff, and terminal tabs"),
@@ -86,6 +87,7 @@ func (h helpTypeInstanceStart) toContent() string {
 		headerStyle.Render("Handoff:"),
 		keyStyle.Render("c")+descStyle.Render("     - Checkout this instance's branch"),
 		keyStyle.Render("p")+descStyle.Render("     - Push branch to GitHub to create a PR"),
+		keyStyle.Render("B")+descStyle.Render("     - Create bookmark commit"),
 	)
 	return content
 }
