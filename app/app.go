@@ -10,6 +10,8 @@ import (
 	"claude-squad/ui/overlay"
 	"context"
 	"fmt"
+	"bufio"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -98,6 +100,12 @@ type home struct {
 	errBox *ui.ErrBox
 	// global spinner instance. we plumb this down to where it's needed
 	spinner spinner.Model
+	// testProgress tracks the current test run progress
+	testProgress *testProgressMsg
+	// testProgressChan receives test progress updates from async test runner
+	testProgressChan chan testProgressMsg
+	// testCompleteChan receives test completion updates from async test runner
+	testCompleteChan chan testCompleteMsg
 	// textInputOverlay handles text input with state
 	textInputOverlay *overlay.TextInputOverlay
 	// textOverlay displays text information
@@ -126,17 +134,19 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	}
 
 	h := &home{
-		ctx:          ctx,
-		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		menu:         ui.NewMenu(),
-		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane()),
-		errBox:       ui.NewErrBox(),
-		storage:      storage,
-		appConfig:    appConfig,
-		program:      program,
-		autoYes:      autoYes,
-		state:        stateDefault,
-		appState:     appState,
+		ctx:              ctx,
+		spinner:          spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		menu:             ui.NewMenu(),
+		tabbedWindow:     ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane()),
+		errBox:           ui.NewErrBox(),
+		storage:          storage,
+		appConfig:        appConfig,
+		program:          program,
+		autoYes:          autoYes,
+		state:            stateDefault,
+		appState:         appState,
+		testProgressChan: make(chan testProgressMsg, 10),
+		testCompleteChan: make(chan testCompleteMsg, 1),
 	}
 	h.list = ui.NewList(&h.spinner, autoYes)
 
@@ -315,10 +325,81 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			time.Sleep(2 * time.Second)
 			return hideErrMsg{}
 		}
+	case testProgressMsg:
+		// Update test progress
+		m.testProgress = &msg
+		return m, nil
+	case testCompleteMsg:
+		// Clear test progress
+		m.testProgress = nil
+		// Open failed test files in WebStorm
+		if len(msg.failed) > 0 {
+			selected := m.list.GetSelectedInstance()
+			if selected != nil {
+				gitWorktree, _ := selected.GetGitWorktree()
+				if gitWorktree != nil {
+					worktreePath := gitWorktree.GetWorktreePath()
+					for _, testFile := range msg.failed {
+						fullPath := filepath.Join(worktreePath, testFile)
+						cmd := exec.Command("webstorm", fullPath)
+						cmd.Start()
+					}
+				}
+			}
+			return m, m.handleError(fmt.Errorf("Jest tests failed: %d passed, %d failed", msg.totalPassed, msg.totalFailed))
+		}
+		// All tests passed
+		return m, tea.Batch(
+			func() tea.Msg { return successMsg{message: fmt.Sprintf("All Jest tests passed! (%d tests)", msg.totalPassed)} },
+		)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case checkTestProgressMsg:
+		// Check for test progress updates
+		var cmds []tea.Cmd
+		
+		// Check progress channel
+		select {
+		case progress := <-m.testProgressChan:
+			m.testProgress = &progress
+		default:
+			// No update available
+		}
+		
+		// Check completion channel
+		select {
+		case complete := <-m.testCompleteChan:
+			// Handle completion
+			m.testProgress = nil
+			if len(complete.failed) > 0 {
+				selected := m.list.GetSelectedInstance()
+				if selected != nil {
+					gitWorktree, _ := selected.GetGitWorktree()
+					if gitWorktree != nil {
+						worktreePath := gitWorktree.GetWorktreePath()
+						for _, testFile := range complete.failed {
+							fullPath := filepath.Join(worktreePath, testFile)
+							cmd := exec.Command("webstorm", fullPath)
+							cmd.Start()
+						}
+					}
+				}
+				cmds = append(cmds, m.handleError(fmt.Errorf("Jest tests failed: %d passed, %d failed", complete.totalPassed, complete.totalFailed)))
+			} else {
+				cmds = append(cmds, func() tea.Msg { 
+					return successMsg{message: fmt.Sprintf("All Jest tests passed! (%d tests)", complete.totalPassed)} 
+				})
+			}
+		default:
+			// No completion yet, continue checking
+			if m.testProgress != nil && m.testProgress.running {
+				cmds = append(cmds, tickCheckTestProgress())
+			}
+		}
+		
+		return m, tea.Batch(cmds...)
 	}
 	return m, nil
 }
@@ -941,106 +1022,184 @@ func (m *home) runAllTests(instance *session.Instance) tea.Cmd {
 		// Get the worktree path
 		worktreePath := gitWorktree.GetWorktreePath()
 		
-		// Run yarn test to execute Jest tests
-		cmd := exec.Command("yarn", "test", "--no-coverage", "--verbose")
-		cmd.Dir = worktreePath
-		cmd.Env = append(os.Environ(), "CI=true") // Run Jest in non-interactive mode
+		// Start the test run in a goroutine to allow real-time updates
+		go m.runTestsAsync(worktreePath)
 		
-		// Capture output
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			// Even if tests fail, we want to parse the output
-			// Check if it's a test failure (exit code 1) or a real error
-			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-				// Test failure, continue to parse output
-			} else {
-				return fmt.Errorf("failed to run tests: %w\nOutput: %s", err, string(output))
-			}
+		// Set initial test progress
+		m.testProgress = &testProgressMsg{
+			passed:  0,
+			failed:  0,
+			total:   0,
+			running: true,
+			done:    false,
 		}
 		
-		// Parse Jest test output to find failed tests
-		failedTests := m.parseJestOutput(string(output))
-		
-		// If there are failed tests, open them in WebStorm
-		if len(failedTests) > 0 {
-			for _, testFile := range failedTests {
-				// Open each failed test file in WebStorm
-				fullPath := filepath.Join(worktreePath, testFile)
-				webstormCmd := exec.Command("webstorm", fullPath)
-				if err := webstormCmd.Start(); err != nil {
-					return fmt.Errorf("failed to open %s in WebStorm: %w", testFile, err)
-				}
-			}
-			return fmt.Errorf("Jest tests failed: %d test files have failures", len(failedTests))
-		}
-		
-		// All tests passed
-		return successMsg{message: "All Jest tests passed!"}
+		// Return ticker command to start checking for updates
+		return tickCheckTestProgress()
 	}
 }
 
-func (m *home) parseJestOutput(output string) []string {
+func (m *home) runTestsAsync(worktreePath string) {
+	// Run yarn test to execute Jest tests with real-time output
+	cmd := exec.Command("yarn", "test", "--no-coverage", "--verbose", "--json")
+	cmd.Dir = worktreePath
+	cmd.Env = append(os.Environ(), "CI=true") // Run Jest in non-interactive mode
+	
+	// Create pipes for stdout and stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		m.sendTestComplete(nil, 0, 0)
+		return
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		m.sendTestComplete(nil, 0, 0)
+		return
+	}
+	
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		m.sendTestComplete(nil, 0, 0)
+		return
+	}
+	
+	// Read output in real-time
 	failedTests := make(map[string]bool)
-	lines := strings.Split(output, "\n")
+	totalPassed := 0
+	totalFailed := 0
+	totalTests := 0
 	
-	for _, line := range lines {
-		// Jest failure output patterns:
-		// 1. "FAIL src/components/Button.test.js"
-		// 2. "FAIL ./src/utils/helpers.test.ts"
-		if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
-			// Extract the file path after "FAIL "
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				testFile := parts[1]
-				// Remove leading "./" if present
-				testFile = strings.TrimPrefix(testFile, "./")
-				failedTests[testFile] = true
+	// Create a scanner to read line by line
+	scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+	
+	for scanner.Scan() {
+		line := scanner.Text()
+		
+		// Parse the line for test progress
+		passed, failed, total := m.parseTestProgress(line)
+		if passed >= 0 || failed >= 0 || total >= 0 {
+			if passed >= 0 {
+				totalPassed = passed
 			}
+			if failed >= 0 {
+				totalFailed = failed
+			}
+			if total >= 0 {
+				totalTests = total
+			}
+			
+			// Send progress update
+			m.sendTestProgress(totalPassed, totalFailed, totalTests)
 		}
 		
-		// Also look for test file paths in stack traces
-		// Format: "at Object.<anonymous> (src/components/Button.test.js:15:3)"
-		if strings.Contains(line, ".test.js") || strings.Contains(line, ".test.ts") || 
-		   strings.Contains(line, ".test.jsx") || strings.Contains(line, ".test.tsx") ||
-		   strings.Contains(line, ".spec.js") || strings.Contains(line, ".spec.ts") ||
-		   strings.Contains(line, ".spec.jsx") || strings.Contains(line, ".spec.tsx") {
-			// Try to extract file path from parentheses
-			start := strings.Index(line, "(")
-			end := strings.Index(line, ":")
-			if start != -1 && end != -1 && start < end {
-				filePath := line[start+1:end]
-				// Clean up the path
-				filePath = strings.TrimSpace(filePath)
-				filePath = strings.TrimPrefix(filePath, "./")
-				// Only add if it's a test file
-				if strings.Contains(filePath, ".test.") || strings.Contains(filePath, ".spec.") {
-					failedTests[filePath] = true
-				}
-			}
-		}
-		
-		// Look for file paths in error locations
-		// Format: "  at src/utils/helpers.test.ts:25:10"
-		if strings.Contains(line, " at ") && (strings.Contains(line, ".test.") || strings.Contains(line, ".spec.")) {
-			parts := strings.Fields(line)
-			for _, part := range parts {
-				if (strings.Contains(part, ".test.") || strings.Contains(part, ".spec.")) && strings.Contains(part, ":") {
-					filePath := strings.Split(part, ":")[0]
-					filePath = strings.TrimPrefix(filePath, "./")
-					failedTests[filePath] = true
-				}
-			}
+		// Also check for failed test files
+		if testFile := m.parseFailedTestFile(line); testFile != "" {
+			failedTests[testFile] = true
 		}
 	}
 	
-	// Convert map to slice
-	result := make([]string, 0, len(failedTests))
+	// Wait for command to complete
+	cmd.Wait()
+	
+	// Convert failed tests map to slice
+	failed := make([]string, 0, len(failedTests))
 	for testFile := range failedTests {
-		result = append(result, testFile)
+		failed = append(failed, testFile)
 	}
 	
-	return result
+	// Send completion message
+	m.sendTestComplete(failed, totalPassed, totalFailed)
 }
+
+func (m *home) sendTestProgress(passed, failed, total int) {
+	select {
+	case m.testProgressChan <- testProgressMsg{
+		passed:  passed,
+		failed:  failed,
+		total:   total,
+		running: true,
+		done:    false,
+	}:
+	default:
+		// Channel is full, skip this update
+	}
+}
+
+func (m *home) sendTestComplete(failed []string, totalPassed, totalFailed int) {
+	select {
+	case m.testCompleteChan <- testCompleteMsg{
+		failed:      failed,
+		totalPassed: totalPassed,
+		totalFailed: totalFailed,
+	}:
+	default:
+		// Channel is full, skip this update
+	}
+}
+
+func (m *home) parseTestProgress(line string) (passed, failed, total int) {
+	passed, failed, total = -1, -1, -1
+	
+	// Jest JSON output includes test counts
+	// Look for patterns like: "numPassedTests":5,"numFailedTests":2,"numTotalTests":7
+	if strings.Contains(line, "numPassedTests") {
+		// Simple regex-like parsing
+		if idx := strings.Index(line, `"numPassedTests":`); idx >= 0 {
+			fmt.Sscanf(line[idx:], `"numPassedTests":%d`, &passed)
+		}
+	}
+	if strings.Contains(line, "numFailedTests") {
+		if idx := strings.Index(line, `"numFailedTests":`); idx >= 0 {
+			fmt.Sscanf(line[idx:], `"numFailedTests":%d`, &failed)
+		}
+	}
+	if strings.Contains(line, "numTotalTests") {
+		if idx := strings.Index(line, `"numTotalTests":`); idx >= 0 {
+			fmt.Sscanf(line[idx:], `"numTotalTests":%d`, &total)
+		}
+	}
+	
+	// Also parse non-JSON format: "Tests: 2 failed, 5 passed, 7 total"
+	if strings.HasPrefix(strings.TrimSpace(line), "Tests:") {
+		parts := strings.Fields(line)
+		for i, part := range parts {
+			if part == "passed," && i > 0 {
+				fmt.Sscanf(parts[i-1], "%d", &passed)
+			} else if part == "failed," && i > 0 {
+				fmt.Sscanf(parts[i-1], "%d", &failed)
+			} else if part == "total" && i > 0 {
+				fmt.Sscanf(parts[i-1], "%d", &total)
+			}
+		}
+	}
+	
+	return passed, failed, total
+}
+
+func (m *home) parseFailedTestFile(line string) string {
+	// Look for FAIL patterns
+	if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			testFile := parts[1]
+			testFile = strings.TrimPrefix(testFile, "./")
+			return testFile
+		}
+	}
+	
+	// JSON format: "testFilePath":"src/components/Button.test.js"
+	if strings.Contains(line, `"testFilePath":`) && strings.Contains(line, `"status":"failed"`) {
+		if idx := strings.Index(line, `"testFilePath":"`); idx >= 0 {
+			start := idx + len(`"testFilePath":"`)
+			if end := strings.Index(line[start:], `"`); end >= 0 {
+				return line[start : start+end]
+			}
+		}
+	}
+	
+	return ""
+}
+
 
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
@@ -1100,11 +1259,38 @@ type successMsg struct {
 	message string
 }
 
+// testProgressMsg updates the test progress indicator
+type testProgressMsg struct {
+	passed  int
+	failed  int
+	total   int
+	running bool
+	done    bool
+}
+
+// testCompleteMsg is sent when all tests are done
+type testCompleteMsg struct {
+	failed      []string
+	totalPassed int
+	totalFailed int
+}
+
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
 // overall the instances and capture their output. It's a pretty expensive operation. Let's do it 2x a second only.
 var tickUpdateMetadataCmd = func() tea.Msg {
 	time.Sleep(500 * time.Millisecond)
 	return tickUpdateMetadataMessage{}
+}
+
+// checkTestProgressMsg is sent periodically to check for test progress updates
+type checkTestProgressMsg struct{}
+
+// tickCheckTestProgress checks for test progress updates every 100ms
+func tickCheckTestProgress() tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(100 * time.Millisecond)
+		return checkTestProgressMsg{}
+	}
 }
 
 // startInstanceAsync starts an instance asynchronously and returns a tea.Cmd
@@ -1229,16 +1415,49 @@ func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	return nil
 }
 
+func (m *home) renderTestProgress() string {
+	if m.testProgress == nil || !m.testProgress.running {
+		return ""
+	}
+	
+	// Create a progress indicator
+	progress := fmt.Sprintf("🧪 Running tests: %d passed, %d failed (total: %d)", 
+		m.testProgress.passed, 
+		m.testProgress.failed, 
+		m.testProgress.total)
+	
+	// Style the progress indicator
+	progressStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("86")).
+		Background(lipgloss.Color("235")).
+		Padding(0, 1).
+		MarginTop(1)
+	
+	return progressStyle.Render(progress)
+}
+
 func (m *home) View() string {
 	listWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.list.String())
 	previewWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.tabbedWindow.String())
 	listAndPreview := lipgloss.JoinHorizontal(lipgloss.Top, listWithPadding, previewWithPadding)
 
-	mainView := lipgloss.JoinVertical(
-		lipgloss.Center,
+	// Build view components
+	viewComponents := []string{
 		listAndPreview,
 		m.menu.String(),
-		m.errBox.String(),
+	}
+	
+	// Add test progress if running
+	if testProgress := m.renderTestProgress(); testProgress != "" {
+		viewComponents = append(viewComponents, testProgress)
+	}
+	
+	// Add error box last
+	viewComponents = append(viewComponents, m.errBox.String())
+	
+	mainView := lipgloss.JoinVertical(
+		lipgloss.Center,
+		viewComponents...,
 	)
 
 	if m.state == statePrompt {
