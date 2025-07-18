@@ -136,14 +136,18 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			for i := range m.pr.Comments {
 				m.pr.Comments[i].Accepted = true
 			}
-			m.updateViewportContent()
+			if m.ready {
+				m.updateViewportContent()
+			}
 			return m, nil
 		
 		case "D":
 			for i := range m.pr.Comments {
 				m.pr.Comments[i].Accepted = false
 			}
-			m.updateViewportContent()
+			if m.ready {
+				m.updateViewportContent()
+			}
 			return m, nil
 		
 		case "enter":
