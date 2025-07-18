@@ -903,13 +903,13 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get the worktree path
 		worktreePath := worktree.GetWorktreePath()
 		
-		// Get current PR info from the worktree
+		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
 		}
 		
-		// Fetch PR comments
+		// Fetch PR comments (always fresh - includes resolved status detection)
 		if err := pr.FetchComments(worktreePath); err != nil {
 			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
 		}
