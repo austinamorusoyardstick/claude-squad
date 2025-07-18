@@ -26,25 +26,15 @@ type commentProcessedMsg struct {
 type allCommentsProcessedMsg struct{}
 
 func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
-	// First show the processing overlay
-	progressText := fmt.Sprintf("Processing %d PR comments...\n\n", len(comments))
-	for i, comment := range comments {
-		progressText += fmt.Sprintf("%d. Comment from @%s", i+1, comment.Author)
-		if comment.Path != "" {
-			progressText += fmt.Sprintf(" on %s", comment.Path)
-			if comment.Line > 0 {
-				progressText += fmt.Sprintf(":%d", comment.Line)
-			}
-		}
-		progressText += "\n"
-	}
-	progressText += "\nSending to Claude for processing..."
+	// Store comments for sequential processing
+	m.pendingPRComments = comments
+	m.currentPRCommentIndex = 0
 	
-	m.textOverlay = overlay.NewTextOverlay(progressText)
-	m.state = stateHelp
+	// Show initial progress
+	m.updatePRProcessingOverlay()
 	
-	// Return a command that processes comments
-	return m.processCommentsSequentially(comments)
+	// Start processing the first comment
+	return m.processNextPRComment()
 }
 
 func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
