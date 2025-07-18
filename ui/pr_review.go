@@ -292,7 +292,7 @@ func (m *PRReviewModel) updateViewportContent() {
 	
 	for i, comment := range m.pr.Comments {
 		if i > 0 {
-			content.WriteString("\n")
+			content.WriteString("\n\n") // Add consistent spacing between comments
 		}
 		
 		// Comment box styling
