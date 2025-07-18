@@ -1315,13 +1315,6 @@ func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *home) showTestResults(output string) {
-	// Create text overlay with test results
-	m.textOverlay = overlay.NewTextOverlay(output)
-	m.state = stateHelp // Use help state since it handles text overlay display
-	m.menu.SetState(ui.StateDefault)
-}
-
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
 	// Create content for error log
 	var content string
