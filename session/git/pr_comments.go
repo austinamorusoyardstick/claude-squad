@@ -403,7 +403,7 @@ func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	return accepted
 }
 
-// GetCommentStats returns statistics about the comments
+// GetCommentStats returns statistics about the comments (includes both shown and filtered)
 func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
 	for _, comment := range pr.Comments {
 		total++
@@ -423,6 +423,70 @@ func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueC
 		}
 	}
 	return
+}
+
+// GetAllCommentStats returns statistics about all comments including filtered ones
+func (pr *PullRequest) GetAllCommentStats(workingDir string) (total, shown, outdated, resolved int, err error) {
+	// We need to refetch to get complete stats including filtered comments
+	resolvedMap, err := pr.fetchResolvedStatus(workingDir)
+	if err != nil {
+		resolvedMap = make(map[int]bool)
+	}
+
+	// Count all review comments including filtered ones
+	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/comments", pr.Number))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("failed to fetch all comments for stats: %w", err)
+	}
+
+	var reviewComments []struct {
+		ID               int     `json:"id"`
+		Position         *int    `json:"position"`
+		CommitID         string  `json:"commit_id"`
+	}
+
+	if err := json.Unmarshal(output, &reviewComments); err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("failed to parse all comments for stats: %w", err)
+	}
+
+	for _, rc := range reviewComments {
+		total++
+		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
+		isResolved := resolvedMap[rc.ID]
+		
+		if isOutdated {
+			outdated++
+		}
+		if isResolved {
+			resolved++
+		}
+		if !isOutdated && !isResolved {
+			shown++
+		}
+	}
+
+	// Add issue comments (they're never filtered)
+	cmdIssue := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/issues/%d/comments", pr.Number))
+	cmdIssue.Dir = workingDir
+	issueOutput, err := cmdIssue.Output()
+	if err != nil {
+		return total, shown, outdated, resolved, nil // Return what we have
+	}
+
+	var issueComments []struct {
+		ID int `json:"id"`
+	}
+
+	if err := json.Unmarshal(issueOutput, &issueComments); err != nil {
+		return total, shown, outdated, resolved, nil
+	}
+
+	total += len(issueComments)
+	shown += len(issueComments)
+
+	return total, shown, outdated, resolved, nil
 }
 
 // GetFilteredComments returns comments that are not outdated or resolved
