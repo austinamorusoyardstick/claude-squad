@@ -75,49 +75,60 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Handle key events even when not ready
 		switch msg.String() {
 		case "q", "esc":
 			return m, func() tea.Msg { return PRReviewCancelMsg{} }
 		
 		case "?":
 			m.showHelp = !m.showHelp
-			// Adjust viewport height when help is toggled
-			headerHeight := 4
-			footerHeight := 3
-			if !m.showHelp {
-				footerHeight = 0
+			// Adjust viewport height when help is toggled if ready
+			if m.ready {
+				headerHeight := 4
+				footerHeight := 3
+				if !m.showHelp {
+					footerHeight = 0
+				}
+				m.viewport.Height = m.height - headerHeight - footerHeight
+				m.updateViewportContent()
 			}
-			m.viewport.Height = m.height - headerHeight - footerHeight
-			m.updateViewportContent()
 			return m, nil
 		
 		case "j", "down":
 			if m.currentIndex < len(m.pr.Comments)-1 {
 				m.currentIndex++
-				m.updateViewportContent()
-				m.ensureCurrentCommentVisible()
+				if m.ready {
+					m.updateViewportContent()
+					m.ensureCurrentCommentVisible()
+				}
 			}
 			return m, nil
 		
 		case "k", "up":
 			if m.currentIndex > 0 {
 				m.currentIndex--
-				m.updateViewportContent()
-				m.ensureCurrentCommentVisible()
+				if m.ready {
+					m.updateViewportContent()
+					m.ensureCurrentCommentVisible()
+				}
 			}
 			return m, nil
 		
 		case "a":
 			if len(m.pr.Comments) > 0 {
 				m.pr.Comments[m.currentIndex].Accepted = true
-				m.updateViewportContent()
+				if m.ready {
+					m.updateViewportContent()
+				}
 			}
 			return m, nil
 		
 		case "d":
 			if len(m.pr.Comments) > 0 {
 				m.pr.Comments[m.currentIndex].Accepted = false
-				m.updateViewportContent()
+				if m.ready {
+					m.updateViewportContent()
+				}
 			}
 			return m, nil
 		
