@@ -40,10 +40,32 @@ func (m PRReviewModel) Init() tea.Cmd {
 }
 
 func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		
+		headerHeight := 4 // Title + status line
+		footerHeight := 3 // Help text
+		if !m.showHelp {
+			footerHeight = 0
+		}
+		
+		if !m.ready {
+			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight)
+			m.viewport.HighPerformanceRendering = false
+			m.ready = true
+		} else {
+			m.viewport.Width = m.width
+			m.viewport.Height = m.height - headerHeight - footerHeight
+		}
+		
+		m.updateViewportContent()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -53,29 +75,43 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "?":
 			m.showHelp = !m.showHelp
+			// Adjust viewport height when help is toggled
+			headerHeight := 4
+			footerHeight := 3
+			if !m.showHelp {
+				footerHeight = 0
+			}
+			m.viewport.Height = m.height - headerHeight - footerHeight
+			m.updateViewportContent()
 			return m, nil
 		
 		case "j", "down":
 			if m.currentIndex < len(m.pr.Comments)-1 {
 				m.currentIndex++
+				m.updateViewportContent()
+				m.ensureCurrentCommentVisible()
 			}
 			return m, nil
 		
 		case "k", "up":
 			if m.currentIndex > 0 {
 				m.currentIndex--
+				m.updateViewportContent()
+				m.ensureCurrentCommentVisible()
 			}
 			return m, nil
 		
 		case "a":
 			if len(m.pr.Comments) > 0 {
 				m.pr.Comments[m.currentIndex].Accepted = true
+				m.updateViewportContent()
 			}
 			return m, nil
 		
 		case "d":
 			if len(m.pr.Comments) > 0 {
 				m.pr.Comments[m.currentIndex].Accepted = false
+				m.updateViewportContent()
 			}
 			return m, nil
 		
@@ -83,12 +119,14 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			for i := range m.pr.Comments {
 				m.pr.Comments[i].Accepted = true
 			}
+			m.updateViewportContent()
 			return m, nil
 		
 		case "D":
 			for i := range m.pr.Comments {
 				m.pr.Comments[i].Accepted = false
 			}
+			m.updateViewportContent()
 			return m, nil
 		
 		case "enter":
@@ -97,7 +135,11 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	// Handle viewport updates
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m PRReviewModel) View() string {
