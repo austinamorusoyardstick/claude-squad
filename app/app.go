@@ -230,6 +230,34 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle PR review updates when in that state
+	if m.state == statePRReview && m.prReviewOverlay != nil {
+		updatedModel, cmd := m.prReviewOverlay.Update(msg)
+		m.prReviewOverlay = updatedModel.(*ui.PRReviewModel)
+		
+		// Check for completion or cancellation messages
+		switch msg.(type) {
+		case ui.PRReviewCompleteMsg:
+			// Handle accepted comments
+			acceptedComments := msg.(ui.PRReviewCompleteMsg).AcceptedComments
+			m.state = stateDefault
+			m.prReviewOverlay = nil
+			
+			// Process accepted comments with Claude
+			if len(acceptedComments) > 0 {
+				return m, m.processAcceptedComments(acceptedComments)
+			}
+			return m, nil
+		case ui.PRReviewCancelMsg:
+			// User cancelled
+			m.state = stateDefault
+			m.prReviewOverlay = nil
+			return m, nil
+		}
+		
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case hideErrMsg:
 		m.errBox.Clear()
