@@ -1373,6 +1373,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textInputOverlay.Render(), mainView, true, true)
+	} else if m.state == stateHistory {
+		if m.historyOverlay == nil {
+			log.ErrorLog.Printf("history overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.historyOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
