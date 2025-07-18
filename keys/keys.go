@@ -494,6 +494,16 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"open_in_ide":      KeyOpenInIDE,
 		"edit_keybindings": KeyEditKeybindings,
 	}
+<<<<<<< HEAD
+=======
+}
+
+// updateGlobalBindings updates the GlobalkeyBindings with custom keybindings
+func updateGlobalBindings(kbConfig *KeyBindingsConfig) {
+	// Map command names to KeyName constants
+	commandToKeyName := getCommandToKeyNameMap()
+	
+>>>>>>> b20f93b (Add keybinding update functionality to apply custom key configurations)
 	// Update each binding
 	for _, binding := range kbConfig.Bindings {
 		if keyName, ok := commandToKeyName[binding.Command]; ok {
