@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/austinamoruso/configuration/keys"
+	"claude-squad/keys"
 )
 
 // KeyBinding represents a custom keybinding configuration
