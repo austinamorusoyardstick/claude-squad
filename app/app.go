@@ -54,6 +54,8 @@ const (
 	statePRReview
 	// stateBookmark is the state when creating a bookmark commit.
 	stateBookmark
+	// stateHistory is the state when displaying the history overlay.
+	stateHistory
 )
 
 type home struct {
