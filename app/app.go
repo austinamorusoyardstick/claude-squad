@@ -183,6 +183,9 @@ func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
 	if m.textOverlay != nil {
 		m.textOverlay.SetWidth(int(float32(msg.Width) * 0.6))
 	}
+	if m.historyOverlay != nil {
+		m.historyOverlay.SetSize(int(float32(msg.Width)*0.9), int(float32(msg.Height)*0.9))
+	}
 
 	previewWidth, previewHeight := m.tabbedWindow.GetPreviewSize()
 	if err := m.list.SetSessionPreviewSize(previewWidth, previewHeight); err != nil {
