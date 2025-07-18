@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bufio"
 	"claude-squad/config"
 	"claude-squad/keys"
 	"claude-squad/log"
@@ -12,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
