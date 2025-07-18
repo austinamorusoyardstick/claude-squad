@@ -547,6 +547,26 @@ func (i *Instance) GetTerminalContent() (string, error) {
 	return i.tmuxSession.CapturePaneContent()
 }
 
+// GetTerminalFullHistory captures the entire terminal pane output including full scrollback history
+func (i *Instance) GetTerminalFullHistory() (string, error) {
+	if !i.started || i.Status == Paused {
+		return "", fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return "", err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return "", fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	// Terminal is in pane 0 (original pane), capture with full history
+	return i.tmuxSession.CapturePaneContentWithOptions("-", "-")
+}
+
 func (i *Instance) SetPreviewSize(width, height int) error {
 	if !i.started || i.Status == Paused {
 		return fmt.Errorf("cannot set preview size for instance that has not been started or " +

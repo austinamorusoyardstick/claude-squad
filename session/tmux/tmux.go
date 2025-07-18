@@ -558,6 +558,46 @@ func (t *TmuxSession) GetSessionName() string {
 	return t.sanitizedName
 }
 
+// EnterCopyMode enters tmux copy mode for the specified pane
+func (t *TmuxSession) EnterCopyMode(paneIndex int) error {
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	cmd := exec.Command("tmux", "copy-mode", "-t", targetPane)
+	return t.cmdExec.Run(cmd)
+}
+
+// ExitCopyMode exits tmux copy mode for the specified pane
+func (t *TmuxSession) ExitCopyMode(paneIndex int) error {
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	// Send 'q' to exit copy mode
+	cmd := exec.Command("tmux", "send-keys", "-t", targetPane, "-X", "cancel")
+	return t.cmdExec.Run(cmd)
+}
+
+// ScrollUp scrolls up in the specified pane (must be in copy mode)
+func (t *TmuxSession) ScrollUp(paneIndex int) error {
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	cmd := exec.Command("tmux", "send-keys", "-t", targetPane, "-X", "scroll-up")
+	return t.cmdExec.Run(cmd)
+}
+
+// ScrollDown scrolls down in the specified pane (must be in copy mode)
+func (t *TmuxSession) ScrollDown(paneIndex int) error {
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	cmd := exec.Command("tmux", "send-keys", "-t", targetPane, "-X", "scroll-down")
+	return t.cmdExec.Run(cmd)
+}
+
+// IsInCopyMode checks if the specified pane is in copy mode
+func (t *TmuxSession) IsInCopyMode(paneIndex int) (bool, error) {
+	targetPane := fmt.Sprintf("%s.%d", t.sanitizedName, paneIndex)
+	cmd := exec.Command("tmux", "display-message", "-p", "-t", targetPane, "#{pane_in_mode}")
+	output, err := t.cmdExec.Output(cmd)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(output)) == "1", nil
+}
+
 // GetReloadChannel returns the reload channel for handling Ctrl+R
 func (t *TmuxSession) GetReloadChannel() <-chan struct{} {
 	return t.reloadCh

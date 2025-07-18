@@ -4,6 +4,7 @@ import (
 	"claude-squad/session"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -15,6 +16,8 @@ type TerminalPane struct {
 	height int
 
 	terminalState terminalState
+	isScrolling   bool
+	viewport      viewport.Model
 }
 
 type terminalState struct {
@@ -25,12 +28,16 @@ type terminalState struct {
 }
 
 func NewTerminalPane() *TerminalPane {
-	return &TerminalPane{}
+	return &TerminalPane{
+		viewport: viewport.New(0, 0),
+	}
 }
 
 func (t *TerminalPane) SetSize(width, maxHeight int) {
 	t.width = width
 	t.height = maxHeight
+	t.viewport.Width = width
+	t.viewport.Height = maxHeight
 }
 
 // setFallbackState sets the terminal state with fallback text and a message
@@ -52,23 +59,44 @@ func (t *TerminalPane) UpdateContent(instance *session.Instance) error {
 		return nil
 	}
 
-	// Get terminal content from the instance
-	content, err := instance.GetTerminalContent()
-	if err != nil {
-		t.setFallbackState("Terminal not available yet...")
-		return nil
+	var content string
+	var err error
+
+	// If in scroll mode but haven't captured content yet, do it now
+	if t.isScrolling && t.viewport.Height > 0 && len(t.viewport.View()) == 0 {
+		// Capture full terminal content including scrollback history
+		content, err = instance.GetTerminalFullHistory()
+		if err != nil {
+			t.setFallbackState("Terminal not available yet...")
+			return nil
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		t.viewport.SetContent(lipgloss.JoinVertical(lipgloss.Left, content, footer))
+	} else if !t.isScrolling {
+		// In normal mode, use the usual terminal content
+		content, err = instance.GetTerminalContent()
+		if err != nil {
+			t.setFallbackState("Terminal not available yet...")
+			return nil
+		}
+
+		// If content is empty, show a welcome message
+		if strings.TrimSpace(content) == "" {
+			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
+				"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
+		}
+
+		t.terminalState = terminalState{
+			fallback: false,
+			text:     content,
+		}
 	}
 
-	// If content is empty, show a welcome message
-	if strings.TrimSpace(content) == "" {
-		content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
-			"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
-	}
-
-	t.terminalState = terminalState{
-		fallback: false,
-		text:     content,
-	}
 	return nil
 }
 
@@ -111,6 +139,11 @@ func (t *TerminalPane) String() string {
 			Render(strings.Join(lines, ""))
 	}
 
+	// If in scroll mode, use the viewport to display scrollable content
+	if t.isScrolling {
+		return t.viewport.View()
+	}
+
 	// Calculate available height accounting for border and margin
 	availableHeight := t.height - 1 //  1 for ellipsis
 
@@ -131,4 +164,100 @@ func (t *TerminalPane) String() string {
 	content := strings.Join(lines, "\n")
 	rendered := terminalPaneStyle.Width(t.width).Render(content)
 	return rendered
+}
+
+// ScrollUp scrolls up in the viewport
+func (t *TerminalPane) ScrollUp(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !t.isScrolling {
+		// Entering scroll mode - capture entire terminal content including scrollback history
+		content, err := instance.GetTerminalFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		t.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		t.viewport.GotoBottom()
+
+		t.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	t.viewport.LineUp(1)
+	return nil
+}
+
+// ScrollDown scrolls down in the viewport
+func (t *TerminalPane) ScrollDown(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !t.isScrolling {
+		// Entering scroll mode - capture entire terminal content including scrollback history
+		content, err := instance.GetTerminalFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		t.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		t.viewport.GotoBottom()
+
+		t.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	t.viewport.LineDown(1)
+	return nil
+}
+
+// ResetToNormalMode exits scroll mode and returns to normal mode
+func (t *TerminalPane) ResetToNormalMode(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if t.isScrolling {
+		t.isScrolling = false
+		// Reset viewport
+		t.viewport.SetContent("")
+		t.viewport.GotoTop()
+
+		// Immediately update content instead of waiting for next UpdateContent call
+		content, err := instance.GetTerminalContent()
+		if err != nil {
+			return err
+		}
+		
+		// If content is empty, show a welcome message
+		if strings.TrimSpace(content) == "" {
+			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
+				"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
+		}
+		
+		t.terminalState.text = content
+	}
+
+	return nil
 }
