@@ -1,6 +1,7 @@
 package app
 
 import (
+	"claude-squad/log"
 	"claude-squad/session"
 	"claude-squad/session/git"
 	"claude-squad/ui/overlay"
