@@ -1,8 +1,11 @@
 package keys
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	
 	"github.com/charmbracelet/bubbles/key"
-	"claude-squad/config"
 )
 
 type KeyName int
@@ -245,6 +248,19 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 
 // CustomKeyStringsMap is a mutable map that can be updated with custom keybindings
 var CustomKeyStringsMap map[string]KeyName
+
+// KeyBinding represents a custom keybinding configuration
+type KeyBinding struct {
+	Command string   `json:"command"` // The command name (e.g., "up", "down", "new")
+	Keys    []string `json:"keys"`    // The key combinations (e.g., ["k", "up"])
+	Help    string   `json:"help"`    // Help text to display
+}
+
+// KeyBindingsConfig stores all custom keybindings
+type KeyBindingsConfig struct {
+	Version  string       `json:"version"`  // Config version for future migrations
+	Bindings []KeyBinding `json:"bindings"` // List of custom keybindings
+}
 
 // InitializeCustomKeyBindings loads custom keybindings from config
 func InitializeCustomKeyBindings() error {
