@@ -33,6 +33,8 @@ func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 		currentIndex: 0,
 		showHelp:     true,
 		ready:        false,
+		width:        80,  // Default width
+		height:       24,  // Default height
 	}
 }
 
