@@ -21,7 +21,6 @@ type InstanceData struct {
 
 	Program   string          `json:"program"`
 	Worktree  GitWorktreeData `json:"worktree"`
-	DiffStats DiffStatsData   `json:"diff_stats"`
 }
 
 // GitWorktreeData represents the serializable data of a GitWorktree
@@ -33,12 +32,6 @@ type GitWorktreeData struct {
 	BaseCommitSHA string `json:"base_commit_sha"`
 }
 
-// DiffStatsData represents the serializable data of a DiffStats
-type DiffStatsData struct {
-	Added   int    `json:"added"`
-	Removed int    `json:"removed"`
-	Content string `json:"content"`
-}
 
 // Storage handles saving and loading instances using the state interface
 type Storage struct {

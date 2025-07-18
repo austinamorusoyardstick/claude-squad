@@ -256,9 +256,6 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					instance.SetStatus(session.Ready)
 				}
 			}
-			if err := instance.UpdateDiffStats(); err != nil {
-				log.WarningLog.Printf("could not update diff stats: %v", err)
-			}
 		}
 		return m, tickUpdateMetadataCmd
 	case tea.MouseMsg:
