@@ -29,6 +29,7 @@ const (
 	KeyErrorLog       // Key for showing error log
 	KeyWebStorm       // Key for opening WebStorm
 	KeyRebase         // Key for rebasing with main branch
+	KeyBookmark       // Key for creating a bookmark commit
 
 	// Diff keybindings
 	KeyShiftUp
@@ -86,6 +87,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"w":          KeyWebStorm,
 	"i":          KeyOpenInIDE,
 	"b":          KeyRebase,
+	"B":          KeyBookmark,
 	"R":          KeyPRReview,
 }
 
@@ -214,6 +216,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyPRReview: key.NewBinding(
 		key.WithKeys("R"),
 		key.WithHelp("R", "review PR comments"),
+	),
+	KeyBookmark: key.NewBinding(
+		key.WithKeys("B"),
+		key.WithHelp("B", "bookmark"),
 	),
 
 	// -- Special keybindings --
