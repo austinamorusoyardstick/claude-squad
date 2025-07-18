@@ -468,8 +468,11 @@ func (m PRReviewModel) simpleView() string {
 		b.WriteString("\n\n")
 	}
 	
-	b.WriteString("Loading interface...\n")
-	b.WriteString("Press q to cancel")
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+	
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • Enter:process • q:cancel"))
 	
 	return b.String()
 }
