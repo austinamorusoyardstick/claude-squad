@@ -182,9 +182,23 @@ func (m PRReviewModel) View() string {
 		return "No comments found on this PR.\n\nPress 'q' to go back"
 	}
 
-	// If not ready, show a simple view without viewport
+	// If not ready, initialize with default size and show simple view
 	if !m.ready {
-		return m.simpleView()
+		// Initialize viewport with default dimensions if we haven't received window size
+		headerHeight := 4
+		footerHeight := 3
+		if !m.showHelp {
+			footerHeight = 0
+		}
+		
+		if m.width > 0 && m.height > headerHeight+footerHeight {
+			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight)
+			m.viewport.HighPerformanceRendering = false
+			m.ready = true
+			m.updateViewportContent()
+		} else {
+			return m.simpleView()
+		}
 	}
 
 	// Build the header
