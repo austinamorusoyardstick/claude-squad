@@ -981,7 +981,7 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 			cmd.Dir = webPath
 			
 			// Capture output
-			output, testErr := cmd.CombinedOutput()
+			output, _ := cmd.CombinedOutput()
 			
 			// Parse failed test files from output
 			failedFiles := parseFailedTestFiles(string(output), webPath)
