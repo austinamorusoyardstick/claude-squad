@@ -968,10 +968,18 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 }
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
+	return tea.Sequence(
+		// First, send a message that tests have started
+		func() tea.Msg {
+			return testStartedMsg{}
+		},
+		// Then run the tests with progress tracking
+		m.runJestTestsWithProgress(instance),
+	)
+}
+
+func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 	return func() tea.Msg {
-		// First send the started message
-		return testStartedMsg{}
-		
 		// Get the git worktree to access the worktree path
 		gitWorktree, err := instance.GetGitWorktree()
 		if err != nil {
@@ -987,8 +995,8 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
 		}
 
-		// Run npm test with verbose output for real-time updates
-		cmd := exec.Command("npm", "test", "--", "--verbose", "--json", "--outputFile=test-results.json")
+		// Run npm test in watch mode to get real-time output
+		cmd := exec.Command("npm", "test", "--", "--watchAll=false")
 		cmd.Dir = webPath
 		
 		// Create pipes for stdout and stderr
@@ -1007,70 +1015,91 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 			return testResultsMsg{err: fmt.Errorf("failed to start test command: %w", err)}
 		}
 		
-		// Read output line by line and parse progress
+		// Track test progress
 		var output strings.Builder
 		var failedFiles []string
-		passed, failed, total := 0, 0, 0
+		testSuitesPassed := 0
+		testSuitesFailed := 0
+		totalTests := 0
 		
-		// Create a combined reader for both stdout and stderr
-		combinedReader := io.MultiReader(stdout, stderr)
-		scanner := bufio.NewScanner(combinedReader)
+		// Create scanners for both stdout and stderr
+		stdoutScanner := bufio.NewScanner(stdout)
+		stderrScanner := bufio.NewScanner(stderr)
 		
-		for scanner.Scan() {
-			line := scanner.Text()
-			output.WriteString(line)
-			output.WriteString("\n")
-			
-			// Parse test progress from Jest output
-			if strings.Contains(line, "PASS") {
-				passed++
-				total = passed + failed
-				m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: true})
-			} else if strings.Contains(line, "FAIL") {
-				failed++
-				total = passed + failed
-				m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: true})
+		// Use goroutines to read both streams
+		outputChan := make(chan string, 100)
+		
+		go func() {
+			for stdoutScanner.Scan() {
+				outputChan <- stdoutScanner.Text()
+			}
+		}()
+		
+		go func() {
+			for stderrScanner.Scan() {
+				outputChan <- stderrScanner.Text()
+			}
+		}()
+		
+		// Start a goroutine to wait for command completion
+		doneChan := make(chan struct{})
+		go func() {
+			cmd.Wait()
+			close(doneChan)
+		}()
+		
+		// Process output until command completes
+		for {
+			select {
+			case line := <-outputChan:
+				output.WriteString(line)
+				output.WriteString("\n")
 				
-				// Extract failed file
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					testFile := parts[1]
-					if !filepath.IsAbs(testFile) {
-						testFile = filepath.Join(webPath, testFile)
-					}
-					if _, err := os.Stat(testFile); err == nil {
-						failedFiles = append(failedFiles, testFile)
+				// Parse test file results
+				if strings.HasPrefix(strings.TrimSpace(line), "PASS") {
+					testSuitesPassed++
+					totalTests = testSuitesPassed + testSuitesFailed
+				} else if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
+					testSuitesFailed++
+					totalTests = testSuitesPassed + testSuitesFailed
+					
+					// Extract failed file
+					parts := strings.Fields(line)
+					if len(parts) >= 2 {
+						testFile := parts[1]
+						if !filepath.IsAbs(testFile) {
+							testFile = filepath.Join(webPath, testFile)
+						}
+						if _, err := os.Stat(testFile); err == nil {
+							failedFiles = append(failedFiles, testFile)
+						}
 					}
 				}
-			} else if strings.Contains(line, "Test Suites:") && strings.Contains(line, "passed") {
-				// Parse final summary line like "Test Suites: 1 passed, 1 failed, 2 total"
-				if matches := parseTestSummary(line); matches != nil {
-					passed = matches[0]
-					failed = matches[1]
-					total = matches[2]
-					m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: false})
+			case <-doneChan:
+				// Command completed, drain remaining output
+				for {
+					select {
+					case line := <-outputChan:
+						output.WriteString(line)
+						output.WriteString("\n")
+					default:
+						// Calculate final stats from output
+						finalStats := parseJestFinalStats(output.String())
+						if finalStats.total > 0 {
+							testSuitesPassed = finalStats.passed
+							testSuitesFailed = finalStats.failed
+							totalTests = finalStats.total
+						}
+						
+						// Return results with final counts
+						return testResultsMsg{
+							output:      output.String(),
+							failedFiles: failedFiles,
+							err:         nil,
+						}
+					}
 				}
 			}
-		}
-		
-		// Wait for command to complete
-		cmd.Wait()
-		
-		// Also try to read the JSON output file for more reliable parsing
-		jsonPath := filepath.Join(webPath, "test-results.json")
-		if jsonData, err := os.ReadFile(jsonPath); err == nil {
-			// Parse JSON for failed files if available
-			if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
-				failedFiles = jsonFailedFiles
-			}
-			// Clean up the JSON file
-			os.Remove(jsonPath)
-		}
-
-		return testResultsMsg{
-			output:      output.String(),
-			failedFiles: failedFiles,
-			err:         nil,
 		}
 	}
 }
