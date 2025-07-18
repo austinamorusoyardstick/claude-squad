@@ -90,7 +90,18 @@ func (t *TextInputOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 			}
 			return true
 		}
-		fallthrough // Send enter key to textarea
+		// When textarea is focused, check if Shift is held for newline
+		if msg.Alt || msg.Shift {
+			// Alt+Enter or Shift+Enter adds a newline
+			t.textarea, _ = t.textarea.Update(msg)
+			return false
+		}
+		// Plain Enter submits the form
+		t.Submitted = true
+		if t.OnSubmit != nil {
+			t.OnSubmit()
+		}
+		return true
 	default:
 		if t.FocusIndex == 0 {
 			t.textarea, _ = t.textarea.Update(msg)
