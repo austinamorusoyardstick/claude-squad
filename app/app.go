@@ -316,6 +316,16 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Show non-obtrusive message that tests are running
 		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
 		return m, nil
+	case testProgressMsg:
+		// Update test progress
+		var status string
+		if msg.running {
+			status = fmt.Sprintf("Running tests: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
+		} else {
+			status = fmt.Sprintf("Tests complete: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
+		}
+		m.errBox.SetError(fmt.Errorf(status))
+		return m, nil
 	case testResultsMsg:
 		// Handle test results
 		if msg.err != nil {
