@@ -103,12 +103,15 @@ func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
 
-// ToggleWithReset toggles the tab and resets scroll mode for all panes
+// ToggleWithReset toggles the tab and resets preview pane to normal mode
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
-	// Exit copy mode for both panes before switching
-	if instance != nil {
-		instance.ExitCopyModeAI()
-		instance.ExitCopyModeTerminal()
+	// Reset preview pane to normal mode before switching
+	if err := w.preview.ResetToNormalMode(instance); err != nil {
+		return err
+	}
+	// Reset terminal pane to normal mode before switching
+	if err := w.terminal.ResetToNormalMode(instance); err != nil {
+		return err
 	}
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 	return nil
@@ -129,20 +132,14 @@ func (w *TabbedWindow) UpdateDiff(instance *session.Instance) {
 	w.diff.SetDiff(instance)
 }
 
-// ResetPreviewToNormalMode exits copy mode for the AI pane
+// ResetPreviewToNormalMode resets the preview pane to normal mode
 func (w *TabbedWindow) ResetPreviewToNormalMode(instance *session.Instance) error {
-	if instance != nil {
-		return instance.ExitCopyModeAI()
-	}
-	return nil
+	return w.preview.ResetToNormalMode(instance)
 }
 
-// ResetTerminalToNormalMode exits copy mode for the terminal pane
+// ResetTerminalToNormalMode resets the terminal pane to normal mode
 func (w *TabbedWindow) ResetTerminalToNormalMode(instance *session.Instance) error {
-	if instance != nil {
-		return instance.ExitCopyModeTerminal()
-	}
-	return nil
+	return w.terminal.ResetToNormalMode(instance)
 }
 
 func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
@@ -173,20 +170,16 @@ func (w *TabbedWindow) ScrollUp() {
 func (w *TabbedWindow) ScrollDown() {
 	switch w.activeTab {
 	case AITab:
-		if w.instance != nil {
-			err := w.instance.ScrollDownAI()
-			if err != nil {
-				log.InfoLog.Printf("failed to scroll down AI pane: %v", err)
-			}
+		err := w.preview.ScrollDown(w.instance)
+		if err != nil {
+			log.InfoLog.Printf("tabbed window failed to scroll down: %v", err)
 		}
 	case DiffTab:
 		w.diff.ScrollDown()
 	case TerminalTab:
-		if w.instance != nil {
-			err := w.instance.ScrollDownTerminal()
-			if err != nil {
-				log.InfoLog.Printf("failed to scroll down terminal pane: %v", err)
-			}
+		err := w.terminal.ScrollDown(w.instance)
+		if err != nil {
+			log.InfoLog.Printf("terminal pane failed to scroll down: %v", err)
 		}
 	}
 }
@@ -232,28 +225,14 @@ func (w *TabbedWindow) IsInDiffTab() bool {
 	return w.activeTab == 1
 }
 
-// IsPreviewInScrollMode returns true if the AI pane is in copy mode
+// IsPreviewInScrollMode returns true if the preview pane is in scroll mode
 func (w *TabbedWindow) IsPreviewInScrollMode() bool {
-	if w.instance != nil {
-		inCopyMode, err := w.instance.IsAIInCopyMode()
-		if err != nil {
-			return false
-		}
-		return inCopyMode
-	}
-	return false
+	return w.preview.isScrolling
 }
 
-// IsTerminalInScrollMode returns true if the terminal pane is in copy mode
+// IsTerminalInScrollMode returns true if the terminal pane is in scroll mode
 func (w *TabbedWindow) IsTerminalInScrollMode() bool {
-	if w.instance != nil {
-		inCopyMode, err := w.instance.IsTerminalInCopyMode()
-		if err != nil {
-			return false
-		}
-		return inCopyMode
-	}
-	return false
+	return w.terminal.isScrolling
 }
 
 // IsInTerminalTab returns true if the terminal tab is currently active
