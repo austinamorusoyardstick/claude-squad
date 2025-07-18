@@ -62,8 +62,11 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			footerHeight = 0
 		}
 		
-		// Add a safety margin to prevent cutoff by terminal status line or other UI elements
-		safetyMargin := 2
+		// Add a larger safety margin to account for:
+		// - Terminal status lines
+		// - Potential rendering artifacts
+		// - Any framework overhead
+		safetyMargin := 3
 		
 		if !m.ready {
 			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight-safetyMargin)
