@@ -45,6 +45,7 @@ const (
 	KeyRight
 	KeyScrollLock
 	KeyOpenInIDE
+	KeyEditKeybindings // Key for opening keybinding editor
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
