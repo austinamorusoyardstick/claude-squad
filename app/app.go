@@ -415,23 +415,28 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 
+		// Parse final stats from output
+		finalStats := parseJestFinalStats(msg.output)
+
 		// Open failed test files in WebStorm if any
 		if len(msg.failedFiles) > 0 {
 			for _, file := range msg.failedFiles {
 				cmd := exec.Command("webstorm", file)
 				cmd.Start()
 			}
-			// Show brief status about failed tests
-			m.errBox.SetError(fmt.Errorf("Tests completed. %d failed test files opened in WebStorm", len(msg.failedFiles)))
+			// Show brief status about failed tests with counts
+			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in WebStorm",
+				finalStats.passed, finalStats.total, finalStats.failed))
 		} else {
 			// All tests passed
-			m.errBox.SetError(fmt.Errorf("All tests passed!"))
+			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed",
+				finalStats.passed, finalStats.total))
 		}
 
-		// Auto-hide the message after 3 seconds
+		// Auto-hide the message after 5 seconds (give more time to read the stats)
 		return m, func() tea.Msg {
 			select {
-			case <-time.After(3 * time.Second):
+			case <-time.After(5 * time.Second):
 			}
 			return hideErrMsg{}
 		}
