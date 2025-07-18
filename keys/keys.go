@@ -34,6 +34,7 @@ const (
 	KeyWebStorm       // Key for opening WebStorm
 	KeyRebase         // Key for rebasing with main branch
 	KeyBookmark       // Key for creating a bookmark commit
+	KeyTest           // Key for running Jest tests
 
 	// Diff keybindings
 	KeyShiftUp
@@ -97,6 +98,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"R":          KeyPRReview,
 	"ctrl+h":     KeyHistory,
 	"K":          KeyEditKeybindings,
+	"t":          KeyTest,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -236,6 +238,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyEditKeybindings: key.NewBinding(
 		key.WithKeys("K"),
 		key.WithHelp("K", "edit keys"),
+	),
+	KeyTest: key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "run tests"),
 	),
 
 	// -- Special keybindings --
