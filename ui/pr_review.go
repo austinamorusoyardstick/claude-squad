@@ -203,8 +203,23 @@ func (m PRReviewModel) View() string {
 	acceptedCount := len(m.pr.GetAcceptedComments())
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
-	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d", 
-		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments))))
+	
+	// Add scroll indicators
+	scrollInfo := ""
+	if m.viewport.TotalLineCount() > m.viewport.Height {
+		scrollPercent := int(m.viewport.ScrollPercent() * 100)
+		scrollInfo = fmt.Sprintf(" | %d%%", scrollPercent)
+		if m.viewport.AtTop() {
+			scrollInfo += " ↓"
+		} else if m.viewport.AtBottom() {
+			scrollInfo += " ↑"
+		} else {
+			scrollInfo += " ↕"
+		}
+	}
+	
+	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d%s", 
+		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
 	header.WriteString("\n")
 
 	// Build the footer (help text)
