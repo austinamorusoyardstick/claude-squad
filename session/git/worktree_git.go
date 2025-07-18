@@ -241,7 +241,7 @@ func (g *GitWorktree) RebaseWithMain() error {
 			}
 			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. WebStorm opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
 		}
-		
+
 		// If it's not a merge conflict, abort the rebase as before
 		g.runGitCommand(g.worktreePath, "rebase", "--abort")
 		return fmt.Errorf("rebase failed with origin/%s. Backup branch created: %s", mainBranch, backupBranch)
@@ -257,7 +257,7 @@ func (g *GitWorktree) hasMergeConflicts() bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Look for files with conflict status (UU, AA, etc.)
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for _, line := range lines {
@@ -269,7 +269,7 @@ func (g *GitWorktree) hasMergeConflicts() bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -280,7 +280,7 @@ func (g *GitWorktree) openWebStormForConflicts() error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to open WebStorm: %w", err)
 	}
-	
+
 	log.InfoLog.Printf("WebStorm opened for conflict resolution at: %s", g.worktreePath)
 	return nil
 }
@@ -290,14 +290,14 @@ func (g *GitWorktree) IsRebaseInProgress() bool {
 	// Check if .git/rebase-merge or .git/rebase-apply directories exist
 	rebaseMergePath := fmt.Sprintf("%s/.git/rebase-merge", g.worktreePath)
 	rebaseApplyPath := fmt.Sprintf("%s/.git/rebase-apply", g.worktreePath)
-	
+
 	if _, err := os.Stat(rebaseMergePath); err == nil {
 		return true
 	}
 	if _, err := os.Stat(rebaseApplyPath); err == nil {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -307,22 +307,22 @@ func (g *GitWorktree) ContinueRebase() error {
 	if !g.IsRebaseInProgress() {
 		return fmt.Errorf("no rebase in progress")
 	}
-	
+
 	// Check if there are still conflicts
 	if g.hasMergeConflicts() {
 		return fmt.Errorf("merge conflicts still exist, please resolve them first")
 	}
-	
+
 	// Stage all resolved files
 	if _, err := g.runGitCommand(g.worktreePath, "add", "."); err != nil {
 		return fmt.Errorf("failed to stage resolved files: %w", err)
 	}
-	
+
 	// Continue the rebase
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", "--continue"); err != nil {
 		return fmt.Errorf("failed to continue rebase: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -331,10 +331,71 @@ func (g *GitWorktree) AbortRebase() error {
 	if !g.IsRebaseInProgress() {
 		return fmt.Errorf("no rebase in progress")
 	}
-	
+
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", "--abort"); err != nil {
 		return fmt.Errorf("failed to abort rebase: %w", err)
 	}
-	
+
+	return nil
+}
+
+// GetCurrentBranch returns the current branch name
+func (g *GitWorktree) GetCurrentBranch() (string, error) {
+	return g.branchName, nil
+}
+
+// FindLastBookmarkCommit finds the last commit with [BOOKMARK] prefix on the given branch
+func (g *GitWorktree) FindLastBookmarkCommit(branchName string) (string, error) {
+	// Search for the last bookmark commit on the branch
+	output, err := g.runGitCommand(g.worktreePath, "log", "--oneline", "--grep=^\\[BOOKMARK\\]", "-n", "1", "--format=%H", branchName)
+	if err != nil {
+		// If no bookmark found, return empty string (not an error)
+		return "", nil
+	}
+
+	return strings.TrimSpace(output), nil
+}
+
+// GetCommitMessagesSince gets all commit messages since a given SHA on the branch
+func (g *GitWorktree) GetCommitMessagesSince(sinceSHA string, branchName string) ([]string, error) {
+	var args []string
+	if sinceSHA == "" {
+		// If no previous bookmark, get all commits on this branch
+		args = []string{"log", "--oneline", "--format=%s", branchName}
+	} else {
+		// Get commits since the last bookmark
+		args = []string{"log", "--oneline", "--format=%s", fmt.Sprintf("%s..%s", sinceSHA, branchName)}
+	}
+
+	output, err := g.runGitCommand(g.worktreePath, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit messages: %w", err)
+	}
+
+	if output == "" {
+		return []string{}, nil
+	}
+
+	// Split by newline and filter out empty lines and bookmark commits
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var messages []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "[BOOKMARK]") {
+			messages = append(messages, line)
+		}
+	}
+
+	return messages, nil
+}
+
+// CreateBookmarkCommit creates an empty commit with the bookmark message
+func (g *GitWorktree) CreateBookmarkCommit(message string) error {
+	// Create an empty commit with the bookmark message
+	_, err := g.runGitCommand(g.worktreePath, "commit", "--allow-empty", "-m", message)
+	if err != nil {
+		return fmt.Errorf("failed to create bookmark commit: %w", err)
+	}
+
 	return nil
 }
