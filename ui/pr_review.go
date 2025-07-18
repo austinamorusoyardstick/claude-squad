@@ -219,6 +219,8 @@ func (m PRReviewModel) View() string {
 			"A/D:all",
 			"Enter:process",
 			"q:cancel",
+			"PgUp/PgDn:scroll",
+			"g/G:top/bottom",
 			"?:help",
 		}
 		footer = "\n" + helpStyle.Render(strings.Join(helpItems, " • "))
