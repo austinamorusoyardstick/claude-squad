@@ -860,6 +860,10 @@ func (i *Instance) SendPrompt(prompt string) error {
 		return fmt.Errorf("error tapping enter: %w", err)
 	}
 
+	// Invalidate cache when sending a prompt as git state might change
+	i.diffStatsCache = nil
+	i.diffStatsCacheTime = time.Time{}
+
 	return nil
 }
 
