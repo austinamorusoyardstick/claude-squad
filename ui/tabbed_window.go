@@ -174,16 +174,20 @@ func (w *TabbedWindow) ScrollUp() {
 func (w *TabbedWindow) ScrollDown() {
 	switch w.activeTab {
 	case AITab:
-		err := w.preview.ScrollDown(w.instance)
-		if err != nil {
-			log.InfoLog.Printf("tabbed window failed to scroll down: %v", err)
+		if w.instance != nil {
+			err := w.instance.ScrollDownAI()
+			if err != nil {
+				log.InfoLog.Printf("failed to scroll down AI pane: %v", err)
+			}
 		}
 	case DiffTab:
 		w.diff.ScrollDown()
 	case TerminalTab:
-		err := w.terminal.ScrollDown(w.instance)
-		if err != nil {
-			log.InfoLog.Printf("terminal pane failed to scroll down: %v", err)
+		if w.instance != nil {
+			err := w.instance.ScrollDownTerminal()
+			if err != nil {
+				log.InfoLog.Printf("failed to scroll down terminal pane: %v", err)
+			}
 		}
 	}
 }
