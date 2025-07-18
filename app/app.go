@@ -1000,111 +1000,31 @@ func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
 		}
 
-		// Run npm test in watch mode to get real-time output
-		cmd := exec.Command("npm", "test", "--", "--watchAll=false")
+		// Run npm test without watch mode
+		cmd := exec.Command("npm", "test", "--", "--watchAll=false", "--json", "--outputFile=test-results.json")
 		cmd.Dir = webPath
 		
-		// Create pipes for stdout and stderr
-		stdout, err := cmd.StdoutPipe()
-		if err != nil {
-			return testResultsMsg{err: fmt.Errorf("failed to create stdout pipe: %w", err)}
-		}
+		// Capture output
+		output, _ := cmd.CombinedOutput()
 		
-		stderr, err := cmd.StderrPipe()
-		if err != nil {
-			return testResultsMsg{err: fmt.Errorf("failed to create stderr pipe: %w", err)}
-		}
+		// Parse failed test files from output
+		failedFiles := parseFailedTestFiles(string(output), webPath)
 		
-		// Start the command
-		if err := cmd.Start(); err != nil {
-			return testResultsMsg{err: fmt.Errorf("failed to start test command: %w", err)}
-		}
-		
-		// Track test progress
-		var output strings.Builder
-		var failedFiles []string
-		testSuitesPassed := 0
-		testSuitesFailed := 0
-		totalTests := 0
-		
-		// Create scanners for both stdout and stderr
-		stdoutScanner := bufio.NewScanner(stdout)
-		stderrScanner := bufio.NewScanner(stderr)
-		
-		// Use goroutines to read both streams
-		outputChan := make(chan string, 100)
-		
-		go func() {
-			for stdoutScanner.Scan() {
-				outputChan <- stdoutScanner.Text()
+		// Also try to read the JSON output file for more reliable parsing
+		jsonPath := filepath.Join(webPath, "test-results.json")
+		if jsonData, err := os.ReadFile(jsonPath); err == nil {
+			// Parse JSON for failed files if available
+			if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
+				failedFiles = jsonFailedFiles
 			}
-		}()
-		
-		go func() {
-			for stderrScanner.Scan() {
-				outputChan <- stderrScanner.Text()
-			}
-		}()
-		
-		// Start a goroutine to wait for command completion
-		doneChan := make(chan struct{})
-		go func() {
-			cmd.Wait()
-			close(doneChan)
-		}()
-		
-		// Process output until command completes
-		for {
-			select {
-			case line := <-outputChan:
-				output.WriteString(line)
-				output.WriteString("\n")
-				
-				// Parse test file results
-				if strings.HasPrefix(strings.TrimSpace(line), "PASS") {
-					testSuitesPassed++
-					totalTests = testSuitesPassed + testSuitesFailed
-				} else if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
-					testSuitesFailed++
-					totalTests = testSuitesPassed + testSuitesFailed
-					
-					// Extract failed file
-					parts := strings.Fields(line)
-					if len(parts) >= 2 {
-						testFile := parts[1]
-						if !filepath.IsAbs(testFile) {
-							testFile = filepath.Join(webPath, testFile)
-						}
-						if _, err := os.Stat(testFile); err == nil {
-							failedFiles = append(failedFiles, testFile)
-						}
-					}
-				}
-			case <-doneChan:
-				// Command completed, drain remaining output
-				for {
-					select {
-					case line := <-outputChan:
-						output.WriteString(line)
-						output.WriteString("\n")
-					default:
-						// Calculate final stats from output
-						finalStats := parseJestFinalStats(output.String())
-						if finalStats.total > 0 {
-							testSuitesPassed = finalStats.passed
-							testSuitesFailed = finalStats.failed
-							totalTests = finalStats.total
-						}
-						
-						// Return results with final counts
-						return testResultsMsg{
-							output:      output.String(),
-							failedFiles: failedFiles,
-							err:         nil,
-						}
-					}
-				}
-			}
+			// Clean up the JSON file
+			os.Remove(jsonPath)
+		}
+
+		return testResultsMsg{
+			output:      string(output),
+			failedFiles: failedFiles,
+			err:         nil,
 		}
 	}
 }
