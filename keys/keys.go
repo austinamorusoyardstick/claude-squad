@@ -477,6 +477,11 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"edit_keybindings": KeyEditKeybindings,
 	}
 }
+
+// updateGlobalBindings updates the GlobalkeyBindings with custom keybindings
+func updateGlobalBindings(kbConfig *KeyBindingsConfig) {
+	// Map command names to KeyName constants
+	commandToKeyName := getCommandToKeyNameMap()
 	
 	// Update each binding
 	for _, binding := range kbConfig.Bindings {
