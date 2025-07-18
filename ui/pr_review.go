@@ -467,7 +467,15 @@ func (m PRReviewModel) simpleView() string {
 	b.WriteString("\n")
 	
 	if outdated > 0 || resolved > 0 {
-		b.WriteString(statusStyle.Render(fmt.Sprintf("Filtered out: %d outdated, %d resolved", outdated, resolved)))
+		filteredText := ""
+		if outdated > 0 && resolved > 0 {
+			filteredText = fmt.Sprintf("Filtered out: %d outdated, %d resolved", outdated, resolved)
+		} else if outdated > 0 {
+			filteredText = fmt.Sprintf("Filtered out: %d outdated", outdated)
+		} else if resolved > 0 {
+			filteredText = fmt.Sprintf("Filtered out: %d resolved", resolved)
+		}
+		b.WriteString(statusStyle.Render(filteredText))
 		b.WriteString("\n")
 	}
 	
