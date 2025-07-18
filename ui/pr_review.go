@@ -134,10 +134,35 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		case "enter":
 			acceptedComments := m.pr.GetAcceptedComments()
 			return m, func() tea.Msg { return PRReviewCompleteMsg{AcceptedComments: acceptedComments} }
+		
+		// Additional viewport controls
+		case "pgup", "shift+up":
+			m.viewport.ViewUp()
+			return m, nil
+		
+		case "pgdown", "shift+down":
+			m.viewport.ViewDown()
+			return m, nil
+		
+		case "home", "g":
+			m.viewport.GotoTop()
+			if len(m.pr.Comments) > 0 {
+				m.currentIndex = 0
+				m.updateViewportContent()
+			}
+			return m, nil
+		
+		case "end", "G":
+			m.viewport.GotoBottom()
+			if len(m.pr.Comments) > 0 {
+				m.currentIndex = len(m.pr.Comments) - 1
+				m.updateViewportContent()
+			}
+			return m, nil
 		}
 	}
 
-	// Handle viewport updates
+	// Handle viewport updates for mouse wheel
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
 
