@@ -31,11 +31,12 @@ type PullRequest struct {
 	Comments []PRComment
 }
 
-func GetCurrentPR() (*PullRequest, error) {
+func GetCurrentPR(workingDir string) (*PullRequest, error) {
 	cmd := exec.Command("gh", "pr", "view", "--json", "number,title,state,headRefName,baseRefName,url")
+	cmd.Dir = workingDir
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current PR: %w", err)
+		return nil, fmt.Errorf("failed to get current PR from %s: %w", workingDir, err)
 	}
 
 	var prData struct {
