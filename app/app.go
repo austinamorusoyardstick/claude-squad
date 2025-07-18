@@ -322,6 +322,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyPress(msg)
 	case tea.WindowSizeMsg:
 		m.updateHandleWindowSizeEvent(msg)
+		
+		// Also update PR review overlay if it's active
+		if m.state == statePRReview && m.prReviewOverlay != nil {
+			updatedModel, _ := m.prReviewOverlay.Update(msg)
+			*m.prReviewOverlay = updatedModel
+		}
+		
 		return m, nil
 	case error:
 		// Handle errors from confirmation actions
