@@ -323,8 +323,17 @@ func (m *PRReviewModel) updateViewportContent() {
 			status = "[✓]"
 		}
 
-		// Build header
-		header := fmt.Sprintf("%s %s @%s", status, comment.Type, comment.Author)
+		// Build header with better type display
+		typeDisplay := comment.Type
+		switch comment.Type {
+		case "review":
+			typeDisplay = "PR Review"
+		case "review_comment":
+			typeDisplay = "Review Comment"
+		case "issue_comment":
+			typeDisplay = "General Comment"
+		}
+		header := fmt.Sprintf("%s %s by @%s", status, typeDisplay, comment.Author)
 		if comment.Path != "" {
 			header += fmt.Sprintf(" • %s", comment.Path)
 			if comment.Line > 0 {
