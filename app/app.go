@@ -964,56 +964,111 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 }
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
-	return tea.Sequence(
-		// First, send a message that tests have started
-		func() tea.Msg {
-			return testStartedMsg{}
-		},
-		// Then run the tests
-		func() tea.Msg {
-			// Get the git worktree to access the worktree path
-			gitWorktree, err := instance.GetGitWorktree()
-			if err != nil {
-				return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
-			}
+	return func() tea.Msg {
+		// Send initial started message
+		m.program.Send(testStartedMsg{})
+		
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
+		}
 
-			// Construct the path to the web directory
-			worktreePath := gitWorktree.GetWorktreePath()
-			webPath := filepath.Join(worktreePath, "web")
+		// Construct the path to the web directory
+		worktreePath := gitWorktree.GetWorktreePath()
+		webPath := filepath.Join(worktreePath, "web")
 
-			// Check if web directory exists
-			if _, err := os.Stat(webPath); os.IsNotExist(err) {
-				return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
-			}
+		// Check if web directory exists
+		if _, err := os.Stat(webPath); os.IsNotExist(err) {
+			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
+		}
 
-			// Run npm test in the web directory with JSON reporter for easier parsing
-			cmd := exec.Command("npm", "test", "--", "--json", "--outputFile=test-results.json")
-			cmd.Dir = webPath
+		// Run npm test with verbose output for real-time updates
+		cmd := exec.Command("npm", "test", "--", "--verbose", "--json", "--outputFile=test-results.json")
+		cmd.Dir = webPath
+		
+		// Create pipes for stdout and stderr
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to create stdout pipe: %w", err)}
+		}
+		
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to create stderr pipe: %w", err)}
+		}
+		
+		// Start the command
+		if err := cmd.Start(); err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to start test command: %w", err)}
+		}
+		
+		// Read output line by line and parse progress
+		var output strings.Builder
+		var failedFiles []string
+		passed, failed, total := 0, 0, 0
+		
+		// Create a combined reader for both stdout and stderr
+		combinedReader := io.MultiReader(stdout, stderr)
+		scanner := bufio.NewScanner(combinedReader)
+		
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.WriteString(line)
+			output.WriteString("\n")
 			
-			// Capture output
-			output, _ := cmd.CombinedOutput()
-			
-			// Parse failed test files from output
-			failedFiles := parseFailedTestFiles(string(output), webPath)
-			
-			// Also try to read the JSON output file for more reliable parsing
-			jsonPath := filepath.Join(webPath, "test-results.json")
-			if jsonData, err := os.ReadFile(jsonPath); err == nil {
-				// Parse JSON for failed files if available
-				if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
-					failedFiles = jsonFailedFiles
+			// Parse test progress from Jest output
+			if strings.Contains(line, "PASS") {
+				passed++
+				total = passed + failed
+				m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: true})
+			} else if strings.Contains(line, "FAIL") {
+				failed++
+				total = passed + failed
+				m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: true})
+				
+				// Extract failed file
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					testFile := parts[1]
+					if !filepath.IsAbs(testFile) {
+						testFile = filepath.Join(webPath, testFile)
+					}
+					if _, err := os.Stat(testFile); err == nil {
+						failedFiles = append(failedFiles, testFile)
+					}
 				}
-				// Clean up the JSON file
-				os.Remove(jsonPath)
+			} else if strings.Contains(line, "Test Suites:") && strings.Contains(line, "passed") {
+				// Parse final summary line like "Test Suites: 1 passed, 1 failed, 2 total"
+				if matches := parseTestSummary(line); matches != nil {
+					passed = matches[0]
+					failed = matches[1]
+					total = matches[2]
+					m.program.Send(testProgressMsg{passed: passed, failed: failed, total: total, running: false})
+				}
 			}
+		}
+		
+		// Wait for command to complete
+		cmd.Wait()
+		
+		// Also try to read the JSON output file for more reliable parsing
+		jsonPath := filepath.Join(webPath, "test-results.json")
+		if jsonData, err := os.ReadFile(jsonPath); err == nil {
+			// Parse JSON for failed files if available
+			if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
+				failedFiles = jsonFailedFiles
+			}
+			// Clean up the JSON file
+			os.Remove(jsonPath)
+		}
 
-			return testResultsMsg{
-				output:      string(output),
-				failedFiles: failedFiles,
-				err:         nil, // We don't treat test failures as errors
-			}
-		},
-	)
+		return testResultsMsg{
+			output:      output.String(),
+			failedFiles: failedFiles,
+			err:         nil,
+		}
+	}
 }
 
 // parseFailedTestFiles parses Jest output to find failed test file paths
