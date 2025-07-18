@@ -16,6 +16,7 @@ const (
 	KeyReview
 	KeyPush
 	KeySubmit
+	KeyPRReview
 
 	KeyTab        // Tab is a special keybinding for switching between panes.
 	KeySubmitName // SubmitName is a special keybinding for submitting the name of a new instance.
@@ -85,6 +86,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"w":          KeyWebStorm,
 	"i":          KeyOpenInIDE,
 	"b":          KeyRebase,
+	"R":          KeyPRReview,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -208,6 +210,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyRebase: key.NewBinding(
 		key.WithKeys("b"),
 		key.WithHelp("b", "rebase"),
+	),
+	KeyPRReview: key.NewBinding(
+		key.WithKeys("R"),
+		key.WithHelp("R", "review PR comments"),
 	),
 
 	// -- Special keybindings --

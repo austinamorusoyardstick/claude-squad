@@ -819,6 +819,32 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyPRReview:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		
+		// Get current PR info
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(err)
+		}
+		
+		pr, err := git.GetCurrentPR()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("no pull request found for current branch: %w", err))
+		}
+		
+		// Fetch PR comments
+		if err := pr.FetchComments(); err != nil {
+			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
+		}
+		
+		// Show PR review UI
+		m.state = statePRReview
+		m.prReviewOverlay = ui.NewPRReviewModel(pr)
+		return m, nil
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
