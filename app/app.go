@@ -310,14 +310,36 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case testStartedMsg:
+		// Show non-obtrusive message that tests are running
+		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
+		return m, nil
 	case testResultsMsg:
 		// Handle test results
 		if msg.err != nil {
 			return m, m.handleError(msg.err)
 		}
-		// Show test output in a text overlay
-		m.showTestResults(msg.output)
-		return m, nil
+		
+		// Open failed test files in WebStorm if any
+		if len(msg.failedFiles) > 0 {
+			for _, file := range msg.failedFiles {
+				cmd := exec.Command("webstorm", file)
+				cmd.Start()
+			}
+			// Show brief status about failed tests
+			m.errBox.SetError(fmt.Errorf("Tests completed. %d failed test files opened in WebStorm", len(msg.failedFiles)))
+		} else {
+			// All tests passed
+			m.errBox.SetError(fmt.Errorf("All tests passed!"))
+		}
+		
+		// Auto-hide the message after 3 seconds
+		return m, func() tea.Msg {
+			select {
+			case <-time.After(3 * time.Second):
+			}
+			return hideErrMsg{}
+		}
 	}
 	return m, nil
 }
