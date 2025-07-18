@@ -103,10 +103,14 @@ func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
 
-// ToggleWithReset toggles the tab and resets preview pane to normal mode
+// ToggleWithReset toggles the tab and resets scroll mode for all panes
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
 	// Reset preview pane to normal mode before switching
 	if err := w.preview.ResetToNormalMode(instance); err != nil {
+		return err
+	}
+	// Reset terminal pane to normal mode before switching
+	if err := w.terminal.ResetToNormalMode(instance); err != nil {
 		return err
 	}
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
@@ -133,6 +137,11 @@ func (w *TabbedWindow) ResetPreviewToNormalMode(instance *session.Instance) erro
 	return w.preview.ResetToNormalMode(instance)
 }
 
+// ResetTerminalToNormalMode resets the terminal pane to normal mode
+func (w *TabbedWindow) ResetTerminalToNormalMode(instance *session.Instance) error {
+	return w.terminal.ResetToNormalMode(instance)
+}
+
 func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
 	if w.activeTab != TerminalTab {
 		return
@@ -142,24 +151,36 @@ func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
 
 // Add these new methods for handling scroll events
 func (w *TabbedWindow) ScrollUp() {
-	if w.activeTab == AITab {
+	switch w.activeTab {
+	case AITab:
 		err := w.preview.ScrollUp(w.instance)
 		if err != nil {
 			log.InfoLog.Printf("tabbed window failed to scroll up: %v", err)
 		}
-	} else {
+	case DiffTab:
 		w.diff.ScrollUp()
+	case TerminalTab:
+		err := w.terminal.ScrollUp(w.instance)
+		if err != nil {
+			log.InfoLog.Printf("terminal pane failed to scroll up: %v", err)
+		}
 	}
 }
 
 func (w *TabbedWindow) ScrollDown() {
-	if w.activeTab == AITab {
+	switch w.activeTab {
+	case AITab:
 		err := w.preview.ScrollDown(w.instance)
 		if err != nil {
 			log.InfoLog.Printf("tabbed window failed to scroll down: %v", err)
 		}
-	} else {
+	case DiffTab:
 		w.diff.ScrollDown()
+	case TerminalTab:
+		err := w.terminal.ScrollDown(w.instance)
+		if err != nil {
+			log.InfoLog.Printf("terminal pane failed to scroll down: %v", err)
+		}
 	}
 }
 
@@ -207,6 +228,11 @@ func (w *TabbedWindow) IsInDiffTab() bool {
 // IsPreviewInScrollMode returns true if the preview pane is in scroll mode
 func (w *TabbedWindow) IsPreviewInScrollMode() bool {
 	return w.preview.isScrolling
+}
+
+// IsTerminalInScrollMode returns true if the terminal pane is in scroll mode
+func (w *TabbedWindow) IsTerminalInScrollMode() bool {
+	return w.terminal.isScrolling
 }
 
 // IsInTerminalTab returns true if the terminal tab is currently active
