@@ -957,6 +957,11 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 	}
 }
 
+const (
+	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
+	maxBookmarkSummaryLen = 100
+)
+
 func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
 	return func() tea.Msg {
 		worktree, err := instance.GetGitWorktree()
@@ -992,8 +997,8 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 			} else {
 				// Generate a summary by concatenating the commit messages
 				summary := strings.Join(messages, "; ")
-				if len(summary) > 100 {
-					summary = summary[:97] + "..."
+				if len(summary) > maxBookmarkSummaryLen {
+					summary = summary[:maxBookmarkSummaryLen-len("...")] + "..."
 				}
 				commitMessage = fmt.Sprintf("[BOOKMARK] %s", summary)
 			}
