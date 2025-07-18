@@ -139,6 +139,11 @@ func (t *TerminalPane) String() string {
 			Render(strings.Join(lines, ""))
 	}
 
+	// If in scroll mode, use the viewport to display scrollable content
+	if t.isScrolling {
+		return t.viewport.View()
+	}
+
 	// Calculate available height accounting for border and margin
 	availableHeight := t.height - 1 //  1 for ellipsis
 
