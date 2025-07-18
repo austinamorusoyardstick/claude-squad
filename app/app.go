@@ -863,11 +863,6 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		
 		// Get current PR info
-		worktree, err := selected.GetGitWorktree()
-		if err != nil {
-			return m, m.handleError(err)
-		}
-		
 		pr, err := git.GetCurrentPR()
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("no pull request found for current branch: %w", err))
