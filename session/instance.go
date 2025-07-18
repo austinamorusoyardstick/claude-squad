@@ -874,8 +874,17 @@ func (i *Instance) SendPromptToAI(prompt string) error {
 		return fmt.Errorf("tmux session does not exist")
 	}
 	
-	// Send the prompt to the AI pane
+	log.WarningLog.Printf("Sending prompt to AI pane: %s", prompt[:min(50, len(prompt))])
+	
+	// First ensure the terminal pane exists (creates split if needed)
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		log.ErrorLog.Printf("Failed to create terminal pane: %v", err)
+		return fmt.Errorf("error creating terminal pane: %w", err)
+	}
+	
+	// Send the prompt to the AI pane using tmux send-keys with Enter
 	if err := i.tmuxSession.SendKeysToTerminal(prompt); err != nil {
+		log.ErrorLog.Printf("Failed to send keys to AI pane: %v", err)
 		return fmt.Errorf("error sending keys to AI pane: %w", err)
 	}
 
@@ -883,10 +892,12 @@ func (i *Instance) SendPromptToAI(prompt string) error {
 	time.Sleep(100 * time.Millisecond)
 	
 	// Send Enter to the AI pane
-	if err := i.tmuxSession.SendKeysToTerminal("\n"); err != nil {
+	if err := i.tmuxSession.SendKeysToTerminal("Enter"); err != nil {
+		log.ErrorLog.Printf("Failed to send enter to AI pane: %v", err)
 		return fmt.Errorf("error sending enter to AI pane: %w", err)
 	}
-
+	
+	log.WarningLog.Printf("Successfully sent prompt and enter to AI pane")
 	return nil
 }
 
