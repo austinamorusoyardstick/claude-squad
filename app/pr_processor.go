@@ -83,21 +83,27 @@ func (m *home) sendCommentToClaude(comment git.PRComment) error {
 func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
 	var prompt strings.Builder
 	
-	prompt.WriteString(fmt.Sprintf("PR Review Comment from @%s:\n\n", comment.Author))
+	prompt.WriteString("=== PR REVIEW COMMENT ===\n\n")
+	prompt.WriteString(fmt.Sprintf("Author: @%s\n", comment.Author))
+	prompt.WriteString(fmt.Sprintf("Type: %s comment\n", comment.Type))
 	
 	if comment.Path != "" {
 		prompt.WriteString(fmt.Sprintf("File: %s", comment.Path))
 		if comment.Line > 0 {
 			prompt.WriteString(fmt.Sprintf(" (line %d)", comment.Line))
 		}
-		prompt.WriteString("\n\n")
+		prompt.WriteString("\n")
 	}
 	
-	prompt.WriteString("Comment:\n")
+	prompt.WriteString("\nComment:\n")
+	prompt.WriteString("---\n")
 	prompt.WriteString(comment.Body)
-	prompt.WriteString("\n\n")
+	prompt.WriteString("\n---\n\n")
 	
-	prompt.WriteString("Please address this review comment by making the necessary changes to the code.")
+	prompt.WriteString("Please analyze this pull request review comment and make the necessary changes to address the feedback. ")
+	prompt.WriteString("If the comment is asking a question, provide a clear answer. ")
+	prompt.WriteString("If it's suggesting a change, implement it. ")
+	prompt.WriteString("If you need clarification, explain what's unclear.")
 	
 	return prompt.String()
 }
