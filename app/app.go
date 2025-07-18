@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// stateHistory is the state when displaying the history overlay.
+	stateHistory
 )
 
 type home struct {
@@ -105,6 +107,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// historyOverlay displays scrollable history content
+	historyOverlay *overlay.HistoryOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
@@ -178,6 +182,9 @@ func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
 	}
 	if m.textOverlay != nil {
 		m.textOverlay.SetWidth(int(float32(msg.Width) * 0.6))
+	}
+	if m.historyOverlay != nil {
+		m.historyOverlay.SetSize(int(float32(msg.Width)*0.9), int(float32(msg.Height)*0.9))
 	}
 
 	previewWidth, previewHeight := m.tabbedWindow.GetPreviewSize()
@@ -276,6 +283,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case tea.MouseButtonWheelDown:
 					m.tabbedWindow.ScrollDown()
 				}
+				return m, nil
 			}
 		}
 		return m, nil
@@ -367,6 +375,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 	if m.state == stateErrorLog {
 		return m.handleErrorLogState(msg)
+	}
+
+	if m.state == stateHistory {
+		return m.handleHistoryState(msg)
 	}
 
 	if m.state == stateNew {
@@ -513,15 +525,25 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, nil
 	}
 
-	// Exit scrolling mode when ESC is pressed and preview pane is in scrolling mode
-	// Check if Escape key was pressed and we're not in the diff tab (meaning we're in preview tab)
+	// Exit scrolling mode when ESC is pressed and preview or terminal pane is in scrolling mode
+	// Check if Escape key was pressed
 	// Always check for escape key first to ensure it doesn't get intercepted elsewhere
 	if msg.Type == tea.KeyEsc {
+		// Use the selected instance from the list
+		selected := m.list.GetSelectedInstance()
+		
 		// If in preview tab and in scroll mode, exit scroll mode
-		if !m.tabbedWindow.IsInDiffTab() && m.tabbedWindow.IsPreviewInScrollMode() {
-			// Use the selected instance from the list
-			selected := m.list.GetSelectedInstance()
+		if !m.tabbedWindow.IsInDiffTab() && !m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsPreviewInScrollMode() {
 			err := m.tabbedWindow.ResetPreviewToNormalMode(selected)
+			if err != nil {
+				return m, m.handleError(err)
+			}
+			return m, m.instanceChanged()
+		}
+		
+		// If in terminal tab and in scroll mode, exit scroll mode
+		if m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsTerminalInScrollMode() {
+			err := m.tabbedWindow.ResetTerminalToNormalMode(selected)
 			if err != nil {
 				return m, m.handleError(err)
 			}
@@ -629,10 +651,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, m.instanceChanged()
 	case keys.KeyShiftUp:
 		m.tabbedWindow.ScrollUp()
-		return m, m.instanceChanged()
+		return m, nil
 	case keys.KeyShiftDown:
 		m.tabbedWindow.ScrollDown()
-		return m, m.instanceChanged()
+		return m, nil
 	case keys.KeyHome:
 		if m.tabbedWindow.IsInDiffTab() {
 			m.tabbedWindow.ScrollToTop()
@@ -819,6 +841,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyHistory:
+		return m, m.showHistoryView()
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1138,6 +1162,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
+	} else if m.state == stateHistory {
+		if m.historyOverlay == nil {
+			log.ErrorLog.Printf("history overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.historyOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
@@ -1148,6 +1179,22 @@ func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.state = stateDefault
 	m.textOverlay = nil
 	return m, nil
+}
+
+// handleHistoryState handles key events when in history state
+func (m *home) handleHistoryState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Let the history overlay handle the key press
+	shouldClose := m.historyOverlay.HandleKeyPress(msg)
+	if shouldClose {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.historyOverlay = nil
+		return m, tea.WindowSize()
+	}
+
+	// Update the viewport
+	_, cmd := m.historyOverlay.Update(msg)
+	return m, cmd
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
@@ -1223,4 +1270,54 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 	m.menu.SetState(ui.StateDefault)
 
 	return m, tea.Batch(m.instanceChanged(), cmd)
+}
+
+// showHistoryView displays the history overlay for the current pane
+func (m *home) showHistoryView() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return nil
+	}
+
+	var content string
+	var title string
+	var err error
+
+	// Determine which pane's history to show based on the active tab
+	if m.tabbedWindow.IsInTerminalTab() {
+		// Show terminal pane history
+		content, err = selected.GetTerminalFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get terminal history: %v", err))
+		}
+		title = fmt.Sprintf("Terminal History - %s", selected.Title)
+	} else if m.tabbedWindow.IsInAITab() {
+		// Show AI pane history
+		content, err = selected.GetAIFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get AI history: %v", err))
+		}
+		title = fmt.Sprintf("AI History - %s", selected.Title)
+	} else {
+		// Default to AI pane if we're in diff view
+		content, err = selected.GetAIFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get AI history: %v", err))
+		}
+		title = fmt.Sprintf("AI History - %s", selected.Title)
+	}
+
+	// Create the history overlay
+	m.historyOverlay = overlay.NewHistoryOverlay(title, content)
+	m.historyOverlay.OnDismiss = func() {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.historyOverlay = nil
+	}
+
+	// Set state to history
+	m.state = stateHistory
+	m.menu.SetState(ui.StateDefault)
+
+	return tea.WindowSize()
 }
