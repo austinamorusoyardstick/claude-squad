@@ -103,7 +103,6 @@ func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
 
-
 // ToggleWithReset toggles the tab and resets preview pane to normal mode
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
 	// Reset preview pane to normal mode before switching
@@ -113,7 +112,6 @@ func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 	return nil
 }
-
 
 // UpdatePreview updates the content of the AI pane. instance may be nil.
 func (w *TabbedWindow) UpdatePreview(instance *session.Instance) error {
@@ -129,7 +127,6 @@ func (w *TabbedWindow) UpdateDiff(instance *session.Instance) {
 	}
 	w.diff.SetDiff(instance)
 }
-
 
 // ResetPreviewToNormalMode resets the preview pane to normal mode
 func (w *TabbedWindow) ResetPreviewToNormalMode(instance *session.Instance) error {
@@ -207,11 +204,11 @@ func (w *TabbedWindow) IsInDiffTab() bool {
 	return w.activeTab == 1
 }
 
-
 // IsPreviewInScrollMode returns true if the preview pane is in scroll mode
 func (w *TabbedWindow) IsPreviewInScrollMode() bool {
 	return w.preview.isScrolling
 }
+
 // IsInTerminalTab returns true if the terminal tab is currently active
 func (w *TabbedWindow) IsInTerminalTab() bool {
 	return w.activeTab == 2

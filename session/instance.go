@@ -200,16 +200,16 @@ func NewInstanceWithBranch(opts InstanceOptions) (*Instance, error) {
 	}
 
 	instance := &Instance{
-		Title:     title,
-		Status:    Ready,
-		Path:      absPath,
-		Program:   opts.Program,
-		Branch:    opts.BranchName, // Set the branch name
-		Height:    0,
-		Width:     0,
-		CreatedAt: t,
-		UpdatedAt: t,
-		AutoYes:   opts.AutoYes,
+		Title:          title,
+		Status:         Ready,
+		Path:           absPath,
+		Program:        opts.Program,
+		Branch:         opts.BranchName, // Set the branch name
+		Height:         0,
+		Width:          0,
+		CreatedAt:      t,
+		UpdatedAt:      t,
+		AutoYes:        opts.AutoYes,
 		existingBranch: true, // Mark this as using an existing branch
 	}
 
@@ -232,7 +232,7 @@ func (i *Instance) SetStatus(status Status) {
 func (i *Instance) StartAsync(firstTimeSetup bool, onComplete func(error)) {
 	// Set status to Creating immediately
 	i.SetStatus(Creating)
-	
+
 	// Run the actual start operation in a goroutine
 	go func() {
 		err := i.Start(firstTimeSetup)
@@ -327,7 +327,7 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 func (i *Instance) KillAsync(onComplete func(error)) {
 	// Set status to Deleting immediately
 	i.SetStatus(Deleting)
-	
+
 	// Run the actual kill operation in a goroutine
 	go func() {
 		err := i.Kill()
@@ -346,7 +346,7 @@ func (i *Instance) KillAsync(onComplete func(error)) {
 func (i *Instance) ForceKillAsync(onComplete func(error)) {
 	// Set status to Deleting immediately
 	i.SetStatus(Deleting)
-	
+
 	// Run the actual force kill operation in a goroutine
 	go func() {
 		err := i.ForceKill()
@@ -403,7 +403,7 @@ func (i *Instance) ForceKill() error {
 	}
 
 	// If normal kill failed, try more aggressive cleanup methods
-	
+
 	// Force close tmux session
 	if i.tmuxSession != nil {
 		// Try to force kill the tmux session
@@ -426,7 +426,7 @@ func (i *Instance) ForceKill() error {
 		// Try force cleanup
 		if err := i.gitWorktree.ForceCleanup(); err != nil {
 			errs = append(errs, fmt.Errorf("git worktree force cleanup failed: %w", err))
-			
+
 			// If git cleanup failed, try manual filesystem cleanup
 			worktreePath := i.gitWorktree.GetWorktreePath()
 			if worktreePath != "" && worktreePath != "/" && strings.Contains(worktreePath, "worktrees") {
@@ -445,7 +445,7 @@ func (i *Instance) ForceKill() error {
 	if len(errs) > 0 {
 		return fmt.Errorf("force kill completed with errors: %w", i.combineErrors(errs))
 	}
-	
+
 	return nil
 }
 
@@ -469,12 +469,12 @@ func (i *Instance) Preview() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", nil
 	}
-	
+
 	// Check if tmux session was killed and needs to be recreated
 	if err := i.ensureTmuxSession(); err != nil {
 		return "", err
 	}
-	
+
 	// Ensure terminal pane exists first
 	i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath())
 	// AI content is in pane 1 after terminal split
@@ -485,12 +485,12 @@ func (i *Instance) HasUpdated() (updated bool, hasPrompt bool) {
 	if !i.started {
 		return false, false
 	}
-	
+
 	// Check if tmux session still exists
 	if !i.tmuxSession.DoesSessionExist() {
 		return false, false
 	}
-	
+
 	return i.tmuxSession.HasUpdated()
 }
 
@@ -508,12 +508,12 @@ func (i *Instance) Attach() (chan struct{}, error) {
 	if !i.started {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
 	}
-	
+
 	// Check if tmux session was killed and needs to be recreated
 	if err := i.ensureTmuxSession(); err != nil {
 		return nil, err
 	}
-	
+
 	return i.tmuxSession.Attach()
 }
 
@@ -522,12 +522,12 @@ func (i *Instance) AttachToPane(paneIndex int) (chan struct{}, error) {
 	if !i.started {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
 	}
-	
+
 	// Check if tmux session was killed and needs to be recreated
 	if err := i.ensureTmuxSession(); err != nil {
 		return nil, err
 	}
-	
+
 	// If attaching to terminal pane, ensure it exists first
 	if paneIndex == 1 {
 		if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
@@ -535,7 +535,7 @@ func (i *Instance) AttachToPane(paneIndex int) (chan struct{}, error) {
 			log.ErrorLog.Printf("failed to create terminal pane: %v", err)
 		}
 	}
-	
+
 	return i.tmuxSession.AttachToPane(paneIndex)
 }
 
@@ -544,17 +544,17 @@ func (i *Instance) GetTerminalContent() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", fmt.Errorf("instance not available")
 	}
-	
+
 	// Check if tmux session was killed and needs to be recreated
 	if err := i.ensureTmuxSession(); err != nil {
 		return "", err
 	}
-	
+
 	// Ensure terminal pane exists
 	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
 		return "", fmt.Errorf("failed to create terminal pane: %v", err)
 	}
-	
+
 	// Terminal is in pane 0 (original pane)
 	return i.tmuxSession.CapturePaneContent()
 }
@@ -623,7 +623,7 @@ func (i *Instance) ReloadSession() error {
 	if !i.started {
 		return fmt.Errorf("cannot reload session that has not been started")
 	}
-	
+
 	log.InfoLog.Printf("Reloading tmux session %s in %s...", i.tmuxSession.GetSessionName(), i.gitWorktree.GetWorktreePath())
 	return i.tmuxSession.ReloadSession(i.gitWorktree.GetWorktreePath())
 }

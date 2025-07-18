@@ -109,7 +109,7 @@ func (g *GitWorktree) DiffUncommittedOrLastCommit() *DiffStats {
 			return stats
 		}
 	}
-	
+
 	lines := strings.Split(content, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {

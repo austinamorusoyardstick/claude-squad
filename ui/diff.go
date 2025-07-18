@@ -74,7 +74,7 @@ func (d *DiffPane) refreshDiff() {
 
 	var stats *git.DiffStats
 	var modeLabel string
-	
+
 	switch d.mode {
 	case DiffModeAll:
 		stats = d.instance.GetDiffStats()
@@ -91,7 +91,7 @@ func (d *DiffPane) refreshDiff() {
 			if d.commitOffset == -1 && stats != nil && !stats.IsUncommitted {
 				actualOffset = 0
 			}
-			
+
 			if hash, msg, err := d.instance.GetCommitInfo(actualOffset); err == nil {
 				// Truncate message if too long
 				if len(msg) > 40 {
@@ -148,7 +148,7 @@ func (d *DiffPane) refreshDiff() {
 		d.diff = colorizeDiff(stats.Content)
 		content := lipgloss.JoinVertical(lipgloss.Left, d.stats, d.diff)
 		d.viewport.SetContent(content)
-		
+
 		// Parse file positions after setting content
 		d.parseFilePositions(content)
 	}
@@ -192,7 +192,7 @@ func (d *DiffPane) PageDown() {
 func (d *DiffPane) parseFilePositions(content string) {
 	d.filePositions = []int{}
 	lines := strings.Split(content, "\n")
-	
+
 	for i, line := range lines {
 		// Look for diff headers that indicate a new file
 		if strings.HasPrefix(line, "diff --git") {
@@ -206,9 +206,9 @@ func (d *DiffPane) JumpToNextFile() {
 	if len(d.filePositions) == 0 {
 		return
 	}
-	
+
 	currentOffset := d.viewport.YOffset
-	
+
 	// Find the next file position after the current offset
 	for _, pos := range d.filePositions {
 		if pos > currentOffset {
@@ -216,7 +216,7 @@ func (d *DiffPane) JumpToNextFile() {
 			return
 		}
 	}
-	
+
 	// If no next file, stay at current position
 }
 
@@ -225,9 +225,9 @@ func (d *DiffPane) JumpToPrevFile() {
 	if len(d.filePositions) == 0 {
 		return
 	}
-	
+
 	currentOffset := d.viewport.YOffset
-	
+
 	// Find the previous file position before the current offset
 	for i := len(d.filePositions) - 1; i >= 0; i-- {
 		if d.filePositions[i] < currentOffset {
@@ -235,7 +235,7 @@ func (d *DiffPane) JumpToPrevFile() {
 			return
 		}
 	}
-	
+
 	// If no previous file, jump to the first file
 	if currentOffset > d.filePositions[0] {
 		d.viewport.SetYOffset(d.filePositions[0])
@@ -273,11 +273,11 @@ func (d *DiffPane) GetCurrentFile() string {
 	if d.viewport.TotalLineCount() == 0 || d.diff == "" {
 		return ""
 	}
-	
+
 	// Get the current line we're looking at in the viewport
 	currentLine := d.viewport.YOffset
 	lines := strings.Split(d.diff, "\n")
-	
+
 	// Search backwards from current position to find the most recent file header
 	for i := currentLine; i >= 0; i-- {
 		if i < len(lines) {
@@ -302,7 +302,7 @@ func (d *DiffPane) GetCurrentFile() string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 

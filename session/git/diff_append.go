@@ -20,7 +20,7 @@ func (g *GitWorktree) DiffCommitAtOffset(offset int) *DiffStats {
 	// Get the diff of the commit at the specified offset
 	var content string
 	var err error
-	
+
 	if offset == 0 {
 		// For HEAD, show diff between HEAD^ and HEAD
 		content, err = g.runGitCommand(g.worktreePath, "--no-pager", "diff", "HEAD^..HEAD")
@@ -46,7 +46,7 @@ func (g *GitWorktree) DiffCommitAtOffset(offset int) *DiffStats {
 			}
 		}
 	}
-	
+
 	lines := strings.Split(content, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++") {
@@ -71,21 +71,21 @@ func (g *GitWorktree) GetCommitInfo(offset int) (hash string, message string, er
 	if offset > 0 {
 		ref = fmt.Sprintf("HEAD~%d", offset)
 	}
-	
+
 	// Get commit hash
 	hash, err = g.runGitCommand(g.worktreePath, "rev-parse", "--short", ref)
 	if err != nil {
 		return "", "", err
 	}
 	hash = strings.TrimSpace(hash)
-	
+
 	// Get commit message (first line only)
 	message, err = g.runGitCommand(g.worktreePath, "log", "-1", "--pretty=%s", ref)
 	if err != nil {
 		return "", "", err
 	}
 	message = strings.TrimSpace(message)
-	
+
 	return hash, message, nil
 }
 

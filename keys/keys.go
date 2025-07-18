@@ -22,12 +22,12 @@ const (
 
 	KeyCheckout
 	KeyResume
-	KeyPrompt // New key for entering a prompt
-	KeyHelp   // Key for showing help screen
+	KeyPrompt         // New key for entering a prompt
+	KeyHelp           // Key for showing help screen
 	KeyExistingBranch // Key for creating instance from existing branch
-	KeyErrorLog // Key for showing error log
-	KeyWebStorm // Key for opening WebStorm
-	KeyRebase // Key for rebasing with main branch
+	KeyErrorLog       // Key for showing error log
+	KeyWebStorm       // Key for opening WebStorm
+	KeyRebase         // Key for rebasing with main branch
 
 	// Diff keybindings
 	KeyShiftUp

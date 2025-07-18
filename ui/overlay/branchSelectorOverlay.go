@@ -12,14 +12,14 @@ import (
 )
 
 type BranchSelectorOverlay struct {
-	branches       []git.BranchInfo
+	branches         []git.BranchInfo
 	filteredBranches []git.BranchInfo
-	cursor         int
-	selected       bool
-	selectedBranch string
-	filter         textinput.Model
-	width          int
-	height         int
+	cursor           int
+	selected         bool
+	selectedBranch   string
+	filter           textinput.Model
+	width            int
+	height           int
 }
 
 func NewBranchSelectorOverlay(branches []git.BranchInfo) *BranchSelectorOverlay {
@@ -32,9 +32,9 @@ func NewBranchSelectorOverlay(branches []git.BranchInfo) *BranchSelectorOverlay 
 	b := &BranchSelectorOverlay{
 		branches:         branches,
 		filteredBranches: branches,
-		filter:          ti,
-		width:           80,
-		height:          20,
+		filter:           ti,
+		width:            80,
+		height:           20,
 	}
 	return b
 }
@@ -71,7 +71,7 @@ func (b *BranchSelectorOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Update filter input
 			prevFilter := b.filter.Value()
 			b.filter, cmd = b.filter.Update(msg)
-			
+
 			// If filter changed, update filtered branches
 			if b.filter.Value() != prevFilter {
 				b.updateFilteredBranches()
@@ -99,7 +99,7 @@ func (b *BranchSelectorOverlay) updateFilteredBranches() {
 			}
 		}
 	}
-	
+
 	// Reset cursor if it's out of bounds
 	if b.cursor >= len(b.filteredBranches) {
 		b.cursor = max(0, len(b.filteredBranches)-1)
@@ -154,23 +154,23 @@ func (b *BranchSelectorOverlay) View() string {
 	// Calculate visible range
 	startIdx := 0
 	endIdx := len(b.filteredBranches)
-	
+
 	if len(b.filteredBranches) > maxVisible {
 		// Scroll to keep cursor visible
 		if b.cursor >= maxVisible {
 			startIdx = b.cursor - maxVisible + 1
 		}
-		endIdx = min(startIdx + maxVisible, len(b.filteredBranches))
+		endIdx = min(startIdx+maxVisible, len(b.filteredBranches))
 	}
 
 	// Display branches
 	var branchList strings.Builder
 	for i := startIdx; i < endIdx; i++ {
 		branch := b.filteredBranches[i]
-		
+
 		// Format branch line
 		timeAgo := formatTimeAgo(branch.CommitTime)
-		branchLine := fmt.Sprintf("%-30s %s", 
+		branchLine := fmt.Sprintf("%-30s %s",
 			truncateString(branch.Name, 30),
 			mutedStyle.Render(fmt.Sprintf("%s • %s", timeAgo, truncateString(branch.CommitMessage, 40))))
 
@@ -179,7 +179,7 @@ func (b *BranchSelectorOverlay) View() string {
 		} else {
 			branchList.WriteString(normalStyle.Render("  " + branchLine))
 		}
-		
+
 		if i < endIdx-1 {
 			branchList.WriteString("\n")
 		}
@@ -194,7 +194,7 @@ func (b *BranchSelectorOverlay) View() string {
 	}
 
 	s.WriteString(listStyle.Render(branchList.String()))
-	
+
 	// Help text
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("#666666")).
@@ -215,7 +215,7 @@ func (b *BranchSelectorOverlay) SelectedBranch() string {
 
 func formatTimeAgo(t time.Time) string {
 	duration := time.Since(t)
-	
+
 	if duration < time.Minute {
 		return "just now"
 	} else if duration < time.Hour {
@@ -243,7 +243,7 @@ func formatTimeAgo(t time.Time) string {
 		}
 		return fmt.Sprintf("%d months ago", months)
 	}
-	
+
 	years := int(duration.Hours() / 24 / 365)
 	if years == 1 {
 		return "1 year ago"

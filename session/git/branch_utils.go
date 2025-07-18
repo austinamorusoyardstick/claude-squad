@@ -9,11 +9,11 @@ import (
 
 // BranchInfo represents information about a git branch
 type BranchInfo struct {
-	Name         string
-	CommitTime   time.Time
-	CommitHash   string
+	Name          string
+	CommitTime    time.Time
+	CommitHash    string
 	CommitMessage string
-	IsRemote     bool
+	IsRemote      bool
 }
 
 // ListRemoteBranchesFromRepo returns a list of remote branches sorted by most recent commit from a given repo path
@@ -26,7 +26,7 @@ func ListRemoteBranchesFromRepo(repoPath string) ([]BranchInfo, error) {
 
 	// Create a temporary GitWorktree just for running commands
 	g := &GitWorktree{repoPath: gitRoot}
-	
+
 	return g.ListRemoteBranches()
 }
 

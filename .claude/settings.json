@@ -1,12 +1,13 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(afplay:*)",
       "Bash(say:*)",
-      "WebFetch(domain:*)",
-      "Edit(src/**)"
+      "Bash(go:*)",
+      "WebFetch(domain:*)"
     ],
     "deny": [
       "Bash(aws:*)"

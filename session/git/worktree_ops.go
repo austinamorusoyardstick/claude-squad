@@ -27,7 +27,7 @@ func (g *GitWorktree) Setup() error {
 		// Local branch exists, use SetupFromExistingBranch
 		return g.SetupFromExistingBranch()
 	}
-	
+
 	// Also check using git command for local branch (more reliable for complex branch names)
 	if _, err := g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/heads/"+g.branchName); err == nil {
 		// Local branch exists, use SetupFromExistingBranch
@@ -40,7 +40,7 @@ func (g *GitWorktree) Setup() error {
 	if !strings.HasPrefix(g.branchName, "origin/") && !strings.Contains(g.branchName, "/") {
 		remoteBranchName = "origin/" + g.branchName
 	}
-	
+
 	// Check git command line to see if remote branch exists
 	_, err = g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/remotes/"+remoteBranchName)
 	if err == nil {
@@ -80,14 +80,14 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 
 	// Clean up any existing worktree first
 	_, _ = g.runGitCommand(g.repoPath, "worktree", "remove", "-f", g.worktreePath) // Ignore error if worktree doesn't exist
-	
+
 	// Prune any stale worktree references
 	_, _ = g.runGitCommand(g.repoPath, "worktree", "prune")
 
 	// Check if this is a remote branch that needs to be created locally
 	isRemoteBranch := false
 	remoteBranchName := ""
-	
+
 	// Check if this is actually a remote branch (starts with "origin/" or other remote prefix)
 	if strings.HasPrefix(g.branchName, "origin/") {
 		parts := strings.SplitN(g.branchName, "/", 2)
@@ -127,18 +127,18 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 				// Create a new branch name with a suffix for this worktree
 				timestamp := time.Now().Format("20060102-150405")
 				newBranchName := fmt.Sprintf("%s-worktree-%s", g.branchName, timestamp)
-				
+
 				// For remote branches, fetch latest
 				if isRemoteBranch {
 					if _, err := g.runGitCommand(g.repoPath, "fetch", "origin", g.branchName); err != nil {
 						log.WarningLog.Printf("failed to fetch latest changes for branch %s: %v", g.branchName, err)
 					}
-					
+
 					// Create new branch from remote
 					if _, err := g.runGitCommand(g.repoPath, "worktree", "add", "-b", newBranchName, g.worktreePath, remoteBranchName); err != nil {
 						return fmt.Errorf("failed to create worktree with new branch %s from %s: %w", newBranchName, remoteBranchName, err)
 					}
-					
+
 					// Set up tracking to the remote branch
 					if _, err := g.runGitCommand(g.worktreePath, "branch", "--set-upstream-to="+remoteBranchName, newBranchName); err != nil {
 						log.WarningLog.Printf("failed to set upstream tracking for branch %s: %v", newBranchName, err)
@@ -149,11 +149,11 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 						return fmt.Errorf("failed to create worktree with new branch %s from %s: %w", newBranchName, g.branchName, err)
 					}
 				}
-				
+
 				// Update branch name to the new one
 				g.branchName = newBranchName
 				log.InfoLog.Printf("Branch was already checked out, created new branch: %s", newBranchName)
-				
+
 				return nil
 			}
 		}
@@ -168,20 +168,20 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 				log.WarningLog.Printf("failed to fetch latest changes for branch %s: %v", g.branchName, err)
 			}
 		}
-		
+
 		// Check if local branch already exists
 		localBranchExists := false
 		if _, err := g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/heads/"+g.branchName); err == nil {
 			localBranchExists = true
 		}
-		
+
 		if localBranchExists {
 			// Local branch exists, update it to match remote and checkout
 			// First, create worktree with the existing local branch
 			if _, err := g.runGitCommand(g.repoPath, "worktree", "add", g.worktreePath, g.branchName); err != nil {
 				return fmt.Errorf("failed to create worktree from branch %s: %w", g.branchName, err)
 			}
-			
+
 			// Then reset it to the remote branch to get latest changes
 			if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", remoteBranchName); err != nil {
 				return fmt.Errorf("failed to reset branch %s to %s: %w", g.branchName, remoteBranchName, err)
@@ -192,7 +192,7 @@ func (g *GitWorktree) SetupFromExistingBranch() error {
 				return fmt.Errorf("failed to create worktree with new branch %s tracking %s: %w", g.branchName, remoteBranchName, err)
 			}
 		}
-		
+
 		// Set up tracking information
 		if _, err := g.runGitCommand(g.worktreePath, "branch", "--set-upstream-to="+remoteBranchName, g.branchName); err != nil {
 			log.WarningLog.Printf("failed to set upstream tracking for branch %s: %v", g.branchName, err)
@@ -223,7 +223,7 @@ func (g *GitWorktree) SetupNewWorktree() error {
 
 	// Clean up any existing worktree first
 	_, _ = g.runGitCommand(g.repoPath, "worktree", "remove", "-f", g.worktreePath) // Ignore error if worktree doesn't exist
-	
+
 	// Prune any stale worktree references
 	_, _ = g.runGitCommand(g.repoPath, "worktree", "prune")
 
@@ -254,7 +254,7 @@ func (g *GitWorktree) SetupNewWorktree() error {
 		// If we can't get the remote HEAD, fall back to trying origin/main or origin/master
 		mainOutput, mainErr := g.runGitCommand(g.repoPath, "rev-parse", "origin/main")
 		masterOutput, masterErr := g.runGitCommand(g.repoPath, "rev-parse", "origin/master")
-		
+
 		if mainErr == nil {
 			targetCommit = strings.TrimSpace(string(mainOutput))
 		} else if masterErr == nil {
@@ -284,7 +284,7 @@ func (g *GitWorktree) SetupNewWorktree() error {
 		}
 		targetCommit = strings.TrimSpace(string(commitOutput))
 	}
-	
+
 	g.baseCommitSHA = targetCommit
 
 	// Create a new worktree from the target commit (remote HEAD or fallback)
@@ -367,7 +367,6 @@ func (g *GitWorktree) Cleanup() error {
 	return nil
 }
 
-
 // ForceCleanup performs aggressive cleanup of the worktree and branch
 // This method attempts multiple fallback strategies to ensure cleanup succeeds
 func (g *GitWorktree) ForceCleanup() error {
@@ -402,7 +401,7 @@ func (g *GitWorktree) ForceCleanup() error {
 		// Try force delete with -D
 		if _, err := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); err != nil {
 			errs = append(errs, fmt.Errorf("failed to force delete branch %s: %w", g.branchName, err))
-			
+
 			// If branch delete fails, try to remove the ref directly
 			repo, openErr := git.PlainOpen(g.repoPath)
 			if openErr == nil {
@@ -434,7 +433,7 @@ func (g *GitWorktree) ForceCleanup() error {
 	if len(errs) > 0 {
 		return g.combineErrors(errs)
 	}
-	
+
 	return nil
 }
 

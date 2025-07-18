@@ -132,12 +132,11 @@ func (t *TmuxSession) Start(workDir string) error {
 	}
 	ptmx.Close()
 
-
 	// Set history limit to enable scrollback (default is 2000, we'll use 10000 for more history)
 	historyCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "history-limit", "10000")
 	if err := t.cmdExec.Run(historyCmd); err != nil {
 		log.InfoLog.Printf("Warning: failed to set history-limit for session %s: %v", t.sanitizedName, err)
-    }
+	}
 
 	// Set status-position to top
 	statusCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "status-position", "top")
@@ -232,7 +231,7 @@ func (t *TmuxSession) SendKeys(keys string) error {
 	if !t.DoesSessionExist() {
 		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	_, err := t.ptmx.Write([]byte(keys))
 	return err
 }
@@ -244,7 +243,7 @@ func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
 	if !t.DoesSessionExist() {
 		return false, false
 	}
-	
+
 	content, err := t.CapturePaneContent()
 	if err != nil {
 		log.ErrorLog.Printf("error capturing pane content in status monitor: %v", err)
@@ -527,7 +526,7 @@ func (t *TmuxSession) CapturePaneContent() (string, error) {
 	if !t.DoesSessionExist() {
 		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	// Add -e flag to preserve escape sequences (ANSI color codes)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".0")
 	output, err := t.cmdExec.Output(cmd)
@@ -544,7 +543,7 @@ func (t *TmuxSession) CapturePaneContentWithOptions(start, end string) (string, 
 	if !t.DoesSessionExist() {
 		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	// Add -e flag to preserve escape sequences (ANSI color codes)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", start, "-E", end, "-t", t.sanitizedName)
 	output, err := t.cmdExec.Output(cmd)
@@ -578,19 +577,19 @@ func (t *TmuxSession) ClearReloadFlag() {
 func (t *TmuxSession) ReloadSession(workDir string) error {
 	// Set reloading flag to prevent error message
 	t.isReloading = true
-	
+
 	// Kill existing session if it exists
 	if t.DoesSessionExist() {
 		cmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
 		t.cmdExec.Run(cmd) // Ignore error as session might not exist
 	}
-	
+
 	// Close existing PTY if any
 	if t.ptmx != nil {
 		t.ptmx.Close()
 		t.ptmx = nil
 	}
-	
+
 	// Recreate the session
 	err := t.Start(workDir)
 	t.isReloading = false
@@ -603,7 +602,7 @@ func (t *TmuxSession) CreateTerminalPane(workDir string) error {
 	if !t.DoesSessionExist() {
 		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	// Check if we already have a second pane
 	listCmd := exec.Command("tmux", "list-panes", "-t", t.sanitizedName, "-F", "#{pane_index}")
 	output, err := t.cmdExec.Output(listCmd)
@@ -631,14 +630,13 @@ func (t *TmuxSession) CreateTerminalPane(workDir string) error {
 	return nil
 }
 
-
 // CaptureTerminalContent captures the content of pane 1 (AI after split)
 func (t *TmuxSession) CaptureTerminalContent() (string, error) {
 	// First check if the session exists
 	if !t.DoesSessionExist() {
 		return "", fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	// Capture from pane index 1 (AI pane after split)
 	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName+".1")
 	output, err := t.cmdExec.Output(cmd)
@@ -654,7 +652,7 @@ func (t *TmuxSession) SendKeysToTerminal(keys string) error {
 	if !t.DoesSessionExist() {
 		return fmt.Errorf("tmux session %s does not exist", t.sanitizedName)
 	}
-	
+
 	cmd := exec.Command("tmux", "send-keys", "-t", t.sanitizedName+".1", keys)
 	return t.cmdExec.Run(cmd)
 }

@@ -81,7 +81,7 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
-	
+
 	// pendingCmd stores a command to be executed after confirmation
 	pendingCmd tea.Cmd
 
@@ -105,7 +105,7 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
-	
+
 	// errorLog stores all error messages for display
 	errorLog []string
 }
@@ -206,7 +206,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if _, ok := msg.(tea.KeyMsg); ok {
 			// Update the branch selector
 			_, cmd := m.branchSelectorOverlay.Update(msg)
-			
+
 			// Check if selection is complete
 			if m.branchSelectorOverlay.IsSelected() {
 				selectedBranch := m.branchSelectorOverlay.SelectedBranch()
@@ -217,11 +217,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.branchSelectorOverlay = nil
 					return m, nil
 				}
-				
+
 				// Create instance with selected branch
 				return m.createInstanceWithBranch(selectedBranch)
 			}
-			
+
 			return m, cmd
 		}
 	}
@@ -364,7 +364,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	if m.state == stateHelp {
 		return m.handleHelpState(msg)
 	}
-	
+
 	if m.state == stateErrorLog {
 		return m.handleErrorLogState(msg)
 	}
@@ -394,12 +394,12 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 			// Start the instance asynchronously
 			cmd := m.startInstanceAsync(instance)
-			
+
 			// Save after adding new instance
 			if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
 				return m, m.handleError(err)
 			}
-			
+
 			// Instance added successfully, call the finalizer.
 			m.newInstanceFinalizer()
 			if m.autoYes {
@@ -493,7 +493,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			wasConfirmed := m.confirmationOverlay.IsConfirmed()
 			m.state = stateDefault
 			m.confirmationOverlay = nil
-			
+
 			// Execute pending command if confirmed
 			if wasConfirmed && m.pendingCmd != nil {
 				cmd := m.pendingCmd
@@ -590,24 +590,24 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(
 				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
 		}
-		
+
 		// Show branch selector
 		m.state = stateBranchSelect
 		m.menu.SetState(ui.StateNewInstance)
-		
+
 		// Get list of remote branches
 		branches, err := git.ListRemoteBranchesFromRepo(".")
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("failed to list remote branches: %w", err))
 		}
-		
+
 		// Check if there are any branches
 		if len(branches) == 0 {
 			m.state = stateDefault
 			m.menu.SetState(ui.StateDefault)
 			return m, m.handleError(fmt.Errorf("no remote branches found"))
 		}
-		
+
 		// Create branch selector overlay
 		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(branches)
 
@@ -831,7 +831,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.showHelpScreen(helpTypeInstanceAttach{}, func() {
 			var ch chan struct{}
 			var err error
-			
+
 			// Determine which pane to attach to based on active tab
 			if m.tabbedWindow.IsInTerminalTab() {
 				// If terminal tab is active, attach to terminal pane (pane 0)
@@ -840,18 +840,18 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				// Otherwise, attach to AI pane (pane 1)
 				ch, err = m.list.AttachToPane(1)
 			}
-			
+
 			if err != nil {
 				m.handleError(err)
 				return
 			}
-			
+
 			// Store selected instance for reload handling
 			selected := m.list.GetSelectedInstance()
-			
+
 			<-ch
 			m.state = stateDefault
-			
+
 			// Check if reload was requested (set by the tmux reload handler)
 			if selected != nil && selected.NeedsReload() {
 				selected.SetNeedsReload(false)
@@ -879,14 +879,14 @@ func (m *home) openWebStorm(instance *session.Instance) tea.Cmd {
 		if err != nil {
 			return fmt.Errorf("failed to get git worktree: %w", err)
 		}
-		
+
 		// Open WebStorm at the worktree path (not the git root)
 		worktreePath := gitWorktree.GetWorktreePath()
 		cmd := exec.Command("webstorm", worktreePath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open WebStorm: %w", err)
 		}
-		
+
 		return nil
 	}
 }
@@ -898,17 +898,17 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 		if err != nil {
 			return fmt.Errorf("failed to get git worktree: %w", err)
 		}
-		
+
 		// Construct the full path to the file using the worktree path
 		worktreePath := gitWorktree.GetWorktreePath()
 		fullPath := filepath.Join(worktreePath, filePath)
-		
+
 		// Open WebStorm with the specific file
 		cmd := exec.Command("webstorm", fullPath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open file in WebStorm: %w", err)
 		}
-		
+
 		return nil
 	}
 }
@@ -978,15 +978,15 @@ func (m *home) startInstanceAsync(instance *session.Instance) tea.Cmd {
 	return func() tea.Msg {
 		var resultErr error
 		done := make(chan struct{})
-		
+
 		instance.StartAsync(true, func(err error) {
 			resultErr = err
 			close(done)
 		})
-		
+
 		// Wait for completion
 		<-done
-		
+
 		return instanceCreatedMsg{
 			instance: instance,
 			err:      resultErr,
@@ -1000,21 +1000,21 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 		var resultErr error
 		done := make(chan struct{})
 		title := instance.Title
-		
+
 		instance.KillAsync(func(err error) {
 			if err != nil {
 				// If normal kill fails, try force kill
 				log.InfoLog.Printf("Normal kill failed for %s: %v. Attempting force kill...", title, err)
 				forceDone := make(chan struct{})
 				var forceErr error
-				
+
 				instance.ForceKillAsync(func(err error) {
 					forceErr = err
 					close(forceDone)
 				})
-				
+
 				<-forceDone
-				
+
 				if forceErr != nil {
 					// Log the error but don't fail - we still want to remove the instance
 					log.ErrorLog.Printf("Force kill encountered errors for %s: %v", title, forceErr)
@@ -1029,14 +1029,14 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 			}
 			close(done)
 		})
-		
+
 		// Wait for completion
 		<-done
-		
+
 		// Always remove from UI list after kill attempt
 		// Even if there were errors, the instance should be considered gone
 		m.list.Kill()
-		
+
 		return instanceDeletedMsg{
 			title: title,
 			err:   resultErr,
@@ -1049,17 +1049,17 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 func (m *home) handleError(err error) tea.Cmd {
 	log.ErrorLog.Printf("%v", err)
 	m.errBox.SetError(err)
-	
+
 	// Store error in the error log with timestamp
 	timestamp := time.Now().Format("15:04:05")
 	errorMsg := fmt.Sprintf("[%s] %v", timestamp, err)
 	m.errorLog = append(m.errorLog, errorMsg)
-	
+
 	// Keep only the last 100 errors to prevent memory issues
 	if len(m.errorLog) > 100 {
 		m.errorLog = m.errorLog[len(m.errorLog)-100:]
 	}
-	
+
 	return func() tea.Msg {
 		select {
 		case <-m.ctx.Done():
@@ -1161,25 +1161,25 @@ func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
 			"",
 			"Recent errors (newest first):",
 			"")
-		
+
 		// Show errors in reverse order (newest first)
 		for i := len(m.errorLog) - 1; i >= 0; i-- {
 			content = lipgloss.JoinVertical(lipgloss.Left,
 				content,
 				m.errorLog[i])
 		}
-		
+
 		content = lipgloss.JoinVertical(lipgloss.Left,
 			content,
 			"",
 			dimStyle.Render("Press any key to close"))
 	}
-	
+
 	// Create text overlay
 	m.textOverlay = overlay.NewTextOverlay(content)
 	m.state = stateErrorLog
 	m.menu.SetState(ui.StateDefault)
-	
+
 	return m, nil
 }
 
@@ -1188,7 +1188,7 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 	// This prevents tmux session name conflicts when checking out the same branch multiple times
 	timestamp := time.Now().Format("150405") // HHMMSS format
 	title := fmt.Sprintf("%s-%s", branchName, timestamp)
-	
+
 	// Create a new instance with the selected branch
 	instance, err := session.NewInstanceWithBranch(session.InstanceOptions{
 		Title:      title,
@@ -1206,18 +1206,18 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 	m.newInstanceFinalizer = m.list.AddInstance(instance)
 	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
 	m.branchSelectorOverlay = nil
-	
+
 	// Start the instance asynchronously
 	cmd := m.startInstanceAsync(instance)
-	
+
 	// Save after adding new instance
 	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
 		return m, m.handleError(err)
 	}
-	
+
 	// Instance added successfully, call the finalizer
 	m.newInstanceFinalizer()
-	
+
 	// Set state back to default
 	m.state = stateDefault
 	m.menu.SetState(ui.StateDefault)
