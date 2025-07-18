@@ -115,9 +115,31 @@ func (m *home) sendCommentToClaude(comment git.PRComment) error {
 func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
 	var prompt strings.Builder
 	
-	prompt.WriteString("=== PR REVIEW COMMENT ===\n\n")
+	// Format header based on comment type
+	switch comment.Type {
+	case "review":
+		prompt.WriteString("=== PR REVIEW ===\n\n")
+	case "review_comment":
+		prompt.WriteString("=== PR REVIEW COMMENT ===\n\n")
+	case "issue_comment":
+		prompt.WriteString("=== PR GENERAL COMMENT ===\n\n")
+	default:
+		prompt.WriteString("=== PR COMMENT ===\n\n")
+	}
+	
 	prompt.WriteString(fmt.Sprintf("Author: @%s\n", comment.Author))
-	prompt.WriteString(fmt.Sprintf("Type: %s comment\n", comment.Type))
+	
+	// Better type descriptions
+	typeDisplay := comment.Type
+	switch comment.Type {
+	case "review":
+		typeDisplay = "PR Review"
+	case "review_comment":
+		typeDisplay = "Review Comment"
+	case "issue_comment":
+		typeDisplay = "General Comment"
+	}
+	prompt.WriteString(fmt.Sprintf("Type: %s\n", typeDisplay))
 	
 	if comment.Path != "" {
 		prompt.WriteString(fmt.Sprintf("File: %s", comment.Path))
@@ -132,7 +154,16 @@ func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
 	prompt.WriteString(comment.Body)
 	prompt.WriteString("\n---\n\n")
 	
-	prompt.WriteString("Please analyze this pull request review comment and make the necessary changes to address the feedback. ")
+	// Customize instructions based on comment type
+	switch comment.Type {
+	case "review":
+		prompt.WriteString("This is a general PR review. Please address the overall feedback provided. ")
+	case "review_comment":
+		prompt.WriteString("This is a line-specific review comment. Please address the specific code feedback. ")
+	case "issue_comment":
+		prompt.WriteString("This is a general PR discussion comment. Please respond appropriately. ")
+	}
+	
 	prompt.WriteString("If the comment is asking a question, provide a clear answer. ")
 	prompt.WriteString("If it's suggesting a change, implement it. ")
 	prompt.WriteString("If you need clarification, explain what's unclear.")
