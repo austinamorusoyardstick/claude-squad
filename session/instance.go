@@ -860,6 +860,31 @@ func (i *Instance) SendPrompt(prompt string) error {
 	return nil
 }
 
+// SendPromptToAI sends a prompt directly to the AI pane (pane 1)
+func (i *Instance) SendPromptToAI(prompt string) error {
+	if !i.started {
+		return fmt.Errorf("instance not started")
+	}
+	if i.tmuxSession == nil {
+		return fmt.Errorf("tmux session not initialized")
+	}
+	
+	// Send the prompt to the AI pane
+	if err := i.tmuxSession.SendKeysToTerminal(prompt); err != nil {
+		return fmt.Errorf("error sending keys to AI pane: %w", err)
+	}
+
+	// Brief pause to prevent carriage return from being interpreted as newline
+	time.Sleep(100 * time.Millisecond)
+	
+	// Send Enter to the AI pane
+	if err := i.tmuxSession.SendKeysToTerminal("\n"); err != nil {
+		return fmt.Errorf("error sending enter to AI pane: %w", err)
+	}
+
+	return nil
+}
+
 // PreviewFullHistory captures the entire tmux pane output including full scrollback history
 func (i *Instance) PreviewFullHistory() (string, error) {
 	if !i.started || i.Status == Paused {
