@@ -381,8 +381,14 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 			continue
 		}
 
-		createdAt, _ := time.Parse(time.RFC3339, ic.CreatedAt)
-		updatedAt, _ := time.Parse(time.RFC3339, ic.UpdatedAt)
+		createdAt, err := time.Parse(time.RFC3339, ic.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt for issue comment ID %d: %w", ic.ID, err)
+		}
+		updatedAt, err := time.Parse(time.RFC3339, ic.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse updatedAt for issue comment ID %d: %w", ic.ID, err)
+		}
 		
 		comment := PRComment{
 			ID:         ic.ID,
