@@ -87,6 +87,7 @@ func (h helpTypeInstanceStart) toContent() string {
 		headerStyle.Render("Handoff:"),
 		keyStyle.Render("c")+descStyle.Render("     - Checkout this instance's branch"),
 		keyStyle.Render("p")+descStyle.Render("     - Push branch to GitHub to create a PR"),
+		keyStyle.Render("B")+descStyle.Render("     - Create bookmark commit"),
 	)
 	return content
 }
