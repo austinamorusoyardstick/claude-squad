@@ -441,10 +441,9 @@ func (k *KeyBindingsConfig) ValidateBindings() map[string][]string {
 	return conflicts
 }
 
-// updateGlobalBindings updates the GlobalkeyBindings with custom keybindings
-func updateGlobalBindings(kbConfig *KeyBindingsConfig) {
-	// Map command names to KeyName constants
-	commandToKeyName := map[string]KeyName{
+// getCommandToKeyNameMap returns the mapping of command names to KeyName constants
+func getCommandToKeyNameMap() map[string]KeyName {
+	return map[string]KeyName{
 		"up":               KeyUp,
 		"down":             KeyDown,
 		"enter":            KeyEnter,
