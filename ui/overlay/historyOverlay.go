@@ -32,6 +32,8 @@ func NewHistoryOverlay(title string, content string) *HistoryOverlay {
 		helpText:  "↑/↓ to scroll • ESC to close",
 	}
 	h.viewport.SetContent(content)
+	// Start at the bottom of the history
+	h.viewport.GotoBottom()
 	return h
 }
 
