@@ -361,8 +361,10 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateDefault
 		m.textOverlay = nil
 		
-		// Show success message
-		m.errBox.Show("PR comments processed successfully!")
+		// Show success message 
+		// Note: Using error box for now to show success message
+		successErr := fmt.Errorf("✓ PR comments processed successfully!")
+		m.errBox.SetError(successErr)
 		return m, func() tea.Msg {
 			time.Sleep(3 * time.Second)
 			return hideErrMsg{}
