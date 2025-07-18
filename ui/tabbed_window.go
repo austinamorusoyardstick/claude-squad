@@ -105,13 +105,10 @@ func (w *TabbedWindow) Toggle() {
 
 // ToggleWithReset toggles the tab and resets scroll mode for all panes
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
-	// Reset preview pane to normal mode before switching
-	if err := w.preview.ResetToNormalMode(instance); err != nil {
-		return err
-	}
-	// Reset terminal pane to normal mode before switching
-	if err := w.terminal.ResetToNormalMode(instance); err != nil {
-		return err
+	// Exit copy mode for both panes before switching
+	if instance != nil {
+		instance.ExitCopyModeAI()
+		instance.ExitCopyModeTerminal()
 	}
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 	return nil
@@ -132,14 +129,20 @@ func (w *TabbedWindow) UpdateDiff(instance *session.Instance) {
 	w.diff.SetDiff(instance)
 }
 
-// ResetPreviewToNormalMode resets the preview pane to normal mode
+// ResetPreviewToNormalMode exits copy mode for the AI pane
 func (w *TabbedWindow) ResetPreviewToNormalMode(instance *session.Instance) error {
-	return w.preview.ResetToNormalMode(instance)
+	if instance != nil {
+		return instance.ExitCopyModeAI()
+	}
+	return nil
 }
 
-// ResetTerminalToNormalMode resets the terminal pane to normal mode
+// ResetTerminalToNormalMode exits copy mode for the terminal pane
 func (w *TabbedWindow) ResetTerminalToNormalMode(instance *session.Instance) error {
-	return w.terminal.ResetToNormalMode(instance)
+	if instance != nil {
+		return instance.ExitCopyModeTerminal()
+	}
+	return nil
 }
 
 func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
@@ -233,14 +236,28 @@ func (w *TabbedWindow) IsInDiffTab() bool {
 	return w.activeTab == 1
 }
 
-// IsPreviewInScrollMode returns true if the preview pane is in scroll mode
+// IsPreviewInScrollMode returns true if the AI pane is in copy mode
 func (w *TabbedWindow) IsPreviewInScrollMode() bool {
-	return w.preview.isScrolling
+	if w.instance != nil {
+		inCopyMode, err := w.instance.IsAIInCopyMode()
+		if err != nil {
+			return false
+		}
+		return inCopyMode
+	}
+	return false
 }
 
-// IsTerminalInScrollMode returns true if the terminal pane is in scroll mode
+// IsTerminalInScrollMode returns true if the terminal pane is in copy mode
 func (w *TabbedWindow) IsTerminalInScrollMode() bool {
-	return w.terminal.isScrolling
+	if w.instance != nil {
+		inCopyMode, err := w.instance.IsTerminalInCopyMode()
+		if err != nil {
+			return false
+		}
+		return inCopyMode
+	}
+	return false
 }
 
 // IsInTerminalTab returns true if the terminal tab is currently active
