@@ -53,14 +53,19 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 			return fmt.Errorf("no instance selected")
 		}
 		
+		// Check if instance is ready
+		if selected.Status != session.Ready && selected.Status != session.Running {
+			return fmt.Errorf("instance is not ready to receive prompts (status: %v)", selected.Status)
+		}
+		
 		// Process each comment
-		for _, comment := range comments {
+		for i, comment := range comments {
 			prompt := m.formatCommentAsPrompt(comment)
 			if err := selected.SendPromptToAI(prompt); err != nil {
-				return fmt.Errorf("failed to send comment to Claude: %w", err)
+				return fmt.Errorf("failed to send comment %d to Claude: %w", i+1, err)
 			}
-			// Small delay between comments to avoid overwhelming Claude
-			time.Sleep(1 * time.Second)
+			// Longer delay between comments to give Claude time to process
+			time.Sleep(2 * time.Second)
 		}
 		
 		return allCommentsProcessedMsg{}
