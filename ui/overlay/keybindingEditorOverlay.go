@@ -45,9 +45,9 @@ type KeybindingEditorOverlay struct {
 // NewKeybindingEditorOverlay creates a new keybinding editor overlay
 func NewKeybindingEditorOverlay() *KeybindingEditorOverlay {
 	// Load current keybindings
-	cfg, err := config.LoadKeyBindings()
+	cfg, err := keys.LoadKeyBindings()
 	if err != nil {
-		cfg = config.DefaultKeyBindings()
+		cfg = keys.DefaultKeyBindings()
 	}
 
 	return &KeybindingEditorOverlay{
