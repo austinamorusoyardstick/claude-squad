@@ -48,6 +48,7 @@ const (
 	KeyScrollLock
 	KeyOpenInIDE
 	KeyHistory
+	KeyEditKeybindings // Key for opening keybinding editor
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -247,13 +248,13 @@ func InitializeCustomKeyBindings() error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Convert to key map
 	CustomKeyStringsMap = kbConfig.ToKeyMap()
-	
+
 	// Also update the GlobalkeyBindings with custom keys
 	updateGlobalBindings(kbConfig)
-	
+
 	return nil
 }
 
@@ -265,7 +266,7 @@ func GetKeyName(keyStr string) (KeyName, bool) {
 			return keyName, true
 		}
 	}
-	
+
 	// Fall back to default bindings
 	keyName, ok := GlobalKeyStringsMap[keyStr]
 	return keyName, ok
@@ -306,7 +307,7 @@ func updateGlobalBindings(kbConfig *config.KeyBindingsConfig) {
 		"scroll_lock":      KeyScrollLock,
 		"open_in_ide":      KeyOpenInIDE,
 	}
-	
+
 	// Update each binding
 	for _, binding := range kbConfig.Bindings {
 		if keyName, ok := commandToKeyName[binding.Command]; ok {
@@ -353,7 +354,7 @@ func getHelpText(command string) string {
 		"scroll_lock":      "toggle scroll lock",
 		"open_in_ide":      "open in IDE",
 	}
-	
+
 	if text, ok := helpTexts[command]; ok {
 		return text
 	}
