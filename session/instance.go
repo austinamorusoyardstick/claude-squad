@@ -791,13 +791,6 @@ func (i *Instance) GetDiffStats() *git.DiffStats {
 	if !i.started {
 		return nil
 	}
-
-	if i.Status == Paused {
-		// For paused instances, return cached stats if available
-		return i.diffStatsCache
-	}
-
-	// Return cached stats
 	return i.diffStatsCache
 }
 
