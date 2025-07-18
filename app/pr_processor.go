@@ -39,7 +39,7 @@ func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
 	}
 	progressText += "\nSending to Claude for processing..."
 	
-	m.textOverlay = overlay.NewTextOverlay("PR Comment Processing", progressText)
+	m.textOverlay = overlay.NewTextOverlay(progressText)
 	m.state = stateHelp
 	
 	// Return a command that processes comments
