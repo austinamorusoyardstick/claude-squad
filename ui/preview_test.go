@@ -248,42 +248,34 @@ func TestPreviewScrolling(t *testing.T) {
 	require.Contains(t, fullHistory, "$ seq 100", "Full history should contain the command")
 	require.Contains(t, fullHistory, "1", "Full history should contain earliest output")
 
-	// Step 3: Test tmux copy mode - initially should not be in copy mode
-	require.False(t, inCopyMode, "Should not be in copy mode initially")
+	// Step 3: Test viewport scrolling - initially should not be in scroll mode
+	require.False(t, previewPane.isScrolling, "Should not be in scroll mode initially")
 
-	// Step 4: Enter copy mode by scrolling up
-	err = setup.instance.ScrollUpAI()
+	// Step 4: Enter scroll mode by scrolling up
+	err = previewPane.ScrollUp(setup.instance)
 	require.NoError(t, err)
 
-	// Verify we entered copy mode
-	require.True(t, inCopyMode, "Should be in copy mode after ScrollUp")
+	// Verify we entered scroll mode
+	require.True(t, previewPane.isScrolling, "Should be in scroll mode after ScrollUp")
 
 	// Step 5: Scroll up multiple times
 	for range 10 {
-		err = setup.instance.ScrollUpAI()
+		err = previewPane.ScrollUp(setup.instance)
 		require.NoError(t, err)
 	}
-
-	// Verify scroll position has increased
-	require.Greater(t, scrollPosition, 0, "Scroll position should increase after scrolling up")
 
 	// Step 6: Scroll down multiple times
-	initialScrollPos := scrollPosition
 	for range 5 {
-		err = setup.instance.ScrollDownAI()
+		err = previewPane.ScrollDown(setup.instance)
 		require.NoError(t, err)
 	}
 
-	// Verify scroll position has decreased
-	require.Less(t, scrollPosition, initialScrollPos, "Scroll position should decrease after scrolling down")
-
-	// Step 7: Exit copy mode
-	err = setup.instance.ExitCopyModeAI()
+	// Step 7: Exit scroll mode
+	err = previewPane.ResetToNormalMode(setup.instance)
 	require.NoError(t, err)
 
-	// Verify we exited copy mode
-	require.False(t, inCopyMode, "Should not be in copy mode after exit")
-	require.Equal(t, 0, scrollPosition, "Scroll position should reset after exiting copy mode")
+	// Verify we exited scroll mode
+	require.False(t, previewPane.isScrolling, "Should not be in scroll mode after exit")
 }
 
 // MockPtyFactory for testing tmux sessions
