@@ -247,7 +247,7 @@ func (m PRReviewModel) View() string {
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 	
-	// Add scroll indicators
+	// Add scroll indicators and debug info
 	scrollInfo := ""
 	if m.viewport.TotalLineCount() > m.viewport.Height {
 		scrollPercent := int(m.viewport.ScrollPercent() * 100)
@@ -260,6 +260,8 @@ func (m PRReviewModel) View() string {
 			scrollInfo += " ↕"
 		}
 	}
+	// Debug: show viewport dimensions
+	// scrollInfo += fmt.Sprintf(" | H:%d/%d", m.viewport.Height, m.height)
 	
 	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d%s", 
 		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
