@@ -38,7 +38,8 @@ This feature allows you to review pull request comments and automatically proces
 
 - **PR Comment Fetching**: Uses GitHub CLI to fetch both review comments and issue comments
 - **UI Component**: Built with bubbletea framework for interactive terminal UI
-- **Claude Integration**: Formats comments as prompts and sends them to the active Claude instance
+- **Claude Integration**: Formats comments as prompts and sends them directly to the AI pane (Claude) in the active instance
+- **AI Pane Communication**: Uses tmux to send prompts directly to pane 1 where Claude is running
 
 ## File Structure
 
