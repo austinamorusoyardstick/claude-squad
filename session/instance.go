@@ -559,24 +559,192 @@ func (i *Instance) GetTerminalContent() (string, error) {
 	return i.tmuxSession.CapturePaneContent()
 }
 
-// GetTerminalFullHistory captures the entire terminal pane output including full scrollback history
-func (i *Instance) GetTerminalFullHistory() (string, error) {
+// ScrollUpAI enters copy mode and scrolls up in the AI pane (pane 1)
+func (i *Instance) ScrollUpAI() error {
 	if !i.started || i.Status == Paused {
-		return "", fmt.Errorf("instance not available")
+		return fmt.Errorf("instance not available")
 	}
 
 	// Check if tmux session was killed and needs to be recreated
 	if err := i.ensureTmuxSession(); err != nil {
-		return "", err
+		return err
+	}
+
+	// Check if already in copy mode
+	inCopyMode, err := i.tmuxSession.IsInCopyMode(1)
+	if err != nil {
+		return err
+	}
+
+	// Enter copy mode if not already in it
+	if !inCopyMode {
+		if err := i.tmuxSession.EnterCopyMode(1); err != nil {
+			return err
+		}
+	}
+
+	// Scroll up
+	return i.tmuxSession.ScrollUp(1)
+}
+
+// ScrollDownAI scrolls down in the AI pane (pane 1)
+func (i *Instance) ScrollDownAI() error {
+	if !i.started || i.Status == Paused {
+		return fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return err
+	}
+
+	// Check if already in copy mode
+	inCopyMode, err := i.tmuxSession.IsInCopyMode(1)
+	if err != nil {
+		return err
+	}
+
+	// Enter copy mode if not already in it
+	if !inCopyMode {
+		if err := i.tmuxSession.EnterCopyMode(1); err != nil {
+			return err
+		}
+	}
+
+	// Scroll down
+	return i.tmuxSession.ScrollDown(1)
+}
+
+// ExitCopyModeAI exits copy mode for the AI pane
+func (i *Instance) ExitCopyModeAI() error {
+	if !i.started || i.Status == Paused {
+		return fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return err
+	}
+
+	return i.tmuxSession.ExitCopyMode(1)
+}
+
+// ScrollUpTerminal enters copy mode and scrolls up in the terminal pane (pane 0)
+func (i *Instance) ScrollUpTerminal() error {
+	if !i.started || i.Status == Paused {
+		return fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return err
 	}
 
 	// Ensure terminal pane exists
 	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
-		return "", fmt.Errorf("failed to create terminal pane: %v", err)
+		return fmt.Errorf("failed to create terminal pane: %v", err)
 	}
 
-	// Terminal is in pane 0 (original pane), capture with full history
-	return i.tmuxSession.CapturePaneContentWithOptions("-", "-")
+	// Check if already in copy mode
+	inCopyMode, err := i.tmuxSession.IsInCopyMode(0)
+	if err != nil {
+		return err
+	}
+
+	// Enter copy mode if not already in it
+	if !inCopyMode {
+		if err := i.tmuxSession.EnterCopyMode(0); err != nil {
+			return err
+		}
+	}
+
+	// Scroll up
+	return i.tmuxSession.ScrollUp(0)
+}
+
+// ScrollDownTerminal scrolls down in the terminal pane (pane 0)
+func (i *Instance) ScrollDownTerminal() error {
+	if !i.started || i.Status == Paused {
+		return fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	// Check if already in copy mode
+	inCopyMode, err := i.tmuxSession.IsInCopyMode(0)
+	if err != nil {
+		return err
+	}
+
+	// Enter copy mode if not already in it
+	if !inCopyMode {
+		if err := i.tmuxSession.EnterCopyMode(0); err != nil {
+			return err
+		}
+	}
+
+	// Scroll down
+	return i.tmuxSession.ScrollDown(0)
+}
+
+// ExitCopyModeTerminal exits copy mode for the terminal pane
+func (i *Instance) ExitCopyModeTerminal() error {
+	if !i.started || i.Status == Paused {
+		return fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	return i.tmuxSession.ExitCopyMode(0)
+}
+
+// IsAIInCopyMode checks if the AI pane is in copy mode
+func (i *Instance) IsAIInCopyMode() (bool, error) {
+	if !i.started || i.Status == Paused {
+		return false, fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return false, err
+	}
+
+	return i.tmuxSession.IsInCopyMode(1)
+}
+
+// IsTerminalInCopyMode checks if the terminal pane is in copy mode
+func (i *Instance) IsTerminalInCopyMode() (bool, error) {
+	if !i.started || i.Status == Paused {
+		return false, fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return false, err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return false, fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	return i.tmuxSession.IsInCopyMode(0)
 }
 
 func (i *Instance) SetPreviewSize(width, height int) error {
