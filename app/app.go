@@ -609,7 +609,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	if msg.Type == tea.KeyEsc {
 		// Use the selected instance from the list
 		selected := m.list.GetSelectedInstance()
-		
+
 		// If in preview tab and in scroll mode, exit scroll mode
 		if !m.tabbedWindow.IsInDiffTab() && !m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsPreviewInScrollMode() {
 			err := m.tabbedWindow.ResetPreviewToNormalMode(selected)
@@ -618,7 +618,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			}
 			return m, m.instanceChanged()
 		}
-		
+
 		// If in terminal tab and in scroll mode, exit scroll mode
 		if m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsTerminalInScrollMode() {
 			err := m.tabbedWindow.ResetTerminalToNormalMode(selected)
@@ -973,6 +973,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.menu.SetState(ui.StateBookmark)
 		m.textInputOverlay = overlay.NewTextInputOverlay("Enter bookmark message (or leave empty for auto-generated)", "")
 		return m, nil
+	case keys.KeyHistory:
+		return m, m.showHistoryView()
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
