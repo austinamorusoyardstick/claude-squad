@@ -1406,6 +1406,44 @@ func parseJestJSON(jsonData []byte, webPath string) []string {
 	return failedFiles
 }
 
+// testStats holds test statistics
+type testStats struct {
+	passed int
+	failed int
+	total  int
+}
+
+// parseJestFinalStats parses the final test summary from Jest output
+func parseJestFinalStats(output string) testStats {
+	stats := testStats{}
+	
+	// Look for the test suites summary line
+	// Example: "Test Suites: 1 passed, 1 failed, 2 total"
+	re := regexp.MustCompile(`Test Suites:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?.*?,\s*(\d+)\s*total`)
+	matches := re.FindStringSubmatch(output)
+	
+	if len(matches) >= 4 {
+		if passed, err := strconv.Atoi(matches[1]); err == nil {
+			stats.passed = passed
+		}
+		if len(matches) > 2 && matches[2] != "" {
+			if failed, err := strconv.Atoi(matches[2]); err == nil {
+				stats.failed = failed
+			}
+		}
+		if total, err := strconv.Atoi(matches[3]); err == nil {
+			stats.total = total
+		}
+	}
+	
+	// If no failed count was found, calculate it
+	if stats.failed == 0 && stats.total > stats.passed {
+		stats.failed = stats.total - stats.passed
+	}
+	
+	return stats
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
