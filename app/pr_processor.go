@@ -44,8 +44,7 @@ func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
 	m.textOverlay = overlay.NewTextOverlay(progressText)
 	m.state = stateHelp
 	
-	// Switch to AI tab before processing
-	m.tabbedWindow.SwitchToAITab()
+	// No need to switch tabs - SendPromptToAI sends directly to AI pane
 	
 	// Return a command that processes comments
 	return m.processCommentsSequentially(comments)
