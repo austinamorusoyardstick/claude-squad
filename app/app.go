@@ -408,7 +408,7 @@ func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (cmd tea.Cmd, returnEarly 
 		return nil, false
 	}
 	// If it's in the global keymap, we should try to highlight it.
-	name, ok := keys.GlobalKeyStringsMap[msg.String()]
+	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return nil, false
 	}
