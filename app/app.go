@@ -105,6 +105,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// keybindingEditorOverlay displays keybinding editor interface
+	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
