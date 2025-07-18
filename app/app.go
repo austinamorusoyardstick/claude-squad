@@ -1263,9 +1263,13 @@ type instanceDeletedMsg struct {
 
 // testResultsMsg is sent when test results are available
 type testResultsMsg struct {
-	output string
-	err    error
+	output      string
+	failedFiles []string
+	err         error
 }
+
+// testStartedMsg is sent when tests start running
+type testStartedMsg struct{}
 
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
 // overall the instances and capture their output. It's a pretty expensive operation. Let's do it 2x a second only.
