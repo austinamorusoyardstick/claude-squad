@@ -750,6 +750,9 @@ func (i *Instance) Resume() error {
 	return nil
 }
 
+// diffStatsCacheTTL defines how long the diff stats cache is valid
+const diffStatsCacheTTL = time.Second
+
 // UpdateDiffStats updates the cached git diff statistics for this instance
 func (i *Instance) UpdateDiffStats() error {
 	if !i.started {
@@ -759,6 +762,11 @@ func (i *Instance) UpdateDiffStats() error {
 
 	if i.Status == Paused {
 		// Keep the previous diff stats if the instance is paused
+		return nil
+	}
+
+	// Check if cache is still fresh
+	if i.diffStatsCache != nil && time.Since(i.diffStatsCacheTime) < diffStatsCacheTTL {
 		return nil
 	}
 
