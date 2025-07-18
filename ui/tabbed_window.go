@@ -235,6 +235,11 @@ func (w *TabbedWindow) IsTerminalInScrollMode() bool {
 	return w.terminal.isScrolling
 }
 
+// IsInAITab returns true if the AI tab is currently active
+func (w *TabbedWindow) IsInAITab() bool {
+	return w.activeTab == AITab
+}
+
 // IsInTerminalTab returns true if the terminal tab is currently active
 func (w *TabbedWindow) IsInTerminalTab() bool {
 	return w.activeTab == 2
