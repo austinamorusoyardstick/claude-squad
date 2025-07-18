@@ -461,7 +461,21 @@ func (m PRReviewModel) simpleView() string {
 		}
 		
 		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(m.pr.Comments)))
-		b.WriteString(fmt.Sprintf("%s %s @%s\n", status, comment.Type, comment.Author))
+		
+		// Format comment type with better descriptions
+		typeDisplay := comment.Type
+		switch comment.Type {
+		case "review":
+			typeDisplay = "PR Review"
+		case "review_comment":
+			typeDisplay = "Review Comment"
+		case "issue_comment":
+			typeDisplay = "General Comment"
+		}
+		
+		b.WriteString(fmt.Sprintf("%s %s by @%s\n", status, typeDisplay, comment.Author))
+		
+		// Show file location if available
 		if comment.Path != "" {
 			b.WriteString(fmt.Sprintf("File: %s", comment.Path))
 			if comment.Line > 0 {
