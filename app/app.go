@@ -968,9 +968,21 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 }
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
+	// Create a channel for progress updates
+	progressChan := make(chan tea.Msg, 10)
+	
+	// Start a goroutine to forward progress messages
+	go func() {
+		for msg := range progressChan {
+			m.program.Send(msg)
+		}
+	}()
+	
 	return func() tea.Msg {
+		defer close(progressChan)
+		
 		// Send initial started message
-		m.program.Send(testStartedMsg{})
+		progressChan <- testStartedMsg{}
 		
 		// Get the git worktree to access the worktree path
 		gitWorktree, err := instance.GetGitWorktree()
