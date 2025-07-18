@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -17,8 +16,6 @@ type PreviewPane struct {
 	height int
 
 	previewState previewState
-	isScrolling  bool
-	viewport     viewport.Model
 }
 
 type previewState struct {
@@ -29,16 +26,12 @@ type previewState struct {
 }
 
 func NewPreviewPane() *PreviewPane {
-	return &PreviewPane{
-		viewport: viewport.New(0, 0),
-	}
+	return &PreviewPane{}
 }
 
 func (p *PreviewPane) SetSize(width, maxHeight int) {
 	p.width = width
 	p.height = maxHeight
-	p.viewport.Width = width
-	p.viewport.Height = maxHeight
 }
 
 // setFallbackState sets the preview state with fallback text and a message
