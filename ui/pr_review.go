@@ -36,7 +36,7 @@ func (m PRReviewModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m PRReviewModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
