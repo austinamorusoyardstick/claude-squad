@@ -267,7 +267,7 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 	return nil
 }
 
-func (pr *PullRequest) fetchReviewComments(workingDir string) error {
+func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[int]bool) error {
 	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/comments", pr.Number))
 	cmd.Dir = workingDir
 	output, err := cmd.Output()
