@@ -360,7 +360,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Comments have been processed, return to default state
 		m.state = stateDefault
 		m.textOverlay = nil
-		return m, nil
+		
+		// Show success message
+		m.errBox.Show("PR comments processed successfully!")
+		return m, func() tea.Msg {
+			time.Sleep(3 * time.Second)
+			return hideErrMsg{}
+		}
 	}
 	return m, nil
 }
