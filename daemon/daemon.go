@@ -50,6 +50,11 @@ func RunDaemon(cfg *config.Config) error {
 				if instance.Started() && !instance.Paused() {
 					if _, hasPrompt := instance.HasUpdated(); hasPrompt {
 						instance.TapEnter()
+						if err := instance.UpdateDiffStats(); err != nil {
+							if everyN.ShouldLog() {
+								log.WarningLog.Printf("could not update diff stats for %s: %v", instance.Title, err)
+							}
+						}
 					}
 				}
 			}
