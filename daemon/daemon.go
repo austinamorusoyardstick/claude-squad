@@ -35,6 +35,9 @@ func RunDaemon(cfg *config.Config) error {
 
 	pollInterval := time.Duration(cfg.DaemonPollInterval) * time.Millisecond
 
+	// If we get an error for a session, it's likely that we'll keep getting the error. Log every 30 seconds.
+	everyN := log.NewEvery(60 * time.Second)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	stopCh := make(chan struct{})
