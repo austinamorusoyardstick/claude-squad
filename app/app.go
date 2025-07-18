@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// statePRReview is the state when reviewing PR comments.
+	statePRReview
 )
 
 type home struct {
