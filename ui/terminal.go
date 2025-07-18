@@ -165,3 +165,99 @@ func (t *TerminalPane) String() string {
 	rendered := terminalPaneStyle.Width(t.width).Render(content)
 	return rendered
 }
+
+// ScrollUp scrolls up in the viewport
+func (t *TerminalPane) ScrollUp(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !t.isScrolling {
+		// Entering scroll mode - capture entire terminal content including scrollback history
+		content, err := instance.GetTerminalFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		t.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		t.viewport.GotoBottom()
+
+		t.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	t.viewport.LineUp(1)
+	return nil
+}
+
+// ScrollDown scrolls down in the viewport
+func (t *TerminalPane) ScrollDown(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !t.isScrolling {
+		// Entering scroll mode - capture entire terminal content including scrollback history
+		content, err := instance.GetTerminalFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		t.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		t.viewport.GotoBottom()
+
+		t.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	t.viewport.LineDown(1)
+	return nil
+}
+
+// ResetToNormalMode exits scroll mode and returns to normal mode
+func (t *TerminalPane) ResetToNormalMode(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if t.isScrolling {
+		t.isScrolling = false
+		// Reset viewport
+		t.viewport.SetContent("")
+		t.viewport.GotoTop()
+
+		// Immediately update content instead of waiting for next UpdateContent call
+		content, err := instance.GetTerminalContent()
+		if err != nil {
+			return err
+		}
+		
+		// If content is empty, show a welcome message
+		if strings.TrimSpace(content) == "" {
+			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
+				"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
+		}
+		
+		t.terminalState.text = content
+	}
+
+	return nil
+}
