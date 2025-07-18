@@ -94,7 +94,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 				if !m.showHelp {
 					footerHeight = 0
 				}
-				safetyMargin := 1
+				safetyMargin := 0
 				m.viewport.Height = m.height - headerHeight - footerHeight - safetyMargin
 				m.updateViewportContent()
 			}
