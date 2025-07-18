@@ -990,7 +990,7 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 			if len(messages) == 0 {
 				commitMessage = "[BOOKMARK] No changes since last bookmark"
 			} else {
-				// Use Claude to generate a summary if available, otherwise concatenate
+				// Generate a summary by concatenating the commit messages
 				summary := strings.Join(messages, "; ")
 				if len(summary) > 100 {
 					summary = summary[:97] + "..."
