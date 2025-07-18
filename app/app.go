@@ -830,6 +830,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyHistory:
+		return m, m.showHistoryView()
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
