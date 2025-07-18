@@ -135,7 +135,7 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	// Initialize custom keybindings
 	if err := keys.InitializeCustomKeyBindings(); err != nil {
 		// Log error but continue with defaults
-		log.Error("Failed to load custom keybindings: %v", err)
+		log.ErrorLog.Printf("Failed to load custom keybindings: %v", err)
 	}
 
 	// Initialize storage
