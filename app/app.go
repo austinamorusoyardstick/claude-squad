@@ -1239,7 +1239,7 @@ func (m *home) View() string {
 			m.state = stateDefault
 			return mainView
 		}
-		return m.prReviewOverlay.View()
+		return overlay.PlaceOverlay(0, 0, m.prReviewOverlay.View(), mainView, true, true)
 	}
 
 	return mainView
