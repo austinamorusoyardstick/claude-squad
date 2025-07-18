@@ -68,6 +68,17 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 			
 			// Debug: log the prompt being sent
 			log.WarningLog.Printf("Sending PR comment %d to Claude AI pane", i+1)
+			log.WarningLog.Printf("Prompt content: %s", prompt[:min(100, len(prompt))])
+			
+			// First try sending a simple test message
+			testMsg := fmt.Sprintf("Processing PR comment %d from @%s", i+1, comment.Author)
+			if err := selected.SendPromptToAI(testMsg); err != nil {
+				log.ErrorLog.Printf("Failed to send test message to Claude: %v", err)
+				return fmt.Errorf("failed to send test message to Claude: %w", err)
+			}
+			
+			// Short pause before sending the actual prompt
+			time.Sleep(500 * time.Millisecond)
 			
 			if err := selected.SendPromptToAI(prompt); err != nil {
 				log.ErrorLog.Printf("Failed to send comment %d to Claude: %v", i+1, err)
@@ -77,7 +88,7 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 			log.WarningLog.Printf("Successfully sent comment %d to Claude", i+1)
 			
 			// Longer delay between comments to give Claude time to process
-			time.Sleep(2 * time.Second)
+			time.Sleep(3 * time.Second)
 		}
 		
 		return allCommentsProcessedMsg{}
