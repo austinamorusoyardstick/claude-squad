@@ -62,6 +62,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			footerHeight = 0
 		}
 		
+		// Add a small safety margin to prevent cutoff
+		safetyMargin := 1
+		
 		if !m.ready {
 			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight)
 			m.viewport.HighPerformanceRendering = false
