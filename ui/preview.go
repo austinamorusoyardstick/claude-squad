@@ -178,3 +178,92 @@ func (p *PreviewPane) String() string {
 	rendered := previewPaneStyle.Width(p.width).Render(content)
 	return rendered
 }
+
+// ScrollUp scrolls up in the viewport
+func (p *PreviewPane) ScrollUp(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !p.isScrolling {
+		// Entering scroll mode - capture entire pane content including scrollback history
+		content, err := instance.PreviewFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		p.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		p.viewport.GotoBottom()
+
+		p.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	p.viewport.LineUp(1)
+	return nil
+}
+
+// ScrollDown scrolls down in the viewport
+func (p *PreviewPane) ScrollDown(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if !p.isScrolling {
+		// Entering scroll mode - capture entire pane content including scrollback history
+		content, err := instance.PreviewFullHistory()
+		if err != nil {
+			return err
+		}
+
+		// Set content in the viewport
+		footer := lipgloss.NewStyle().
+			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
+			Render("ESC to exit scroll mode")
+
+		contentWithFooter := lipgloss.JoinVertical(lipgloss.Left, content, footer)
+		p.viewport.SetContent(contentWithFooter)
+
+		// Position the viewport at the bottom initially
+		p.viewport.GotoBottom()
+
+		p.isScrolling = true
+		return nil
+	}
+
+	// Already in scroll mode, just scroll the viewport
+	p.viewport.LineDown(1)
+	return nil
+}
+
+// ResetToNormalMode exits scroll mode and returns to normal mode
+func (p *PreviewPane) ResetToNormalMode(instance *session.Instance) error {
+	if instance == nil || instance.Status == session.Paused {
+		return nil
+	}
+
+	if p.isScrolling {
+		p.isScrolling = false
+		// Reset viewport
+		p.viewport.SetContent("")
+		p.viewport.GotoTop()
+
+		// Immediately update content instead of waiting for next UpdateContent call
+		content, err := instance.Preview()
+		if err != nil {
+			return err
+		}
+		p.previewState.text = content
+	}
+
+	return nil
+}
