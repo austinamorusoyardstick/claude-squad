@@ -59,6 +59,15 @@ func (t *TextInputOverlay) View() string {
 // HandleKeyPress processes a key press and updates the state accordingly.
 // Returns true if the overlay should be closed.
 func (t *TextInputOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
+	// Check for shift+enter first using string representation
+	if msg.String() == "shift+enter" {
+		// Allow shift+enter to add newline in textarea
+		if t.FocusIndex == 0 {
+			t.textarea, _ = t.textarea.Update(msg)
+		}
+		return false
+	}
+	
 	switch msg.Type {
 	case tea.KeyTab:
 		// Toggle focus between input and enter button.
