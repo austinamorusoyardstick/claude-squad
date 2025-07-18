@@ -56,7 +56,7 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 		// Process each comment
 		for _, comment := range comments {
 			prompt := m.formatCommentAsPrompt(comment)
-			if err := selected.SendPrompt(prompt); err != nil {
+			if err := selected.SendPromptToAI(prompt); err != nil {
 				return fmt.Errorf("failed to send comment to Claude: %w", err)
 			}
 			// Small delay between comments to avoid overwhelming Claude
