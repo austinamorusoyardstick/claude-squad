@@ -145,11 +145,13 @@ func (t *TmuxSession) Start(workDir string) error {
 		// The session will still work without this setting
 	}
 
-	// Initialize monitor and channels
-	t.monitor = newStatusMonitor()
-	t.reloadCh = make(chan struct{})
-	
-	// Don't call Restore() to avoid creating PTY - we'll handle trust prompts differently
+	err = t.Restore()
+	if err != nil {
+		if cleanupErr := t.Close(); cleanupErr != nil {
+			err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
+		}
+		return fmt.Errorf("error restoring tmux session: %w", err)
+	}
 
 	if t.program == ProgramClaude || strings.HasPrefix(t.program, ProgramAider) || strings.HasPrefix(t.program, ProgramGemini) {
 		searchString := "Do you trust the files in this folder?"
@@ -160,7 +162,7 @@ func (t *TmuxSession) Start(workDir string) error {
 			tapFunc = t.TapDAndEnter
 			iterations = 10 // Aider takes longer to start :/
 		}
-		// Deal with "do you trust the files" screen by sending keystrokes via tmux send-keys
+		// Deal with "do you trust the files" screen by sending an enter keystroke.
 		for i := 0; i < iterations; i++ {
 			time.Sleep(200 * time.Millisecond)
 			content, err := t.CapturePaneContent()
@@ -168,15 +170,8 @@ func (t *TmuxSession) Start(workDir string) error {
 				log.ErrorLog.Printf("could not check 'do you trust the files screen': %v", err)
 			}
 			if strings.Contains(content, searchString) {
-				// Use tmux send-keys instead of PTY
-				var sendCmd *exec.Cmd
-				if t.program == ProgramClaude {
-					sendCmd = exec.Command("tmux", "send-keys", "-t", t.sanitizedName, "Enter")
-				} else {
-					sendCmd = exec.Command("tmux", "send-keys", "-t", t.sanitizedName, "D", "Enter")
-				}
-				if err := t.cmdExec.Run(sendCmd); err != nil {
-					log.ErrorLog.Printf("could not send keys on trust screen: %v", err)
+				if err := tapFunc(); err != nil {
+					log.ErrorLog.Printf("could not tap enter on trust screen: %v", err)
 				}
 				break
 			}
