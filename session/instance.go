@@ -869,6 +869,11 @@ func (i *Instance) SendPromptToAI(prompt string) error {
 		return fmt.Errorf("tmux session not initialized")
 	}
 	
+	// Debug: Check if tmux session exists
+	if !i.tmuxSession.DoesSessionExist() {
+		return fmt.Errorf("tmux session does not exist")
+	}
+	
 	// Send the prompt to the AI pane
 	if err := i.tmuxSession.SendKeysToTerminal(prompt); err != nil {
 		return fmt.Errorf("error sending keys to AI pane: %w", err)
