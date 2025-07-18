@@ -230,6 +230,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("ctrl+h"),
 		key.WithHelp("ctrl+h", "view history"),
 	),
+	KeyEditKeybindings: key.NewBinding(
+		key.WithKeys("K"),
+		key.WithHelp("K", "edit keys"),
+	),
 
 	// -- Special keybindings --
 
