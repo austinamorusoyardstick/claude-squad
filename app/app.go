@@ -639,10 +639,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, m.instanceChanged()
 	case keys.KeyShiftUp:
 		m.tabbedWindow.ScrollUp()
-		return m, m.instanceChanged()
+		return m, nil
 	case keys.KeyShiftDown:
 		m.tabbedWindow.ScrollDown()
-		return m, m.instanceChanged()
+		return m, nil
 	case keys.KeyHome:
 		if m.tabbedWindow.IsInDiffTab() {
 			m.tabbedWindow.ScrollToTop()
