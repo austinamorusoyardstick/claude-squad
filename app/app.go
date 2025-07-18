@@ -9,10 +9,14 @@ import (
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -310,6 +314,51 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case testStartedMsg:
+		// Show non-obtrusive message that tests are running
+		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
+		return m, nil
+	case testProgressMsg:
+		// Update test progress
+		var status string
+		if msg.running {
+			status = fmt.Sprintf("Running tests: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
+		} else {
+			status = fmt.Sprintf("Tests complete: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
+		}
+		m.errBox.SetError(fmt.Errorf(status))
+		return m, nil
+	case testResultsMsg:
+		// Handle test results
+		if msg.err != nil {
+			return m, m.handleError(msg.err)
+		}
+
+		// Parse final stats from output
+		finalStats := parseJestFinalStats(msg.output)
+
+		// Open failed test files in WebStorm if any
+		if len(msg.failedFiles) > 0 {
+			for _, file := range msg.failedFiles {
+				cmd := exec.Command("webstorm", file)
+				cmd.Start()
+			}
+			// Show brief status about failed tests with counts
+			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in WebStorm",
+				finalStats.passed, finalStats.total, finalStats.failed))
+		} else {
+			// All tests passed
+			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed",
+				finalStats.passed, finalStats.total))
+		}
+
+		// Auto-hide the message after 5 seconds (give more time to read the stats)
+		return m, func() tea.Msg {
+			select {
+			case <-time.After(5 * time.Second):
+			}
+			return hideErrMsg{}
+		}
 	}
 	return m, nil
 }
@@ -819,6 +868,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyTest:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Run Jest tests in the web directory
+		cmd := m.runJestTests(selected)
+		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -913,6 +970,157 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 	}
 }
 
+func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
+	return tea.Sequence(
+		// First, send a message that tests have started
+		func() tea.Msg {
+			return testStartedMsg{}
+		},
+		// Then run the tests with progress tracking
+		m.runJestTestsWithProgress(instance),
+	)
+}
+
+func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
+		}
+
+		// Construct the path to the web directory
+		worktreePath := gitWorktree.GetWorktreePath()
+
+		// Run npm test without watch mode
+		cmd := exec.Command("yarn", "test", "--", "--watchAll=false", "--json", "--outputFile=test-results.json")
+		cmd.Dir = worktreePath
+
+		// Capture output
+		output, _ := cmd.CombinedOutput()
+
+		// Parse failed test files from output
+		failedFiles := parseFailedTestFiles(string(output), worktreePath)
+
+		// Also try to read the JSON output file for more reliable parsing
+		jsonPath := filepath.Join(worktreePath, "test-results.json")
+		if jsonData, err := os.ReadFile(jsonPath); err == nil {
+			// Parse JSON for failed files if available
+			if jsonFailedFiles := parseJestJSON(jsonData, worktreePath); len(jsonFailedFiles) > 0 {
+				failedFiles = jsonFailedFiles
+			}
+			// Clean up the JSON file
+			os.Remove(jsonPath)
+		}
+
+		return testResultsMsg{
+			output:      string(output),
+			failedFiles: failedFiles,
+			err:         nil,
+		}
+	}
+}
+
+// parseFailedTestFiles parses Jest output to find failed test file paths
+func parseFailedTestFiles(output string, webPath string) []string {
+	var failedFiles []string
+	lines := strings.Split(output, "\n")
+
+	for _, line := range lines {
+		// Look for FAIL lines which contain the test file path
+		if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				// The file path is usually the second part after FAIL
+				testFile := parts[1]
+				// Convert relative path to absolute
+				if !filepath.IsAbs(testFile) {
+					testFile = filepath.Join(webPath, testFile)
+				}
+				// Check if file exists
+				if _, err := os.Stat(testFile); err == nil {
+					failedFiles = append(failedFiles, testFile)
+				}
+			}
+		}
+	}
+
+	return failedFiles
+}
+
+// parseJestJSON parses Jest JSON output to find failed test files
+func parseJestJSON(jsonData []byte, webPath string) []string {
+	var failedFiles []string
+
+	// Simple JSON parsing for test results
+	// Jest JSON format includes testResults array with status and name fields
+	type TestResult struct {
+		Name   string `json:"name"`
+		Status string `json:"status"`
+	}
+
+	type JestResults struct {
+		TestResults []TestResult `json:"testResults"`
+	}
+
+	var results JestResults
+	if err := json.Unmarshal(jsonData, &results); err == nil {
+		for _, result := range results.TestResults {
+			if result.Status == "failed" {
+				testFile := result.Name
+				// Convert relative path to absolute
+				if !filepath.IsAbs(testFile) {
+					testFile = filepath.Join(webPath, testFile)
+				}
+				// Check if file exists
+				if _, err := os.Stat(testFile); err == nil {
+					failedFiles = append(failedFiles, testFile)
+				}
+			}
+		}
+	}
+
+	return failedFiles
+}
+
+// testStats holds test statistics
+type testStats struct {
+	passed int
+	failed int
+	total  int
+}
+
+// parseJestFinalStats parses the final test summary from Jest output
+func parseJestFinalStats(output string) testStats {
+	stats := testStats{}
+
+	// Look for the test suites summary line
+	// Example: "Test Suites: 1 passed, 1 failed, 2 total"
+	re := regexp.MustCompile(`Test Suites:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?.*?,\s*(\d+)\s*total`)
+	matches := re.FindStringSubmatch(output)
+
+	if len(matches) >= 4 {
+		if passed, err := strconv.Atoi(matches[1]); err == nil {
+			stats.passed = passed
+		}
+		if len(matches) > 2 && matches[2] != "" {
+			if failed, err := strconv.Atoi(matches[2]); err == nil {
+				stats.failed = failed
+			}
+		}
+		if total, err := strconv.Atoi(matches[3]); err == nil {
+			stats.total = total
+		}
+	}
+
+	// If no failed count was found, calculate it
+	if stats.failed == 0 && stats.total > stats.passed {
+		stats.failed = stats.total - stats.passed
+	}
+
+	return stats
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
@@ -964,6 +1172,24 @@ type instanceCreatedMsg struct {
 type instanceDeletedMsg struct {
 	title string
 	err   error
+}
+
+// testResultsMsg is sent when test results are available
+type testResultsMsg struct {
+	output      string
+	failedFiles []string
+	err         error
+}
+
+// testStartedMsg is sent when tests start running
+type testStartedMsg struct{}
+
+// testProgressMsg is sent with test progress updates
+type testProgressMsg struct {
+	passed  int
+	failed  int
+	total   int
+	running bool
 }
 
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
