@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// statePRReview is the state when reviewing PR comments.
+	statePRReview
 )
 
 type home struct {
@@ -105,6 +107,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// prReviewOverlay handles PR comment review
+	prReviewOverlay *ui.PRReviewModel
 
 	// errorLog stores all error messages for display
 	errorLog []string
@@ -226,6 +230,41 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Handle PR review updates when in that state
+	if m.state == statePRReview && m.prReviewOverlay != nil {
+		// Always pass window size messages to ensure the overlay initializes
+		if _, ok := msg.(tea.WindowSizeMsg); ok {
+			updatedModel, cmd := m.prReviewOverlay.Update(msg)
+			*m.prReviewOverlay = updatedModel
+			return m, cmd
+		}
+		
+		updatedModel, cmd := m.prReviewOverlay.Update(msg)
+		*m.prReviewOverlay = updatedModel
+		
+		// Check for completion or cancellation messages
+		switch msg.(type) {
+		case ui.PRReviewCompleteMsg:
+			// Handle accepted comments
+			acceptedComments := msg.(ui.PRReviewCompleteMsg).AcceptedComments
+			m.state = stateDefault
+			m.prReviewOverlay = nil
+			
+			// Process accepted comments with Claude
+			if len(acceptedComments) > 0 {
+				return m, m.processAcceptedComments(acceptedComments)
+			}
+			return m, nil
+		case ui.PRReviewCancelMsg:
+			// User cancelled
+			m.state = stateDefault
+			m.prReviewOverlay = nil
+			return m, nil
+		}
+		
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case hideErrMsg:
 		m.errBox.Clear()
@@ -283,6 +322,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyPress(msg)
 	case tea.WindowSizeMsg:
 		m.updateHandleWindowSizeEvent(msg)
+		
+		// Also update PR review overlay if it's active
+		if m.state == statePRReview && m.prReviewOverlay != nil {
+			updatedModel, _ := m.prReviewOverlay.Update(msg)
+			*m.prReviewOverlay = updatedModel
+		}
+		
 		return m, nil
 	case error:
 		// Handle errors from confirmation actions
@@ -310,6 +356,19 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
+	case allCommentsProcessedMsg:
+		// Comments have been processed, return to default state
+		m.state = stateDefault
+		m.textOverlay = nil
+		
+		// Show success message 
+		// Note: Using error box for now to show success message
+		successErr := fmt.Errorf("✓ PR comments processed successfully!")
+		m.errBox.SetError(successErr)
+		return m, func() tea.Msg {
+			time.Sleep(3 * time.Second)
+			return hideErrMsg{}
+		}
 	}
 	return m, nil
 }
@@ -819,6 +878,50 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyPRReview:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		
+		// Check if instance is started
+		if !selected.Started() {
+			return m, m.handleError(fmt.Errorf("instance '%s' is not started", selected.Title))
+		}
+		
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf("instance '%s' is paused - please resume it first", selected.Title))
+		}
+		
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+		
+		// Get current PR info from the worktree (always fresh)
+		pr, err := git.GetCurrentPR(worktreePath)
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
+		}
+		
+		// Fetch PR comments (always fresh - includes resolved status detection)
+		if err := pr.FetchComments(worktreePath); err != nil {
+			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
+		}
+		
+		// Show PR review UI
+		m.state = statePRReview
+		prReviewModel := ui.NewPRReviewModel(pr)
+		m.prReviewOverlay = &prReviewModel
+		
+		// Initialize the PR review model
+		initCmd := prReviewModel.Init()
+		return m, initCmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1138,6 +1241,14 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
+	} else if m.state == statePRReview {
+		if m.prReviewOverlay == nil {
+			log.ErrorLog.Printf("PR review overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		// Return PR review directly - it manages its own full-screen layout
+		return m.prReviewOverlay.View()
 	}
 
 	return mainView

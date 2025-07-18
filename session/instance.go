@@ -860,6 +860,47 @@ func (i *Instance) SendPrompt(prompt string) error {
 	return nil
 }
 
+// SendPromptToAI sends a prompt directly to the AI pane (pane 1)
+func (i *Instance) SendPromptToAI(prompt string) error {
+	if !i.started {
+		return fmt.Errorf("instance not started")
+	}
+	if i.tmuxSession == nil {
+		return fmt.Errorf("tmux session not initialized")
+	}
+	
+	// Debug: Check if tmux session exists
+	if !i.tmuxSession.DoesSessionExist() {
+		return fmt.Errorf("tmux session does not exist")
+	}
+	
+	log.WarningLog.Printf("Sending prompt to AI pane: %s", prompt[:min(50, len(prompt))])
+	
+	// First ensure the terminal pane exists (creates split if needed)
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		log.ErrorLog.Printf("Failed to create terminal pane: %v", err)
+		return fmt.Errorf("error creating terminal pane: %w", err)
+	}
+	
+	// Send the prompt to the AI pane using tmux send-keys with Enter
+	if err := i.tmuxSession.SendKeysToTerminal(prompt); err != nil {
+		log.ErrorLog.Printf("Failed to send keys to AI pane: %v", err)
+		return fmt.Errorf("error sending keys to AI pane: %w", err)
+	}
+
+	// Brief pause to prevent carriage return from being interpreted as newline
+	time.Sleep(100 * time.Millisecond)
+	
+	// Send Enter to the AI pane
+	if err := i.tmuxSession.SendKeysToTerminal("Enter"); err != nil {
+		log.ErrorLog.Printf("Failed to send enter to AI pane: %v", err)
+		return fmt.Errorf("error sending enter to AI pane: %w", err)
+	}
+	
+	log.WarningLog.Printf("Successfully sent prompt and enter to AI pane")
+	return nil
+}
+
 // PreviewFullHistory captures the entire tmux pane output including full scrollback history
 func (i *Instance) PreviewFullHistory() (string, error) {
 	if !i.started || i.Status == Paused {
