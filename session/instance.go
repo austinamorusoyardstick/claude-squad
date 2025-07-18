@@ -687,6 +687,9 @@ func (i *Instance) Pause() error {
 	}
 
 	i.SetStatus(Paused)
+	// Invalidate cache when pausing
+	i.diffStatsCache = nil
+	i.diffStatsCacheTime = time.Time{}
 	_ = clipboard.WriteAll(i.gitWorktree.GetBranchName())
 	return nil
 }
