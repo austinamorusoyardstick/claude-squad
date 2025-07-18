@@ -109,6 +109,7 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	}
 
 	cmdIssueComments := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/issues/%d/comments", pr.Number))
+	cmdIssueComments.Dir = workingDir
 	output, err = cmdIssueComments.Output()
 	if err != nil {
 		return fmt.Errorf("failed to fetch issue comments: %w", err)
