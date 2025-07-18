@@ -107,6 +107,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// prReviewOverlay handles PR comment review
+	prReviewOverlay *ui.PRReviewModel
 
 	// errorLog stores all error messages for display
 	errorLog []string
