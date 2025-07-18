@@ -210,6 +210,14 @@ func TestPreviewScrolling(t *testing.T) {
 				return []byte(visibleContent), nil
 			}
 
+			// Handle display-message for checking if in copy mode
+			if strings.Contains(cmdStr, "display-message") && strings.Contains(cmdStr, "pane_in_mode") {
+				if inCopyMode {
+					return []byte("1\n"), nil
+				}
+				return []byte("0\n"), nil
+			}
+
 			return []byte(""), nil
 		},
 	}
