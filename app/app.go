@@ -651,7 +651,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m.handleQuit()
 	}
 
-	name, ok := keys.GlobalKeyStringsMap[msg.String()]
+	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return m, nil
 	}
