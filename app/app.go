@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// stateKeybindingEditor is the state when editing keybindings.
+	stateKeybindingEditor
 )
 
 type home struct {
