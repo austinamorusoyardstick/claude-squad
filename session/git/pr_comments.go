@@ -117,6 +117,71 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	return nil
 }
 
+func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, error) {
+	// Use GraphQL to get review thread resolution status
+	query := fmt.Sprintf(`
+{
+  repository(owner: "%s", name: "%s") {
+    pullRequest(number: %d) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes {
+              databaseId
+            }
+          }
+        }
+      }
+    }
+  }
+}`, "{owner}", "{repo}", pr.Number)
+
+	// Execute GraphQL query
+	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
+	}
+
+	var response struct {
+		Data struct {
+			Repository struct {
+				PullRequest struct {
+					ReviewThreads struct {
+						Nodes []struct {
+							ID         string `json:"id"`
+							IsResolved bool   `json:"isResolved"`
+							Comments   struct {
+								Nodes []struct {
+									DatabaseID int `json:"databaseId"`
+								} `json:"nodes"`
+							} `json:"comments"`
+						} `json:"nodes"`
+					} `json:"reviewThreads"`
+				} `json:"pullRequest"`
+			} `json:"repository"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(output, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse resolved status response: %w", err)
+	}
+
+	// Build map of comment ID to resolved status
+	resolvedMap := make(map[int]bool)
+	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+		if len(thread.Comments.Nodes) > 0 {
+			commentID := thread.Comments.Nodes[0].DatabaseID
+			resolvedMap[commentID] = thread.IsResolved
+		}
+	}
+
+	return resolvedMap, nil
+}
+
 func (pr *PullRequest) fetchReviews(workingDir string) error {
 	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/reviews", pr.Number))
 	cmd.Dir = workingDir
