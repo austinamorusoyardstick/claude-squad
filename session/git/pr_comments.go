@@ -307,11 +307,11 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 		// Check if comment is outdated
 		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
 		
-		// Check if comment is resolved (this would need additional API calls to be fully accurate)
-		isResolved := false // We'll keep this simple for now
+		// Check if comment is resolved using the resolved map
+		isResolved := resolvedMap[rc.ID]
 
-		// Skip outdated comments
-		if isOutdated {
+		// Skip outdated or resolved comments
+		if isOutdated || isResolved {
 			continue
 		}
 
