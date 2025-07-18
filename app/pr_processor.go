@@ -68,7 +68,11 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 			
 			// Debug: log the prompt being sent
 			log.WarningLog.Printf("Sending PR comment %d to Claude AI pane", i+1)
-			log.WarningLog.Printf("Prompt content: %s", prompt[:min(100, len(prompt))])
+			promptPreview := prompt
+			if len(promptPreview) > 100 {
+				promptPreview = promptPreview[:100] + "..."
+			}
+			log.WarningLog.Printf("Prompt content: %s", promptPreview)
 			
 			// First try sending a simple test message
 			testMsg := fmt.Sprintf("Processing PR comment %d from @%s", i+1, comment.Author)
