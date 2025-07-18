@@ -212,6 +212,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("b"),
 		key.WithHelp("b", "rebase"),
 	),
+	KeyEditKeybindings: key.NewBinding(
+		key.WithKeys("K"),
+		key.WithHelp("K", "edit keys"),
+	),
 
 	// -- Special keybindings --
 
