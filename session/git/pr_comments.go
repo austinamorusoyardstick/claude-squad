@@ -310,6 +310,39 @@ func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	return accepted
 }
 
+// GetCommentStats returns statistics about the comments
+func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
+	for _, comment := range pr.Comments {
+		total++
+		if comment.IsOutdated {
+			outdated++
+		}
+		if comment.IsResolved {
+			resolved++
+		}
+		switch comment.Type {
+		case "review":
+			reviews++
+		case "review_comment":
+			reviewComments++
+		case "issue_comment":
+			issueComments++
+		}
+	}
+	return
+}
+
+// GetFilteredComments returns comments that are not outdated or resolved
+func (pr *PullRequest) GetFilteredComments() []PRComment {
+	filtered := []PRComment{}
+	for _, comment := range pr.Comments {
+		if !comment.IsOutdated && !comment.IsResolved {
+			filtered = append(filtered, comment)
+		}
+	}
+	return filtered
+}
+
 func (comment *PRComment) GetFormattedBody() string {
 	lines := strings.Split(comment.Body, "\n")
 	formattedLines := []string{}
