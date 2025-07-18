@@ -105,6 +105,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// historyOverlay displays scrollable history content
+	historyOverlay *overlay.HistoryOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
