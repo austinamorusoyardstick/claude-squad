@@ -57,6 +57,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("tab")+descStyle.Render("       - Switch between AI, diff, and terminal tabs"),
 		keyStyle.Render("mouse")+descStyle.Render("     - Use mouse wheel to scroll in all views"),
 		keyStyle.Render("shift-↓/↑")+descStyle.Render(" - Scroll (works in diff view only)"),
+		keyStyle.Render("ctrl+h")+descStyle.Render("    - View pane history"),
 		keyStyle.Render("s")+descStyle.Render("         - Toggle scroll lock (↓/↑ scrolls diff)"),
 		keyStyle.Render("home/end")+descStyle.Render("  - Scroll to top/bottom in diff view"),
 		keyStyle.Render("ctrl+a/e")+descStyle.Render("  - Alternative: scroll to top/bottom"),
