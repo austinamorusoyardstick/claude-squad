@@ -1,6 +1,10 @@
 package keys
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	
 	"github.com/charmbracelet/bubbles/key"
 )
 
@@ -44,6 +48,7 @@ const (
 	KeyRight
 	KeyScrollLock
 	KeyOpenInIDE
+	KeyEditKeybindings // Key for opening keybinding editor
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -85,6 +90,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"w":          KeyWebStorm,
 	"i":          KeyOpenInIDE,
 	"b":          KeyRebase,
+	"K":          KeyEditKeybindings,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
@@ -209,6 +215,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("b"),
 		key.WithHelp("b", "rebase"),
 	),
+	KeyEditKeybindings: key.NewBinding(
+		key.WithKeys("K"),
+		key.WithHelp("K", "edit keys"),
+	),
 
 	// -- Special keybindings --
 
@@ -216,4 +226,312 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("enter"),
 		key.WithHelp("enter", "submit name"),
 	),
+}
+
+// CustomKeyStringsMap is a mutable map that can be updated with custom keybindings
+var CustomKeyStringsMap map[string]KeyName
+
+// KeyBinding represents a custom keybinding configuration
+type KeyBinding struct {
+	Command string   `json:"command"` // The command name (e.g., "up", "down", "new")
+	Keys    []string `json:"keys"`    // The key combinations (e.g., ["k", "up"])
+	Help    string   `json:"help"`    // Help text to display
+}
+
+// KeyBindingsConfig stores all custom keybindings
+type KeyBindingsConfig struct {
+	Version  string       `json:"version"`  // Config version for future migrations
+	Bindings []KeyBinding `json:"bindings"` // List of custom keybindings
+}
+
+// InitializeCustomKeyBindings loads custom keybindings from config
+func InitializeCustomKeyBindings() error {
+	// Load keybindings config
+	kbConfig, err := LoadKeyBindings()
+	if err != nil {
+		return err
+	}
+	
+	// Convert to key map
+	CustomKeyStringsMap = kbConfig.ToKeyMap()
+	
+	// Also update the GlobalkeyBindings with custom keys
+	updateGlobalBindings(kbConfig)
+	
+	return nil
+}
+
+// GetKeyName returns the KeyName for a given key string, checking custom bindings first
+func GetKeyName(keyStr string) (KeyName, bool) {
+	// Check custom bindings first
+	if CustomKeyStringsMap != nil {
+		if keyName, ok := CustomKeyStringsMap[keyStr]; ok {
+			return keyName, true
+		}
+	}
+	
+	// Fall back to default bindings
+	keyName, ok := GlobalKeyStringsMap[keyStr]
+	return keyName, ok
+}
+
+// DefaultKeyBindings returns the default keybindings configuration
+func DefaultKeyBindings() *KeyBindingsConfig {
+	return &KeyBindingsConfig{
+		Version: "1.0",
+		Bindings: []KeyBinding{
+			// Navigation
+			{Command: "up", Keys: []string{"up", "k"}, Help: "↑/k"},
+			{Command: "down", Keys: []string{"down", "j"}, Help: "↓/j"},
+			{Command: "home", Keys: []string{"home", "ctrl+a", "ctrl+home"}, Help: "home/ctrl+a"},
+			{Command: "end", Keys: []string{"end", "ctrl+e", "ctrl+end"}, Help: "end/ctrl+e"},
+			{Command: "page_up", Keys: []string{"pgup"}, Help: "pgup"},
+			{Command: "page_down", Keys: []string{"pgdown"}, Help: "pgdn"},
+			
+			// Instance management
+			{Command: "new", Keys: []string{"n"}, Help: "n"},
+			{Command: "new_with_prompt", Keys: []string{"N"}, Help: "N"},
+			{Command: "existing_branch", Keys: []string{"e"}, Help: "e"},
+			{Command: "kill", Keys: []string{"D"}, Help: "D"},
+			{Command: "checkout", Keys: []string{"c"}, Help: "c"},
+			{Command: "resume", Keys: []string{"r"}, Help: "r"},
+			{Command: "push", Keys: []string{"p"}, Help: "p"},
+			{Command: "rebase", Keys: []string{"b"}, Help: "b"},
+			
+			// Diff view
+			{Command: "scroll_up", Keys: []string{"shift+up"}, Help: "shift+↑"},
+			{Command: "scroll_down", Keys: []string{"shift+down"}, Help: "shift+↓"},
+			{Command: "prev_file", Keys: []string{"alt+up"}, Help: "alt+↑"},
+			{Command: "next_file", Keys: []string{"alt+down"}, Help: "alt+↓"},
+			{Command: "diff_all", Keys: []string{"a"}, Help: "a"},
+			{Command: "diff_last_commit", Keys: []string{"d"}, Help: "d"},
+			{Command: "prev_commit", Keys: []string{"left"}, Help: "←"},
+			{Command: "next_commit", Keys: []string{"right"}, Help: "→"},
+			{Command: "scroll_lock", Keys: []string{"s"}, Help: "s"},
+			
+			// Actions
+			{Command: "enter", Keys: []string{"enter", "o"}, Help: "↵/o"},
+			{Command: "tab", Keys: []string{"tab"}, Help: "tab"},
+			{Command: "help", Keys: []string{"?"}, Help: "?"},
+			{Command: "quit", Keys: []string{"q"}, Help: "q"},
+			{Command: "error_log", Keys: []string{"l"}, Help: "l"},
+			{Command: "webstorm", Keys: []string{"w"}, Help: "w"},
+			{Command: "open_in_ide", Keys: []string{"i"}, Help: "i"},
+			{Command: "edit_keybindings", Keys: []string{"K"}, Help: "K"},
+		},
+	}
+}
+
+// LoadKeyBindings loads keybindings from the config file
+func LoadKeyBindings() (*KeyBindingsConfig, error) {
+	configPath := filepath.Join(os.Getenv("HOME"), ".claude-squad", "keybindings.json")
+	
+	// Check if file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		// Return defaults if file doesn't exist
+		return DefaultKeyBindings(), nil
+	}
+	
+	// Read the file
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Parse JSON
+	var config KeyBindingsConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return nil, err
+	}
+	
+	// If no bindings are defined, use defaults
+	if len(config.Bindings) == 0 {
+		return DefaultKeyBindings(), nil
+	}
+	
+	return &config, nil
+}
+
+// Save saves keybindings to the config file
+func (k *KeyBindingsConfig) Save() error {
+	configPath := filepath.Join(os.Getenv("HOME"), ".claude-squad", "keybindings.json")
+	
+	// Ensure directory exists
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	
+	// Marshal to JSON with pretty printing
+	data, err := json.MarshalIndent(k, "", "  ")
+	if err != nil {
+		return err
+	}
+	
+	// Write to file
+	return os.WriteFile(configPath, data, 0644)
+}
+
+// ToKeyMap converts the keybindings config to a map for easy lookup
+func (k *KeyBindingsConfig) ToKeyMap() map[string]KeyName {
+	keyMap := make(map[string]KeyName)
+	
+	// Map command names to KeyName constants
+	commandToKeyName := getCommandToKeyNameMap()
+	
+	// Build the key map
+	for _, binding := range k.Bindings {
+		if keyName, ok := commandToKeyName[binding.Command]; ok {
+			for _, key := range binding.Keys {
+				keyMap[key] = keyName
+			}
+		}
+	}
+	
+	return keyMap
+}
+
+// GetBinding returns the keybinding for a specific command
+func (k *KeyBindingsConfig) GetBinding(command string) *KeyBinding {
+	for _, binding := range k.Bindings {
+		if binding.Command == command {
+			return &binding
+		}
+	}
+	return nil
+}
+
+// SetBinding updates or adds a keybinding for a command
+func (k *KeyBindingsConfig) SetBinding(command string, keys []string, help string) {
+	for i, binding := range k.Bindings {
+		if binding.Command == command {
+			k.Bindings[i].Keys = keys
+			k.Bindings[i].Help = help
+			return
+		}
+	}
+	
+	// Add new binding if not found
+	k.Bindings = append(k.Bindings, KeyBinding{
+		Command: command,
+		Keys:    keys,
+		Help:    help,
+	})
+}
+
+// ValidateBindings checks for conflicts in keybindings
+func (k *KeyBindingsConfig) ValidateBindings() map[string][]string {
+	conflicts := make(map[string][]string)
+	keyToCommands := make(map[string][]string)
+	
+	// Build map of keys to commands
+	for _, binding := range k.Bindings {
+		for _, key := range binding.Keys {
+			keyToCommands[key] = append(keyToCommands[key], binding.Command)
+		}
+	}
+	
+	// Find conflicts
+	for key, commands := range keyToCommands {
+		if len(commands) > 1 {
+			conflicts[key] = commands
+		}
+	}
+	
+	return conflicts
+}
+
+// getCommandToKeyNameMap returns the mapping of command names to KeyName constants
+func getCommandToKeyNameMap() map[string]KeyName {
+	return map[string]KeyName{
+		"up":               KeyUp,
+		"down":             KeyDown,
+		"enter":            KeyEnter,
+		"new":              KeyNew,
+		"new_with_prompt":  KeyPrompt,
+		"existing_branch":  KeyExistingBranch,
+		"kill":             KeyKill,
+		"quit":             KeyQuit,
+		"push":             KeySubmit,
+		"checkout":         KeyCheckout,
+		"resume":           KeyResume,
+		"help":             KeyHelp,
+		"error_log":        KeyErrorLog,
+		"webstorm":         KeyWebStorm,
+		"rebase":           KeyRebase,
+		"tab":              KeyTab,
+		"scroll_up":        KeyShiftUp,
+		"scroll_down":      KeyShiftDown,
+		"home":             KeyHome,
+		"end":              KeyEnd,
+		"page_up":          KeyPageUp,
+		"page_down":        KeyPageDown,
+		"prev_file":        KeyAltUp,
+		"next_file":        KeyAltDown,
+		"diff_all":         KeyDiffAll,
+		"diff_last_commit": KeyDiffLastCommit,
+		"prev_commit":      KeyLeft,
+		"next_commit":      KeyRight,
+		"scroll_lock":      KeyScrollLock,
+		"open_in_ide":      KeyOpenInIDE,
+		"edit_keybindings": KeyEditKeybindings,
+	}
+}
+
+// updateGlobalBindings updates the GlobalkeyBindings with custom keybindings
+func updateGlobalBindings(kbConfig *KeyBindingsConfig) {
+	// Map command names to KeyName constants
+	commandToKeyName := getCommandToKeyNameMap()
+	
+	// Update each binding
+	for _, binding := range kbConfig.Bindings {
+		if keyName, ok := commandToKeyName[binding.Command]; ok {
+			// Update the global binding
+			GlobalkeyBindings[keyName] = key.NewBinding(
+				key.WithKeys(binding.Keys...),
+				key.WithHelp(binding.Help, getHelpText(binding.Command)),
+			)
+		}
+	}
+}
+
+// getHelpText returns the help text for a command
+func getHelpText(command string) string {
+	helpTexts := map[string]string{
+		"up":               "up",
+		"down":             "down",
+		"enter":            "open",
+		"new":              "new",
+		"new_with_prompt":  "new with prompt",
+		"existing_branch":  "existing branch",
+		"kill":             "kill",
+		"quit":             "quit",
+		"push":             "push branch",
+		"checkout":         "checkout",
+		"resume":           "resume",
+		"help":             "help",
+		"error_log":        "error log",
+		"webstorm":         "open WebStorm",
+		"rebase":           "rebase",
+		"tab":              "switch tab",
+		"scroll_up":        "scroll",
+		"scroll_down":      "scroll",
+		"home":             "scroll to top",
+		"end":              "scroll to bottom",
+		"page_up":          "page up",
+		"page_down":        "page down",
+		"prev_file":        "prev file",
+		"next_file":        "next file",
+		"diff_all":         "all changes",
+		"diff_last_commit": "last commit diff",
+		"prev_commit":      "prev commit",
+		"next_commit":      "next commit",
+		"scroll_lock":      "toggle scroll lock",
+		"open_in_ide":      "open in IDE",
+	}
+	
+	if text, ok := helpTexts[command]; ok {
+		return text
+	}
+	return command
 }

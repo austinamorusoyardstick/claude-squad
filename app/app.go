@@ -49,6 +49,8 @@ const (
 	stateBranchSelect
 	// stateErrorLog is the state when displaying the error log.
 	stateErrorLog
+	// stateKeybindingEditor is the state when editing keybindings.
+	stateKeybindingEditor
 )
 
 type home struct {
@@ -105,6 +107,8 @@ type home struct {
 	confirmationOverlay *overlay.ConfirmationOverlay
 	// branchSelectorOverlay displays branch selection interface
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
+	// keybindingEditorOverlay displays keybinding editor interface
+	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
@@ -116,6 +120,12 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 
 	// Load application state
 	appState := config.LoadState()
+
+	// Initialize custom keybindings
+	if err := keys.InitializeCustomKeyBindings(); err != nil {
+		// Log error but continue with defaults
+		log.ErrorLog.Printf("Failed to load custom keybindings: %v", err)
+	}
 
 	// Initialize storage
 	storage, err := session.NewStorage(appState)
@@ -332,7 +342,7 @@ func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (cmd tea.Cmd, returnEarly 
 		return nil, false
 	}
 	// If it's in the global keymap, we should try to highlight it.
-	name, ok := keys.GlobalKeyStringsMap[msg.String()]
+	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return nil, false
 	}
@@ -367,6 +377,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 	if m.state == stateErrorLog {
 		return m.handleErrorLogState(msg)
+	}
+
+	if m.state == stateKeybindingEditor {
+		return m.handleKeybindingEditorState(msg)
 	}
 
 	if m.state == stateNew {
@@ -534,7 +548,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m.handleQuit()
 	}
 
-	name, ok := keys.GlobalKeyStringsMap[msg.String()]
+	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return m, nil
 	}
@@ -544,6 +558,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m.showHelpScreen(helpTypeGeneral{}, nil)
 	case keys.KeyErrorLog:
 		return m.showErrorLog()
+	case keys.KeyEditKeybindings:
+		m.state = stateKeybindingEditor
+		m.keybindingEditorOverlay = overlay.NewKeybindingEditorOverlay()
+		return m, nil
 	case keys.KeyPrompt:
 		if m.list.NumInstances() >= GlobalInstanceLimit {
 			return m, m.handleError(
@@ -1138,6 +1156,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
+	} else if m.state == stateKeybindingEditor {
+		if m.keybindingEditorOverlay == nil {
+			log.ErrorLog.Printf("keybinding editor overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.keybindingEditorOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
@@ -1147,6 +1172,32 @@ func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Any key press closes the error log
 	m.state = stateDefault
 	m.textOverlay = nil
+	return m, nil
+}
+
+func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.keybindingEditorOverlay == nil {
+		m.state = stateDefault
+		return m, nil
+	}
+
+	// Let the overlay handle the key press
+	if m.keybindingEditorOverlay.HandleKeyPress(msg) {
+		// Overlay was dismissed, reload keybindings
+		m.state = stateDefault
+		m.keybindingEditorOverlay = nil
+		
+		// Reload keybindings
+		if err := keys.InitializeCustomKeyBindings(); err != nil {
+			log.ErrorLog.Printf("Failed to reload custom keybindings: %v", err)
+		}
+		
+		// Update menu to reflect new keybindings
+		m.menu = ui.NewMenu()
+		
+		return m, nil
+	}
+
 	return m, nil
 }
 

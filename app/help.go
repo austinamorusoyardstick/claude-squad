@@ -63,6 +63,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("a")+descStyle.Render("         - Show all changes in diff view"),
 		keyStyle.Render("d")+descStyle.Render("         - Show commit history (use ←/→ to navigate)"),
 		keyStyle.Render("←/→")+descStyle.Render("       - Navigate commits (when viewing last commit)"),
+		keyStyle.Render("K")+descStyle.Render("         - Edit keyboard shortcuts"),
 		keyStyle.Render("q")+descStyle.Render("         - Quit the application"),
 	)
 	return content
