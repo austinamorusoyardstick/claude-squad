@@ -118,6 +118,25 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 }
 
 func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, error) {
+	// Get repository info first
+	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
+	repoCmd.Dir = workingDir
+	repoOutput, err := repoCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	var repoInfo struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+
+	if err := json.Unmarshal(repoOutput, &repoInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
 	// Use GraphQL to get review thread resolution status
 	query := fmt.Sprintf(`
 {
@@ -136,7 +155,7 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
       }
     }
   }
-}`, "{owner}", "{repo}", pr.Number)
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number)
 
 	// Execute GraphQL query
 	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
