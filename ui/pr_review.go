@@ -89,7 +89,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showHelp = !m.showHelp
 			// Adjust viewport height when help is toggled if ready
 			if m.ready {
-				headerHeight := 4
+				headerHeight := 3
 				footerHeight := 2
 				if !m.showHelp {
 					footerHeight = 0
