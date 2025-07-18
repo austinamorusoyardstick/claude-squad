@@ -896,7 +896,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.state = statePRReview
 		prReviewModel := ui.NewPRReviewModel(pr)
 		m.prReviewOverlay = &prReviewModel
-		return m, nil
+		
+		// Initialize the PR review model
+		initCmd := prReviewModel.Init()
+		return m, initCmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
