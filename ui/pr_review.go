@@ -256,7 +256,7 @@ func (m PRReviewModel) View() string {
 	
 	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d%s", 
 		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
-	header.WriteString("\n")
+	header.WriteString("\n\n") // Add blank line between header and content
 
 	// Build the footer (help text)
 	var footer string
