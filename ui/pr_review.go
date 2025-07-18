@@ -323,6 +323,11 @@ func (m *PRReviewModel) updateViewportContent() {
 		if comment.Accepted {
 			status = "[✓]"
 		}
+		
+		// Add visual indicator if comment was originally resolved but still showing (shouldn't happen)
+		if comment.IsResolved {
+			status += " (resolved)"
+		}
 
 		// Build header with better type display
 		typeDisplay := comment.Type
