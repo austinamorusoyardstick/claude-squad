@@ -1171,41 +1171,56 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 }
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		// Get the git worktree to access the worktree path
-		gitWorktree, err := instance.GetGitWorktree()
-		if err != nil {
-			return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
-		}
-
-		// Construct the path to the web directory
-		worktreePath := gitWorktree.GetWorktreePath()
-		webPath := filepath.Join(worktreePath, "web")
-
-		// Check if web directory exists
-		if _, err := os.Stat(webPath); os.IsNotExist(err) {
-			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
-		}
-
-		// Run npm test in the web directory
-		cmd := exec.Command("npm", "test")
-		cmd.Dir = webPath
-
-		// Capture output
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			// Even if tests fail, we want to show the output
-			return testResultsMsg{
-				output: string(output),
-				err:    nil, // We don't treat test failures as errors
+	return tea.Sequence(
+		// First, send a message that tests have started
+		func() tea.Msg {
+			return testStartedMsg{}
+		},
+		// Then run the tests
+		func() tea.Msg {
+			// Get the git worktree to access the worktree path
+			gitWorktree, err := instance.GetGitWorktree()
+			if err != nil {
+				return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
 			}
-		}
 
-		return testResultsMsg{
-			output: string(output),
-			err:    nil,
-		}
-	}
+			// Construct the path to the web directory
+			worktreePath := gitWorktree.GetWorktreePath()
+			webPath := filepath.Join(worktreePath, "web")
+
+			// Check if web directory exists
+			if _, err := os.Stat(webPath); os.IsNotExist(err) {
+				return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
+			}
+
+			// Run npm test in the web directory with JSON reporter for easier parsing
+			cmd := exec.Command("npm", "test", "--", "--json", "--outputFile=test-results.json")
+			cmd.Dir = webPath
+
+			// Capture output
+			output, testErr := cmd.CombinedOutput()
+
+			// Parse failed test files from output
+			failedFiles := parseFailedTestFiles(string(output), webPath)
+
+			// Also try to read the JSON output file for more reliable parsing
+			jsonPath := filepath.Join(webPath, "test-results.json")
+			if jsonData, err := os.ReadFile(jsonPath); err == nil {
+				// Parse JSON for failed files if available
+				if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
+					failedFiles = jsonFailedFiles
+				}
+				// Clean up the JSON file
+				os.Remove(jsonPath)
+			}
+
+			return testResultsMsg{
+				output:      string(output),
+				failedFiles: failedFiles,
+				err:         nil, // We don't treat test failures as errors
+			}
+		},
+	)
 }
 
 func (m *home) instanceChanged() tea.Cmd {
