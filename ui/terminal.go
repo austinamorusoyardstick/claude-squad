@@ -4,7 +4,6 @@ import (
 	"claude-squad/session"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -16,8 +15,6 @@ type TerminalPane struct {
 	height int
 
 	terminalState terminalState
-	isScrolling   bool
-	viewport      viewport.Model
 }
 
 type terminalState struct {
@@ -28,16 +25,12 @@ type terminalState struct {
 }
 
 func NewTerminalPane() *TerminalPane {
-	return &TerminalPane{
-		viewport: viewport.New(0, 0),
-	}
+	return &TerminalPane{}
 }
 
 func (t *TerminalPane) SetSize(width, maxHeight int) {
 	t.width = width
 	t.height = maxHeight
-	t.viewport.Width = width
-	t.viewport.Height = maxHeight
 }
 
 // setFallbackState sets the terminal state with fallback text and a message
