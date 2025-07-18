@@ -22,7 +22,7 @@ type KeybindingEditorOverlay struct {
 	// Whether the overlay has been dismissed
 	Dismissed bool
 	// Current keybindings configuration
-	config *config.KeyBindingsConfig
+	config *keys.KeyBindingsConfig
 	// Currently selected binding index
 	selectedIndex int
 	// Current mode (list view or editing)
