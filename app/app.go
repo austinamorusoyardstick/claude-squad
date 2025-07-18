@@ -1239,9 +1239,8 @@ func (m *home) View() string {
 			m.state = stateDefault
 			return mainView
 		}
-		// Use PlaceOverlay to ensure proper full-screen rendering
-		// Pass empty string as background to avoid showing mainView
-		return overlay.PlaceOverlay(0, 0, m.prReviewOverlay.View(), "", false, false)
+		// Return PR review directly - it manages its own full-screen layout
+		return m.prReviewOverlay.View()
 	}
 
 	return mainView
