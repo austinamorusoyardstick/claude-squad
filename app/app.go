@@ -1196,6 +1196,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
+	} else if m.state == statePRReview {
+		if m.prReviewOverlay == nil {
+			log.ErrorLog.Printf("PR review overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return m.prReviewOverlay.View()
 	}
 
 	return mainView
