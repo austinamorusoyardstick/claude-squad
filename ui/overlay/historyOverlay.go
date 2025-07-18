@@ -125,3 +125,13 @@ func (h *HistoryOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (h *HistoryOverlay) ScrollPercentage() float64 {
 	return h.viewport.ScrollPercent()
 }
+
+// Init initializes the overlay (required for tea.Model interface)
+func (h *HistoryOverlay) Init() tea.Cmd {
+	return nil
+}
+
+// View returns the view string (required for tea.Model interface)
+func (h *HistoryOverlay) View() string {
+	return h.Render()
+}
