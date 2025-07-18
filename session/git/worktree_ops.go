@@ -306,16 +306,6 @@ func (g *GitWorktree) SetupNewWorktree() error {
 func (g *GitWorktree) Cleanup() error {
 	var errs []error
 
-	// First check if branch is checked out in main repo
-	isCheckedOut, _ := g.IsBranchCheckedOut()
-	if isCheckedOut {
-		// Try to switch to a safe branch (main/master)
-		if err := g.switchToSafeBranch(); err != nil {
-			// Log but don't fail - we'll try force delete
-			log.WarningLog.Printf("failed to switch to safe branch: %v", err)
-		}
-	}
-
 	// Check if worktree path exists before attempting removal
 	if _, err := os.Stat(g.worktreePath); err == nil {
 		// Remove the worktree using git command
@@ -347,12 +337,19 @@ func (g *GitWorktree) Cleanup() error {
 
 	// Check if branch exists before attempting removal
 	if _, err := repo.Reference(branchRef, false); err == nil {
-		// First try normal deletion
-		if err := repo.Storer.RemoveReference(branchRef); err != nil {
-			// If that fails, try command line force delete
-			if _, cmdErr := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); cmdErr != nil {
-				errs = append(errs, fmt.Errorf("failed to remove branch %s: %w (force delete also failed: %v)", g.branchName, err, cmdErr))
+		// Check if branch is checked out in main repo
+		isCheckedOut, _ := g.IsBranchCheckedOut()
+		if !isCheckedOut {
+			// First try normal deletion
+			if err := repo.Storer.RemoveReference(branchRef); err != nil {
+				// If that fails, try command line force delete
+				if _, cmdErr := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); cmdErr != nil {
+					errs = append(errs, fmt.Errorf("failed to remove branch %s: %w (force delete also failed: %v)", g.branchName, err, cmdErr))
+				}
 			}
+		} else {
+			// Branch is checked out in main repo, skip deletion but log it
+			log.WarningLog.Printf("branch %s is checked out in main repository, skipping branch deletion", g.branchName)
 		}
 	} else if err != plumbing.ErrReferenceNotFound {
 		errs = append(errs, fmt.Errorf("error checking branch %s existence: %w", g.branchName, err))
@@ -370,37 +367,6 @@ func (g *GitWorktree) Cleanup() error {
 	return nil
 }
 
-// switchToSafeBranch attempts to switch to main or master branch
-func (g *GitWorktree) switchToSafeBranch() error {
-	// Try to find a safe branch to switch to
-	safeBranches := []string{"main", "master"}
-	
-	for _, branch := range safeBranches {
-		// Check if the branch exists
-		if _, err := g.runGitCommand(g.repoPath, "rev-parse", "--verify", "refs/heads/"+branch); err == nil {
-			// Try to checkout the branch
-			if _, err := g.runGitCommand(g.repoPath, "checkout", branch); err == nil {
-				return nil
-			}
-		}
-	}
-	
-	// If no safe branch found, try to checkout the first available branch that's not our branch
-	output, err := g.runGitCommand(g.repoPath, "branch", "--format=%(refname:short)")
-	if err == nil {
-		branches := strings.Split(strings.TrimSpace(string(output)), "\n")
-		for _, branch := range branches {
-			branch = strings.TrimSpace(branch)
-			if branch != "" && branch != g.branchName {
-				if _, err := g.runGitCommand(g.repoPath, "checkout", branch); err == nil {
-					return nil
-				}
-			}
-		}
-	}
-	
-	return fmt.Errorf("no safe branch found to switch to")
-}
 
 // ForceCleanup performs aggressive cleanup of the worktree and branch
 // This method attempts multiple fallback strategies to ensure cleanup succeeds
@@ -414,17 +380,11 @@ func (g *GitWorktree) ForceCleanup() error {
 		errs = append(errs, fmt.Errorf("normal cleanup failed: %w", err))
 	}
 
-	// If branch is still checked out, force switch
+	// Check if branch is checked out in main repo
 	isCheckedOut, _ := g.IsBranchCheckedOut()
 	if isCheckedOut {
-		// Try harder to switch branches
-		if _, err := g.runGitCommand(g.repoPath, "checkout", "--detach"); err != nil {
-			// If detach fails, try to create and switch to a temporary branch
-			tempBranch := fmt.Sprintf("temp-cleanup-%d", time.Now().Unix())
-			if _, err := g.runGitCommand(g.repoPath, "checkout", "-b", tempBranch); err != nil {
-				errs = append(errs, fmt.Errorf("failed to switch away from branch: %w", err))
-			}
-		}
+		// Log that we'll skip branch deletion
+		log.WarningLog.Printf("branch %s is checked out in main repository, will skip branch deletion", g.branchName)
 	}
 
 	// Try more aggressive cleanup methods
@@ -438,7 +398,7 @@ func (g *GitWorktree) ForceCleanup() error {
 	}
 
 	// 2. Force delete the branch with -D flag
-	if g.branchName != "" {
+	if g.branchName != "" && !isCheckedOut {
 		// Try force delete with -D
 		if _, err := g.runGitCommand(g.repoPath, "branch", "-D", g.branchName); err != nil {
 			errs = append(errs, fmt.Errorf("failed to force delete branch %s: %w", g.branchName, err))
