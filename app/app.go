@@ -56,6 +56,8 @@ const (
 	stateBookmark
 	// stateHistory is the state when displaying the history overlay.
 	stateHistory
+	// stateKeybindingEditor is the state when editing keybindings.
+	stateKeybindingEditor
 )
 
 type home struct {
