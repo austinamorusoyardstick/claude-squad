@@ -1370,6 +1370,14 @@ type testResultsMsg struct {
 // testStartedMsg is sent when tests start running
 type testStartedMsg struct{}
 
+// testProgressMsg is sent with test progress updates
+type testProgressMsg struct {
+	passed int
+	failed int
+	total  int
+	running bool
+}
+
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
 // overall the instances and capture their output. It's a pretty expensive operation. Let's do it 2x a second only.
 var tickUpdateMetadataCmd = func() tea.Msg {
