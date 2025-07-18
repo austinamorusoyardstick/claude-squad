@@ -233,7 +233,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Handle PR review updates when in that state
 	if m.state == statePRReview && m.prReviewOverlay != nil {
 		updatedModel, cmd := m.prReviewOverlay.Update(msg)
-		m.prReviewOverlay = updatedModel.(*ui.PRReviewModel)
+		*m.prReviewOverlay = updatedModel
 		
 		// Check for completion or cancellation messages
 		switch msg.(type) {
