@@ -145,10 +145,11 @@ func (t *TmuxSession) Start(workDir string) error {
 		// The session will still work without this setting
 	}
 
-	// Don't call Restore() here - keep the session detached
-	// Initialize monitor and channels without PTY
+	// Initialize monitor and channels
 	t.monitor = newStatusMonitor()
 	t.reloadCh = make(chan struct{})
+	
+	// Don't call Restore() to avoid creating PTY - we'll handle trust prompts differently
 
 	if t.program == ProgramClaude || strings.HasPrefix(t.program, ProgramAider) || strings.HasPrefix(t.program, ProgramGemini) {
 		searchString := "Do you trust the files in this folder?"
