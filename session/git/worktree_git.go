@@ -349,8 +349,13 @@ func (g *GitWorktree) FindLastBookmarkCommit(branchName string) (string, error) 
 	// Search for the last bookmark commit on the branch
 	output, err := g.runGitCommand(g.worktreePath, "log", "--oneline", "--grep=^\\[BOOKMARK\\]", "-n", "1", "--format=%H", branchName)
 	if err != nil {
-		// If no bookmark found, return empty string (not an error)
-		return "", nil
+		// If no bookmark found, return empty string (not an error).
+		// `git log` returns a non-zero exit code when no commits match.
+		if strings.Contains(err.Error(), "does not have any commits") || output == "" {
+			return "", nil
+		}
+		// For other errors, return the error.
+		return "", fmt.Errorf("failed to find last bookmark commit: %w", err)
 	}
 
 	return strings.TrimSpace(output), nil
