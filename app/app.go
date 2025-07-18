@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -306,6 +307,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 		return m, m.instanceChanged()
+	case successMsg:
+		// Display success message temporarily using error box
+		// Create a custom error type that displays as success
+		m.errBox.SetError(fmt.Errorf("✓ %s", msg.message))
+		return m, func() tea.Msg {
+			time.Sleep(2 * time.Second)
+			return hideErrMsg{}
+		}
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -819,6 +828,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
 		return m, m.confirmAction(message, rebaseAction)
+	case keys.KeyRunTests:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Run all tests for the selected instance
+		cmd := m.runAllTests(selected)
+		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -913,6 +930,118 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 	}
 }
 
+func (m *home) runAllTests(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+		
+		// Get the worktree path
+		worktreePath := gitWorktree.GetWorktreePath()
+		
+		// Run yarn test to execute Jest tests
+		cmd := exec.Command("yarn", "test", "--no-coverage", "--verbose")
+		cmd.Dir = worktreePath
+		cmd.Env = append(os.Environ(), "CI=true") // Run Jest in non-interactive mode
+		
+		// Capture output
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// Even if tests fail, we want to parse the output
+			// Check if it's a test failure (exit code 1) or a real error
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				// Test failure, continue to parse output
+			} else {
+				return fmt.Errorf("failed to run tests: %w\nOutput: %s", err, string(output))
+			}
+		}
+		
+		// Parse Jest test output to find failed tests
+		failedTests := m.parseJestOutput(string(output))
+		
+		// If there are failed tests, open them in WebStorm
+		if len(failedTests) > 0 {
+			for _, testFile := range failedTests {
+				// Open each failed test file in WebStorm
+				fullPath := filepath.Join(worktreePath, testFile)
+				webstormCmd := exec.Command("webstorm", fullPath)
+				if err := webstormCmd.Start(); err != nil {
+					return fmt.Errorf("failed to open %s in WebStorm: %w", testFile, err)
+				}
+			}
+			return fmt.Errorf("Jest tests failed: %d test files have failures", len(failedTests))
+		}
+		
+		// All tests passed
+		return successMsg{message: "All Jest tests passed!"}
+	}
+}
+
+func (m *home) parseJestOutput(output string) []string {
+	failedTests := make(map[string]bool)
+	lines := strings.Split(output, "\n")
+	
+	for _, line := range lines {
+		// Jest failure output patterns:
+		// 1. "FAIL src/components/Button.test.js"
+		// 2. "FAIL ./src/utils/helpers.test.ts"
+		if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
+			// Extract the file path after "FAIL "
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				testFile := parts[1]
+				// Remove leading "./" if present
+				testFile = strings.TrimPrefix(testFile, "./")
+				failedTests[testFile] = true
+			}
+		}
+		
+		// Also look for test file paths in stack traces
+		// Format: "at Object.<anonymous> (src/components/Button.test.js:15:3)"
+		if strings.Contains(line, ".test.js") || strings.Contains(line, ".test.ts") || 
+		   strings.Contains(line, ".test.jsx") || strings.Contains(line, ".test.tsx") ||
+		   strings.Contains(line, ".spec.js") || strings.Contains(line, ".spec.ts") ||
+		   strings.Contains(line, ".spec.jsx") || strings.Contains(line, ".spec.tsx") {
+			// Try to extract file path from parentheses
+			start := strings.Index(line, "(")
+			end := strings.Index(line, ":")
+			if start != -1 && end != -1 && start < end {
+				filePath := line[start+1:end]
+				// Clean up the path
+				filePath = strings.TrimSpace(filePath)
+				filePath = strings.TrimPrefix(filePath, "./")
+				// Only add if it's a test file
+				if strings.Contains(filePath, ".test.") || strings.Contains(filePath, ".spec.") {
+					failedTests[filePath] = true
+				}
+			}
+		}
+		
+		// Look for file paths in error locations
+		// Format: "  at src/utils/helpers.test.ts:25:10"
+		if strings.Contains(line, " at ") && (strings.Contains(line, ".test.") || strings.Contains(line, ".spec.")) {
+			parts := strings.Fields(line)
+			for _, part := range parts {
+				if (strings.Contains(part, ".test.") || strings.Contains(part, ".spec.")) && strings.Contains(part, ":") {
+					filePath := strings.Split(part, ":")[0]
+					filePath = strings.TrimPrefix(filePath, "./")
+					failedTests[filePath] = true
+				}
+			}
+		}
+	}
+	
+	// Convert map to slice
+	result := make([]string, 0, len(failedTests))
+	for testFile := range failedTests {
+		result = append(result, testFile)
+	}
+	
+	return result
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
@@ -964,6 +1093,11 @@ type instanceCreatedMsg struct {
 type instanceDeletedMsg struct {
 	title string
 	err   error
+}
+
+// successMsg is a generic success message
+type successMsg struct {
+	message string
 }
 
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
