@@ -22,13 +22,19 @@ This feature allows you to review pull request comments and automatically proces
    - Press `R` to open the PR review interface for that instance's worktree
 
 3. **Review Comments**
-   - Use `j/k` or arrow keys to navigate between comments
-   - Press `a` to accept the current comment
-   - Press `d` to deny the current comment
-   - Press `A` to accept all comments
-   - Press `D` to deny all comments
-   - Press `Enter` to process accepted comments
-   - Press `q` or `Esc` to cancel
+   - Navigation:
+     - `j/k` or arrow keys: Navigate between comments
+     - `PgUp/PgDn` or `Shift+↑/↓`: Scroll viewport up/down
+     - `g` or `Home`: Go to first comment
+     - `G` or `End`: Go to last comment
+   - Actions:
+     - `a`: Accept current comment
+     - `d`: Deny current comment  
+     - `A`: Accept all comments
+     - `D`: Deny all comments
+     - `Enter`: Process accepted comments
+     - `q` or `Esc`: Cancel
+     - `?`: Toggle help
 
 4. **Processing**
    - Accepted comments are sent to Claude one by one
