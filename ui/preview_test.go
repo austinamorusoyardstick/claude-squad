@@ -232,9 +232,6 @@ func TestPreviewScrolling(t *testing.T) {
 	err = previewPane.UpdateContent(setup.instance)
 	require.NoError(t, err)
 
-	// Verify we're not in scrolling mode initially
-	require.False(t, previewPane.isScrolling, "Should not be in scrolling mode initially")
-
 	// Step 2: Check that PreviewFullHistory returns all content
 	fullHistory, err := setup.instance.PreviewFullHistory()
 	require.NoError(t, err)
@@ -243,46 +240,42 @@ func TestPreviewScrolling(t *testing.T) {
 	require.Contains(t, fullHistory, "$ seq 100", "Full history should contain the command")
 	require.Contains(t, fullHistory, "1", "Full history should contain earliest output")
 
-	// Step 3: Enter scroll mode
-	err = previewPane.ScrollUp(setup.instance)
+	// Step 3: Test tmux copy mode - initially should not be in copy mode
+	require.False(t, inCopyMode, "Should not be in copy mode initially")
+
+	// Step 4: Enter copy mode by scrolling up
+	err = setup.instance.ScrollUpAI()
 	require.NoError(t, err)
 
-	// Verify we entered scrolling mode
-	require.True(t, previewPane.isScrolling, "Should be in scrolling mode after ScrollUp")
+	// Verify we entered copy mode
+	require.True(t, inCopyMode, "Should be in copy mode after ScrollUp")
 
-	// Step 4: Get the content directly from the viewport
-	viewportContent := previewPane.viewport.View()
-	t.Logf("Viewport content: %q", viewportContent)
-
-	// With proper implementation, the viewport should have the full history content
-	// Note: The viewport will be positioned at the bottom initially, so we need to scroll up
-
-	// Step 5: Scroll up multiple times to get to the top
-	for range 50 {
-		err = previewPane.ScrollUp(setup.instance)
+	// Step 5: Scroll up multiple times
+	for range 10 {
+		err = setup.instance.ScrollUpAI()
 		require.NoError(t, err)
 	}
 
-	// Now get the viewport content after scrolling up
-	viewportAfterScrollUp := previewPane.viewport.View()
-	t.Logf("Viewport after scrolling up: %q", viewportAfterScrollUp)
+	// Verify scroll position has increased
+	require.Greater(t, scrollPosition, 0, "Scroll position should increase after scrolling up")
 
 	// Step 6: Scroll down multiple times
-	for range 25 {
-		err = previewPane.ScrollDown(setup.instance)
+	initialScrollPos := scrollPosition
+	for range 5 {
+		err = setup.instance.ScrollDownAI()
 		require.NoError(t, err)
 	}
 
-	// Get updated viewport content after scrolling down
-	viewportAfterScrollDown := previewPane.viewport.View()
-	t.Logf("Viewport after scrolling down: %q", viewportAfterScrollDown)
+	// Verify scroll position has decreased
+	require.Less(t, scrollPosition, initialScrollPos, "Scroll position should decrease after scrolling down")
 
-	// Step 7: Reset to normal mode
-	err = previewPane.ResetToNormalMode(setup.instance)
+	// Step 7: Exit copy mode
+	err = setup.instance.ExitCopyModeAI()
 	require.NoError(t, err)
 
-	// Verify we exited scrolling mode
-	require.False(t, previewPane.isScrolling, "Should not be in scrolling mode after reset")
+	// Verify we exited copy mode
+	require.False(t, inCopyMode, "Should not be in copy mode after exit")
+	require.Equal(t, 0, scrollPosition, "Scroll position should reset after exiting copy mode")
 }
 
 // MockPtyFactory for testing tmux sessions
