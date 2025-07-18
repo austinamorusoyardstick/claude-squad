@@ -862,6 +862,16 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 		
+		// Check if instance is started
+		if !selected.Started() {
+			return m, m.handleError(fmt.Errorf("instance '%s' is not started", selected.Title))
+		}
+		
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf("instance '%s' is paused - please resume it first", selected.Title))
+		}
+		
 		// Get the worktree for the selected instance
 		worktree, err := selected.GetGitWorktree()
 		if err != nil {
