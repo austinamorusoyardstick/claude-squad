@@ -391,3 +391,54 @@ func (m *PRReviewModel) ensureCurrentCommentVisible() {
 		m.viewport.SetYOffset(targetLine - m.viewport.Height + 5)
 	}
 }
+
+// simpleView renders a basic view without viewport when not ready
+func (m PRReviewModel) simpleView() string {
+	var b strings.Builder
+	
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("86"))
+	
+	b.WriteString(headerStyle.Render(fmt.Sprintf("PR #%d: %s", m.pr.Number, m.pr.Title)))
+	b.WriteString("\n\n")
+	
+	acceptedCount := len(m.pr.GetAcceptedComments())
+	statusStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+	b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted", len(m.pr.Comments), acceptedCount)))
+	b.WriteString("\n\n")
+	
+	// Show current comment
+	if len(m.pr.Comments) > 0 && m.currentIndex < len(m.pr.Comments) {
+		comment := m.pr.Comments[m.currentIndex]
+		
+		status := "[ ]"
+		if comment.Accepted {
+			status = "[✓]"
+		}
+		
+		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(m.pr.Comments)))
+		b.WriteString(fmt.Sprintf("%s %s @%s\n", status, comment.Type, comment.Author))
+		if comment.Path != "" {
+			b.WriteString(fmt.Sprintf("File: %s", comment.Path))
+			if comment.Line > 0 {
+				b.WriteString(fmt.Sprintf(":%d", comment.Line))
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+		
+		body := comment.Body
+		if len(body) > 500 {
+			body = body[:497] + "..."
+		}
+		b.WriteString(body)
+		b.WriteString("\n\n")
+	}
+	
+	b.WriteString("Loading interface...\n")
+	b.WriteString("Press q to cancel")
+	
+	return b.String()
+}
