@@ -180,8 +180,9 @@ func (m PRReviewModel) View() string {
 		return "No comments found on this PR.\n\nPress 'q' to go back"
 	}
 
+	// If not ready, show a simple view without viewport
 	if !m.ready {
-		return "Loading..."
+		return m.simpleView()
 	}
 
 	// Build the header
