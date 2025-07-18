@@ -747,10 +747,31 @@ func (i *Instance) Resume() error {
 	return nil
 }
 
-// UpdateDiffStats is now a no-op since we fetch diff stats on demand
+// UpdateDiffStats updates the cached git diff statistics for this instance
 func (i *Instance) UpdateDiffStats() error {
-	// This method is kept for backward compatibility but does nothing
-	// Diff stats are now fetched on demand when needed
+	if !i.started {
+		i.diffStatsCache = nil
+		return nil
+	}
+
+	if i.Status == Paused {
+		// Keep the previous diff stats if the instance is paused
+		return nil
+	}
+
+	stats := i.gitWorktree.Diff()
+	if stats.Error != nil {
+		if strings.Contains(stats.Error.Error(), "base commit SHA not set") {
+			// Worktree is not fully set up yet, not an error
+			i.diffStatsCache = nil
+			i.diffStatsCacheTime = time.Now()
+			return nil
+		}
+		return fmt.Errorf("failed to get diff stats: %w", stats.Error)
+	}
+
+	i.diffStatsCache = stats
+	i.diffStatsCacheTime = time.Now()
 	return nil
 }
 
