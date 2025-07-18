@@ -165,19 +165,19 @@ func TestPreviewScrolling(t *testing.T) {
 			}
 
 			// Handle copy mode commands
-			if strings.Contains(cmdStr, "copy-mode") {
+			if strings.Contains(cmdStr, "copy-mode") && !strings.Contains(cmdStr, "display-message") {
 				inCopyMode = true
 			}
-			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "q") {
+			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "-X") && strings.Contains(cmdStr, "cancel") {
 				inCopyMode = false
 				scrollPosition = 0 // Reset position when exiting copy mode
 			}
-			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "Up") {
+			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "-X") && strings.Contains(cmdStr, "scroll-up") {
 				if inCopyMode {
 					scrollPosition++
 				}
 			}
-			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "Down") {
+			if strings.Contains(cmdStr, "send-keys") && strings.Contains(cmdStr, "-X") && strings.Contains(cmdStr, "scroll-down") {
 				if inCopyMode && scrollPosition > 0 {
 					scrollPosition--
 				}
