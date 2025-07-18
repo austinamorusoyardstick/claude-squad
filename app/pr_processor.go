@@ -25,33 +25,43 @@ type commentProcessedMsg struct {
 type allCommentsProcessedMsg struct{}
 
 func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
-	return func() tea.Msg {
-		// Create a text overlay to show progress
-		progressText := fmt.Sprintf("Processing %d PR comments...\n\n", len(comments))
-		m.textOverlay = overlay.NewTextOverlay("PR Comment Processing", progressText)
-		m.state = stateHelp // Reuse help state for overlay display
-		
-		// Process each comment sequentially
-		for i, comment := range comments {
-			// Update progress
-			progressText += fmt.Sprintf("[%d/%d] Processing comment from @%s...\n", i+1, len(comments), comment.Author)
-			m.textOverlay.SetContent(progressText)
-			
-			// Send comment to Claude for processing
-			if err := m.sendCommentToClaude(comment); err != nil {
-				progressText += fmt.Sprintf("  ❌ Error: %v\n", err)
-				m.textOverlay.SetContent(progressText)
-			} else {
-				progressText += fmt.Sprintf("  ✓ Sent to Claude\n")
-				m.textOverlay.SetContent(progressText)
+	// First show the processing overlay
+	progressText := fmt.Sprintf("Processing %d PR comments...\n\n", len(comments))
+	for i, comment := range comments {
+		progressText += fmt.Sprintf("%d. Comment from @%s", i+1, comment.Author)
+		if comment.Path != "" {
+			progressText += fmt.Sprintf(" on %s", comment.Path)
+			if comment.Line > 0 {
+				progressText += fmt.Sprintf(":%d", comment.Line)
 			}
-			
-			// Small delay between comments
-			time.Sleep(500 * time.Millisecond)
+		}
+		progressText += "\n"
+	}
+	progressText += "\nSending to Claude for processing..."
+	
+	m.textOverlay = overlay.NewTextOverlay("PR Comment Processing", progressText)
+	m.state = stateHelp
+	
+	// Return a command that processes comments
+	return m.processCommentsSequentially(comments)
+}
+
+func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
+	return func() tea.Msg {
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return fmt.Errorf("no instance selected")
 		}
 		
-		progressText += "\nAll comments processed. Press any key to continue."
-		m.textOverlay.SetContent(progressText)
+		// Process each comment
+		for _, comment := range comments {
+			prompt := m.formatCommentAsPrompt(comment)
+			if err := selected.SendPrompt(prompt); err != nil {
+				return fmt.Errorf("failed to send comment to Claude: %w", err)
+			}
+			// Small delay between comments to avoid overwhelming Claude
+			time.Sleep(1 * time.Second)
+		}
 		
 		return allCommentsProcessedMsg{}
 	}
