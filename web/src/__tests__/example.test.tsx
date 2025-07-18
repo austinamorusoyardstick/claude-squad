@@ -10,4 +10,8 @@ describe('Example Test', () => {
     render(<TestComponent />)
     expect(screen.getByText('Hello Test')).toBeInTheDocument()
   })
+
+  it('should fail to demonstrate error handling', () => {
+    expect(1 + 1).toBe(3) // This will fail
+  })
 })
