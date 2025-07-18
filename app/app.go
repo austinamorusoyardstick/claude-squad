@@ -333,10 +333,10 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			return m, m.handleError(msg.err)
 		}
-		
+
 		// Parse final stats from output
 		finalStats := parseJestFinalStats(msg.output)
-		
+
 		// Open failed test files in WebStorm if any
 		if len(msg.failedFiles) > 0 {
 			for _, file := range msg.failedFiles {
@@ -344,14 +344,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd.Start()
 			}
 			// Show brief status about failed tests with counts
-			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in WebStorm", 
+			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in WebStorm",
 				finalStats.passed, finalStats.total, finalStats.failed))
 		} else {
 			// All tests passed
-			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed", 
+			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed",
 				finalStats.passed, finalStats.total))
 		}
-		
+
 		// Auto-hide the message after 5 seconds (give more time to read the stats)
 		return m, func() tea.Msg {
 			select {
@@ -991,28 +991,22 @@ func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 
 		// Construct the path to the web directory
 		worktreePath := gitWorktree.GetWorktreePath()
-		webPath := filepath.Join(worktreePath, "web")
-
-		// Check if web directory exists
-		if _, err := os.Stat(webPath); os.IsNotExist(err) {
-			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
-		}
 
 		// Run npm test without watch mode
-		cmd := exec.Command("npm", "test", "--", "--watchAll=false", "--json", "--outputFile=test-results.json")
-		cmd.Dir = webPath
-		
+		cmd := exec.Command("yarn", "tester", "--", "--watchAll=false", "--json", "--outputFile=test-results.json")
+		cmd.Dir = worktreePath
+
 		// Capture output
 		output, _ := cmd.CombinedOutput()
-		
+
 		// Parse failed test files from output
-		failedFiles := parseFailedTestFiles(string(output), webPath)
-		
+		failedFiles := parseFailedTestFiles(string(output), worktreePath)
+
 		// Also try to read the JSON output file for more reliable parsing
-		jsonPath := filepath.Join(webPath, "test-results.json")
+		jsonPath := filepath.Join(worktreePath, "test-results.json")
 		if jsonData, err := os.ReadFile(jsonPath); err == nil {
 			// Parse JSON for failed files if available
-			if jsonFailedFiles := parseJestJSON(jsonData, webPath); len(jsonFailedFiles) > 0 {
+			if jsonFailedFiles := parseJestJSON(jsonData, worktreePath); len(jsonFailedFiles) > 0 {
 				failedFiles = jsonFailedFiles
 			}
 			// Clean up the JSON file
@@ -1031,7 +1025,7 @@ func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 func parseFailedTestFiles(output string, webPath string) []string {
 	var failedFiles []string
 	lines := strings.Split(output, "\n")
-	
+
 	for _, line := range lines {
 		// Look for FAIL lines which contain the test file path
 		if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
@@ -1050,25 +1044,25 @@ func parseFailedTestFiles(output string, webPath string) []string {
 			}
 		}
 	}
-	
+
 	return failedFiles
 }
 
 // parseJestJSON parses Jest JSON output to find failed test files
 func parseJestJSON(jsonData []byte, webPath string) []string {
 	var failedFiles []string
-	
+
 	// Simple JSON parsing for test results
 	// Jest JSON format includes testResults array with status and name fields
 	type TestResult struct {
 		Name   string `json:"name"`
 		Status string `json:"status"`
 	}
-	
+
 	type JestResults struct {
 		TestResults []TestResult `json:"testResults"`
 	}
-	
+
 	var results JestResults
 	if err := json.Unmarshal(jsonData, &results); err == nil {
 		for _, result := range results.TestResults {
@@ -1085,7 +1079,7 @@ func parseJestJSON(jsonData []byte, webPath string) []string {
 			}
 		}
 	}
-	
+
 	return failedFiles
 }
 
@@ -1099,12 +1093,12 @@ type testStats struct {
 // parseJestFinalStats parses the final test summary from Jest output
 func parseJestFinalStats(output string) testStats {
 	stats := testStats{}
-	
+
 	// Look for the test suites summary line
 	// Example: "Test Suites: 1 passed, 1 failed, 2 total"
 	re := regexp.MustCompile(`Test Suites:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?.*?,\s*(\d+)\s*total`)
 	matches := re.FindStringSubmatch(output)
-	
+
 	if len(matches) >= 4 {
 		if passed, err := strconv.Atoi(matches[1]); err == nil {
 			stats.passed = passed
@@ -1118,12 +1112,12 @@ func parseJestFinalStats(output string) testStats {
 			stats.total = total
 		}
 	}
-	
+
 	// If no failed count was found, calculate it
 	if stats.failed == 0 && stats.total > stats.passed {
 		stats.failed = stats.total - stats.passed
 	}
-	
+
 	return stats
 }
 
@@ -1192,9 +1186,9 @@ type testStartedMsg struct{}
 
 // testProgressMsg is sent with test progress updates
 type testProgressMsg struct {
-	passed int
-	failed int
-	total  int
+	passed  int
+	failed  int
+	total   int
 	running bool
 }
 
