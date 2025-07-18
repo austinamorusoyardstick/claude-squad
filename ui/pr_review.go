@@ -277,8 +277,8 @@ func (m PRReviewModel) View() string {
 		footer = "\n" + helpStyle.Render(strings.Join(helpItems, " • "))
 	}
 
-	// Combine everything
-	return fmt.Sprintf("%s\n%s%s", header.String(), m.viewport.View(), footer)
+	// Combine everything - header already has newlines, viewport content, then footer
+	return header.String() + m.viewport.View() + footer
 }
 
 func (m *PRReviewModel) updateViewportContent() {
