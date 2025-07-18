@@ -32,11 +32,13 @@ func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 		pr:           pr,
 		currentIndex: 0,
 		showHelp:     true,
+		ready:        false,
 	}
 }
 
 func (m PRReviewModel) Init() tea.Cmd {
-	return nil
+	// Request window size immediately
+	return tea.WindowSize()
 }
 
 func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
