@@ -54,6 +54,9 @@ func (h *HistoryOverlay) SetSize(width, height int) {
 	
 	h.viewport.Width = viewportWidth
 	h.viewport.Height = viewportHeight
+	
+	// After setting dimensions, position at bottom to show most recent content
+	h.viewport.GotoBottom()
 }
 
 // HandleKeyPress processes a key press and updates the state
