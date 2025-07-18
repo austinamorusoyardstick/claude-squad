@@ -87,16 +87,25 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 }
 
 func (pr *PullRequest) FetchComments(workingDir string) error {
+	// Always clear existing data to ensure fresh fetch
 	pr.Comments = []PRComment{}
 	pr.Reviews = []PRReview{}
+
+	// First fetch resolved status for review threads
+	resolvedMap, err := pr.fetchResolvedStatus(workingDir)
+	if err != nil {
+		// Log but don't fail - resolved status is optional
+		fmt.Printf("Warning: Could not fetch resolved status: %v\n", err)
+		resolvedMap = make(map[int]bool)
+	}
 
 	// Fetch PR reviews first
 	if err := pr.fetchReviews(workingDir); err != nil {
 		return err
 	}
 
-	// Fetch review comments (line-specific comments)
-	if err := pr.fetchReviewComments(workingDir); err != nil {
+	// Fetch review comments (line-specific comments) with resolved status
+	if err := pr.fetchReviewComments(workingDir, resolvedMap); err != nil {
 		return err
 	}
 
