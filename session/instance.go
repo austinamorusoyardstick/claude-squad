@@ -57,8 +57,9 @@ type Instance struct {
 	// Prompt is the initial prompt to pass to the instance on startup
 	Prompt string
 
-	// DiffStats stores the current git diff statistics
-	diffStats *git.DiffStats
+	// In-memory cache for diff stats to avoid expensive git operations on every UI update
+	diffStatsCache     *git.DiffStats
+	diffStatsCacheTime time.Time
 
 	// The below fields are initialized upon calling Start().
 
@@ -97,14 +98,6 @@ func (i *Instance) ToInstanceData() InstanceData {
 		}
 	}
 
-	// Only include diff stats if they exist
-	if i.diffStats != nil {
-		data.DiffStats = DiffStatsData{
-			Added:   i.diffStats.Added,
-			Removed: i.diffStats.Removed,
-			Content: i.diffStats.Content,
-		}
-	}
 
 	return data
 }
@@ -128,11 +121,6 @@ func FromInstanceData(data InstanceData) (*Instance, error) {
 			data.Worktree.BranchName,
 			data.Worktree.BaseCommitSHA,
 		),
-		diffStats: &git.DiffStats{
-			Added:   data.DiffStats.Added,
-			Removed: data.DiffStats.Removed,
-			Content: data.DiffStats.Content,
-		},
 	}
 
 	if instance.Paused() {
@@ -699,6 +687,9 @@ func (i *Instance) Pause() error {
 	}
 
 	i.SetStatus(Paused)
+	// Invalidate cache when pausing
+	i.diffStatsCache = nil
+	i.diffStatsCacheTime = time.Time{}
 	_ = clipboard.WriteAll(i.gitWorktree.GetBranchName())
 	return nil
 }
@@ -759,10 +750,10 @@ func (i *Instance) Resume() error {
 	return nil
 }
 
-// UpdateDiffStats updates the git diff statistics for this instance
+// UpdateDiffStats updates the cached git diff statistics for this instance
 func (i *Instance) UpdateDiffStats() error {
 	if !i.started {
-		i.diffStats = nil
+		i.diffStatsCache = nil
 		return nil
 	}
 
@@ -775,19 +766,31 @@ func (i *Instance) UpdateDiffStats() error {
 	if stats.Error != nil {
 		if strings.Contains(stats.Error.Error(), "base commit SHA not set") {
 			// Worktree is not fully set up yet, not an error
-			i.diffStats = nil
+			i.diffStatsCache = nil
+			i.diffStatsCacheTime = time.Now()
 			return nil
 		}
 		return fmt.Errorf("failed to get diff stats: %w", stats.Error)
 	}
 
-	i.diffStats = stats
+	i.diffStatsCache = stats
+	i.diffStatsCacheTime = time.Now()
 	return nil
 }
 
-// GetDiffStats returns the current git diff statistics
+// GetDiffStats returns the cached git diff statistics
 func (i *Instance) GetDiffStats() *git.DiffStats {
-	return i.diffStats
+	if !i.started {
+		return nil
+	}
+
+	if i.Status == Paused {
+		// For paused instances, return cached stats if available
+		return i.diffStatsCache
+	}
+
+	// Return cached stats
+	return i.diffStatsCache
 }
 
 // GetLastCommitDiffStats returns the diff statistics for uncommitted changes if they exist, otherwise the last commit
@@ -856,6 +859,10 @@ func (i *Instance) SendPrompt(prompt string) error {
 	if err := i.tmuxSession.TapEnter(); err != nil {
 		return fmt.Errorf("error tapping enter: %w", err)
 	}
+
+	// Invalidate cache when sending a prompt as git state might change
+	i.diffStatsCache = nil
+	i.diffStatsCacheTime = time.Time{}
 
 	return nil
 }
