@@ -28,7 +28,7 @@ type KeybindingEditorOverlay struct {
 	// Current mode (list view or editing)
 	mode keybindingEditorMode
 	// Current editing state
-	editingBinding *config.KeyBinding
+	editingBinding *keys.KeyBinding
 	editingKeys    []string
 	captureNextKey bool
 	// Dimensions
