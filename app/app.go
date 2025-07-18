@@ -390,6 +390,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			time.Sleep(3 * time.Second)
 			return hideErrMsg{}
 		}
+	case testResultsMsg:
+		// Handle test results
+		if msg.err != nil {
+			return m, m.handleError(msg.err)
+		}
+		// Show test output in a text overlay
+		m.showTestResults(msg.output)
+		return m, nil
 	}
 	return m, nil
 }
@@ -1004,6 +1012,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, nil
 	case keys.KeyHistory:
 		return m, m.showHistoryView()
+	case keys.KeyTest:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Run Jest tests in the web directory
+		cmd := m.runJestTests(selected)
+		return m, cmd
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1154,6 +1170,44 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 	}
 }
 
+func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
+		}
+
+		// Construct the path to the web directory
+		worktreePath := gitWorktree.GetWorktreePath()
+		webPath := filepath.Join(worktreePath, "web")
+
+		// Check if web directory exists
+		if _, err := os.Stat(webPath); os.IsNotExist(err) {
+			return testResultsMsg{err: fmt.Errorf("web directory does not exist at %s", webPath)}
+		}
+
+		// Run npm test in the web directory
+		cmd := exec.Command("npm", "test")
+		cmd.Dir = webPath
+
+		// Capture output
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// Even if tests fail, we want to show the output
+			return testResultsMsg{
+				output: string(output),
+				err:    nil, // We don't treat test failures as errors
+			}
+		}
+
+		return testResultsMsg{
+			output: string(output),
+			err:    nil,
+		}
+	}
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
@@ -1205,6 +1259,12 @@ type instanceCreatedMsg struct {
 type instanceDeletedMsg struct {
 	title string
 	err   error
+}
+
+// testResultsMsg is sent when test results are available
+type testResultsMsg struct {
+	output string
+	err    error
 }
 
 // tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
@@ -1460,6 +1520,13 @@ func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	}
 
 	return m, nil
+}
+
+func (m *home) showTestResults(output string) {
+	// Create text overlay with test results
+	m.textOverlay = overlay.NewTextOverlay(output)
+	m.state = stateHelp // Use help state since it handles text overlay display
+	m.menu.SetState(ui.StateDefault)
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
