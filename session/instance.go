@@ -559,6 +559,32 @@ func (i *Instance) GetTerminalContent() (string, error) {
 	return i.tmuxSession.CapturePaneContent()
 }
 
+// GetTerminalFullHistory captures the entire terminal pane output including full scrollback history
+func (i *Instance) GetTerminalFullHistory() (string, error) {
+	if !i.started || i.Status == Paused {
+		return "", fmt.Errorf("instance not available")
+	}
+
+	// Check if tmux session was killed and needs to be recreated
+	if err := i.ensureTmuxSession(); err != nil {
+		return "", err
+	}
+
+	// Ensure terminal pane exists
+	if err := i.tmuxSession.CreateTerminalPane(i.gitWorktree.GetWorktreePath()); err != nil {
+		return "", fmt.Errorf("failed to create terminal pane: %v", err)
+	}
+
+	// Terminal is in pane 0, capture with full history (-S - means from start of history)
+	// We need to specify the target pane explicitly
+	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".0")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to capture terminal full history: %v", err)
+	}
+	return string(output), nil
+}
+
 // ScrollUpAI enters copy mode and scrolls up in the AI pane (pane 1)
 func (i *Instance) ScrollUpAI() error {
 	if !i.started || i.Status == Paused {
