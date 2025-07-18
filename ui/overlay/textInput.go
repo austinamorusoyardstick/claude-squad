@@ -165,7 +165,14 @@ func (t *TextInputOverlay) Render() string {
 	} else {
 		enterButton = buttonStyle.Render(enterButton)
 	}
-	content += enterButton
+	
+	// Add hint about keyboard shortcuts
+	hintStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Italic(true)
+	hint := hintStyle.Render("Press Enter to submit • Shift+Enter for newline • Esc to cancel")
+	
+	content += enterButton + "\n\n" + hint
 
 	return style.Render(content)
 }
