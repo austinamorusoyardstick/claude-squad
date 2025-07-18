@@ -151,77 +151,196 @@ func (m PRReviewModel) View() string {
 		return "No comments found on this PR.\n\nPress 'q' to go back"
 	}
 
-	var b strings.Builder
+	if !m.ready {
+		return "Loading..."
+	}
 
+	// Build the header
+	var header strings.Builder
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("86")).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("86"))
 
-	b.WriteString(headerStyle.Render(fmt.Sprintf("PR #%d: %s", m.pr.Number, m.pr.Title)))
-	b.WriteString("\n\n")
+	titleLine := headerStyle.Render(fmt.Sprintf("PR #%d: %s", m.pr.Number, m.pr.Title))
+	// Truncate title if too long
+	if lipgloss.Width(titleLine) > m.width-2 {
+		title := m.pr.Title
+		if len(title) > m.width-20 {
+			title = title[:m.width-23] + "..."
+		}
+		titleLine = headerStyle.Render(fmt.Sprintf("PR #%d: %s", m.pr.Number, title))
+	}
+	header.WriteString(titleLine)
+	header.WriteString("\n")
 
 	acceptedCount := len(m.pr.GetAcceptedComments())
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
-	b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted", len(m.pr.Comments), acceptedCount)))
-	b.WriteString("\n\n")
+	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d", 
+		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments))))
+	header.WriteString("\n")
 
-	for i, comment := range m.pr.Comments {
-		var commentStyle lipgloss.Style
-		prefix := "  "
+	// Build the footer (help text)
+	var footer string
+	if m.showHelp {
+		helpStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
 		
-		if i == m.currentIndex {
-			commentStyle = lipgloss.NewStyle().
+		helpItems := []string{
+			"j/k:nav",
+			"a/d:accept/deny",
+			"A/D:all",
+			"Enter:process",
+			"q:cancel",
+			"?:help",
+		}
+		footer = "\n" + helpStyle.Render(strings.Join(helpItems, " • "))
+	}
+
+	// Combine everything
+	return fmt.Sprintf("%s\n%s%s", header.String(), m.viewport.View(), footer)
+}
+
+func (m *PRReviewModel) updateViewportContent() {
+	var content strings.Builder
+	
+	for i, comment := range m.pr.Comments {
+		if i > 0 {
+			content.WriteString("\n")
+		}
+		
+		// Comment box styling
+		var boxStyle lipgloss.Style
+		isSelected := i == m.currentIndex
+		
+		maxWidth := m.width - 4
+		if maxWidth < 40 {
+			maxWidth = 40
+		}
+		
+		if isSelected {
+			boxStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
 				BorderForeground(lipgloss.Color("86")).
-				Padding(1).
-				Width(m.width - 4)
-			prefix = "> "
+				Padding(0, 1).
+				Width(maxWidth)
 		} else {
-			commentStyle = lipgloss.NewStyle().
+			boxStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.HiddenBorder()).
-				Padding(1).
-				Width(m.width - 4)
+				Padding(0, 1).
+				Width(maxWidth)
 		}
 
+		// Status indicator
 		status := "[ ]"
 		if comment.Accepted {
 			status = "[✓]"
 		}
 
+		// Build header
 		header := fmt.Sprintf("%s %s @%s", status, comment.Type, comment.Author)
 		if comment.Path != "" {
-			header += fmt.Sprintf(" • %s:%d", comment.Path, comment.Line)
+			header += fmt.Sprintf(" • %s", comment.Path)
+			if comment.Line > 0 {
+				header += fmt.Sprintf(":%d", comment.Line)
+			}
 		}
-		header += fmt.Sprintf(" • %s", comment.CreatedAt.Format("Jan 2, 2006"))
-
-		content := comment.GetFormattedBody()
-		if len(content) > 200 && i != m.currentIndex {
-			content = content[:197] + "..."
-		}
-
-		commentBlock := fmt.Sprintf("%s\n\n%s", 
-			lipgloss.NewStyle().Bold(true).Render(header),
-			content)
-
-		b.WriteString(fmt.Sprintf("%s%s\n\n", prefix, commentStyle.Render(commentBlock)))
-	}
-
-	if m.showHelp {
-		helpStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			MarginTop(2)
 		
-		helpText := []string{
-			"Navigation: j/k or ↓/↑",
-			"Accept: a | Deny: d",
-			"Accept All: A | Deny All: D", 
-			"Process: Enter | Cancel: q/Esc",
-			"Toggle Help: ?",
+		// Truncate header if too long
+		if len(header) > maxWidth-4 {
+			header = header[:maxWidth-7] + "..."
 		}
-		b.WriteString(helpStyle.Render(strings.Join(helpText, " • ")))
-	}
 
-	return b.String()
+		// Format body
+		body := comment.GetFormattedBody()
+		// Limit body length for non-selected items
+		if !isSelected && len(body) > 150 {
+			body = body[:147] + "..."
+		}
+		
+		// Wrap text to fit within box
+		lines := m.wrapText(body, maxWidth-4)
+		wrappedBody := strings.Join(lines, "\n")
+
+		// Combine header and body
+		commentContent := fmt.Sprintf("%s\n\n%s",
+			lipgloss.NewStyle().Bold(true).Render(header),
+			wrappedBody)
+
+		// Add selection indicator
+		prefix := "  "
+		if isSelected {
+			prefix = "> "
+		}
+		
+		content.WriteString(prefix + boxStyle.Render(commentContent))
+		content.WriteString("\n")
+	}
+	
+	m.viewport.SetContent(content.String())
+}
+
+func (m *PRReviewModel) wrapText(text string, width int) []string {
+	if width <= 0 {
+		return []string{text}
+	}
+	
+	var result []string
+	lines := strings.Split(text, "\n")
+	
+	for _, line := range lines {
+		if len(line) <= width {
+			result = append(result, line)
+			continue
+		}
+		
+		// Wrap long lines
+		for len(line) > width {
+			// Find last space before width
+			lastSpace := width
+			for i := width; i > 0; i-- {
+				if line[i-1] == ' ' {
+					lastSpace = i
+					break
+				}
+			}
+			
+			// If no space found, just cut at width
+			if lastSpace == width {
+				result = append(result, line[:width])
+				line = line[width:]
+			} else {
+				result = append(result, line[:lastSpace-1])
+				line = line[lastSpace:]
+			}
+		}
+		
+		if len(line) > 0 {
+			result = append(result, line)
+		}
+	}
+	
+	return result
+}
+
+func (m *PRReviewModel) ensureCurrentCommentVisible() {
+	// This is a simple implementation - could be improved to calculate
+	// exact position of current comment
+	lines := strings.Split(m.viewport.View(), "\n")
+	totalLines := len(lines)
+	
+	if totalLines == 0 {
+		return
+	}
+	
+	// Estimate position based on comment index
+	estimatedPosition := float64(m.currentIndex) / float64(len(m.pr.Comments))
+	targetLine := int(estimatedPosition * float64(m.viewport.TotalLineCount()))
+	
+	// Scroll to make the comment visible
+	if targetLine < m.viewport.YOffset {
+		m.viewport.SetYOffset(targetLine)
+	} else if targetLine > m.viewport.YOffset+m.viewport.Height-5 {
+		m.viewport.SetYOffset(targetLine - m.viewport.Height + 5)
+	}
 }
