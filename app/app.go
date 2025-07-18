@@ -554,6 +554,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m.showHelpScreen(helpTypeGeneral{}, nil)
 	case keys.KeyErrorLog:
 		return m.showErrorLog()
+	case keys.KeyEditKeybindings:
+		m.state = stateKeybindingEditor
+		m.keybindingEditorOverlay = overlay.NewKeybindingEditorOverlay()
+		return m, nil
 	case keys.KeyPrompt:
 		if m.list.NumInstances() >= GlobalInstanceLimit {
 			return m, m.handleError(
