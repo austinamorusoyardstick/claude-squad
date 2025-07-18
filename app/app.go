@@ -496,24 +496,20 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				return m, nil
 			}
 
+			var finalCmd tea.Cmd = tea.WindowSize()
 			if m.textInputOverlay.IsSubmitted() {
 				// Create bookmark commit
 				commitMsg := m.textInputOverlay.GetValue()
 				cmd := m.createBookmarkCommit(selected, commitMsg)
-				
-				// Close the overlay and reset state
-				m.textInputOverlay = nil
-				m.state = stateDefault
-				m.menu.SetState(ui.StateDefault)
-				
-				return m, tea.Batch(tea.WindowSize(), cmd)
+				finalCmd = tea.Batch(tea.WindowSize(), cmd)
 			}
 
-			// User cancelled
+			// Common state reset logic
 			m.textInputOverlay = nil
 			m.state = stateDefault
 			m.menu.SetState(ui.StateDefault)
-			return m, tea.WindowSize()
+
+			return m, finalCmd
 		}
 
 		return m, nil
