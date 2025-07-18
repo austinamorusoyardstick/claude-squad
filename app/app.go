@@ -1208,10 +1208,21 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 }
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		// Send initial started message
-		m.program.Send(testStartedMsg{})
+	// Create a channel for progress updates
+	progressChan := make(chan tea.Msg, 10)
 
+	// Start a goroutine to forward progress messages
+	go func() {
+		for msg := range progressChan {
+			m.program.Send(msg)
+		}
+	}()
+
+	return func() tea.Msg {
+		defer close(progressChan)
+
+		// Send initial started message
+		progressChan <- testStartedMsg{}
 		// Get the git worktree to access the worktree path
 		gitWorktree, err := instance.GetGitWorktree()
 		if err != nil {
