@@ -362,8 +362,9 @@ func (m *PRReviewModel) updateViewportContent() {
 		content.WriteString(prefix + boxStyle.Render(commentContent))
 	}
 	
-	// Add extra padding after the last comment to ensure it's fully visible when scrolled to bottom
-	content.WriteString("\n\n\n")
+	// Add substantial padding after the last comment to ensure it's fully visible when scrolled to bottom
+	// This padding should be at least the height of a typical comment box
+	content.WriteString("\n\n\n\n\n\n\n\n")
 	
 	m.viewport.SetContent(content.String())
 }
