@@ -232,6 +232,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle PR review updates when in that state
 	if m.state == statePRReview && m.prReviewOverlay != nil {
+		// Always pass window size messages to ensure the overlay initializes
+		if _, ok := msg.(tea.WindowSizeMsg); ok {
+			updatedModel, cmd := m.prReviewOverlay.Update(msg)
+			*m.prReviewOverlay = updatedModel
+			return m, cmd
+		}
+		
 		updatedModel, cmd := m.prReviewOverlay.Update(msg)
 		*m.prReviewOverlay = updatedModel
 		
