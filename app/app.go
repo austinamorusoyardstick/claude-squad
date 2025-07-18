@@ -1385,6 +1385,22 @@ func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleHistoryState handles key events when in history state
+func (m *home) handleHistoryState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Let the history overlay handle the key press
+	shouldClose := m.historyOverlay.HandleKeyPress(msg)
+	if shouldClose {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.historyOverlay = nil
+		return m, tea.WindowSize()
+	}
+
+	// Update the viewport
+	_, cmd := m.historyOverlay.Update(msg)
+	return m, cmd
+}
+
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
 	// Create content for error log
 	var content string
