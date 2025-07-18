@@ -455,9 +455,22 @@ func (m PRReviewModel) simpleView() string {
 	b.WriteString("\n\n")
 	
 	acceptedCount := len(m.pr.GetAcceptedComments())
+	total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetCommentStats()
+	
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
-	b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted", len(m.pr.Comments), acceptedCount)))
+	
+	// Show comment breakdown
+	b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total (%d reviews, %d review comments, %d general)", 
+		total, reviews, reviewComments, issueComments)))
+	b.WriteString("\n")
+	
+	if outdated > 0 || resolved > 0 {
+		b.WriteString(statusStyle.Render(fmt.Sprintf("Filtered out: %d outdated, %d resolved", outdated, resolved)))
+		b.WriteString("\n")
+	}
+	
+	b.WriteString(statusStyle.Render(fmt.Sprintf("Accepted: %d", acceptedCount)))
 	b.WriteString("\n\n")
 	
 	// Show current comment
