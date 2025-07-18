@@ -44,7 +44,7 @@ func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
 	m.state = stateHelp
 	
 	// Switch to AI tab before processing
-	m.tabbedWindow.SetActiveTab(1) // AI tab is index 1
+	m.tabbedWindow.SwitchToAITab()
 	
 	// Return a command that processes comments
 	return m.processCommentsSequentially(comments)
