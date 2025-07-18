@@ -239,3 +239,64 @@ func (g *GitWorktree) RebaseWithMain() error {
 
 	return nil
 }
+
+// GetCurrentBranch returns the current branch name
+func (g *GitWorktree) GetCurrentBranch() (string, error) {
+	return g.branchName, nil
+}
+
+// FindLastBookmarkCommit finds the last commit with [BOOKMARK] prefix on the given branch
+func (g *GitWorktree) FindLastBookmarkCommit(branchName string) (string, error) {
+	// Search for the last bookmark commit on the branch
+	output, err := g.runGitCommand(g.worktreePath, "log", "--oneline", "--grep=^\\[BOOKMARK\\]", "-n", "1", "--format=%H", branchName)
+	if err != nil {
+		// If no bookmark found, return empty string (not an error)
+		return "", nil
+	}
+	
+	return strings.TrimSpace(output), nil
+}
+
+// GetCommitMessagesSince gets all commit messages since a given SHA on the branch
+func (g *GitWorktree) GetCommitMessagesSince(sinceSHA string, branchName string) ([]string, error) {
+	var args []string
+	if sinceSHA == "" {
+		// If no previous bookmark, get all commits on this branch
+		args = []string{"log", "--oneline", "--format=%s", branchName}
+	} else {
+		// Get commits since the last bookmark
+		args = []string{"log", "--oneline", "--format=%s", fmt.Sprintf("%s..%s", sinceSHA, branchName)}
+	}
+	
+	output, err := g.runGitCommand(g.worktreePath, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get commit messages: %w", err)
+	}
+	
+	if output == "" {
+		return []string{}, nil
+	}
+	
+	// Split by newline and filter out empty lines and bookmark commits
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var messages []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "[BOOKMARK]") {
+			messages = append(messages, line)
+		}
+	}
+	
+	return messages, nil
+}
+
+// CreateBookmarkCommit creates an empty commit with the bookmark message
+func (g *GitWorktree) CreateBookmarkCommit(message string) error {
+	// Create an empty commit with the bookmark message
+	_, err := g.runGitCommand(g.worktreePath, "commit", "--allow-empty", "-m", message)
+	if err != nil {
+		return fmt.Errorf("failed to create bookmark commit: %w", err)
+	}
+	
+	return nil
+}
