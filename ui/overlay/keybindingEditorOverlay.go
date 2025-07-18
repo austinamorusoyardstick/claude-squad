@@ -106,7 +106,7 @@ func (k *KeybindingEditorOverlay) handleListMode(msg tea.KeyMsg) bool {
 		k.mode = modeConfirmSave
 	case "r":
 		// Reset to defaults
-		k.config = config.DefaultKeyBindings()
+		k.config = keys.DefaultKeyBindings()
 		k.selectedIndex = 0
 	case "q", "esc":
 		// Close without saving
