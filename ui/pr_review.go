@@ -17,6 +17,8 @@ type PRReviewModel struct {
 	height        int
 	showHelp      bool
 	err           error
+	viewport      viewport.Model
+	ready         bool
 }
 
 type PRReviewCompleteMsg struct {
