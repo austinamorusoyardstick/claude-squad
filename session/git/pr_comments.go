@@ -87,52 +87,176 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 }
 
 func (pr *PullRequest) FetchComments(workingDir string) error {
-	cmdReviewComments := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/comments", pr.Number))
-	cmdReviewComments.Dir = workingDir
-	output, err := cmdReviewComments.Output()
+	pr.Comments = []PRComment{}
+	pr.Reviews = []PRReview{}
+
+	// Fetch PR reviews first
+	if err := pr.fetchReviews(workingDir); err != nil {
+		return err
+	}
+
+	// Fetch review comments (line-specific comments)
+	if err := pr.fetchReviewComments(workingDir); err != nil {
+		return err
+	}
+
+	// Fetch general issue comments
+	if err := pr.fetchIssueComments(workingDir); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pr *PullRequest) fetchReviews(workingDir string) error {
+	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/reviews", pr.Number))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to fetch reviews: %w", err)
+	}
+
+	var reviews []struct {
+		ID          int    `json:"id"`
+		Body        string `json:"body"`
+		State       string `json:"state"`
+		User        struct{ Login string `json:"login"` } `json:"user"`
+		SubmittedAt string `json:"submitted_at"`
+		CommitID    string `json:"commit_id"`
+	}
+
+	if err := json.Unmarshal(output, &reviews); err != nil {
+		return fmt.Errorf("failed to parse reviews: %w", err)
+	}
+
+	for _, r := range reviews {
+		// Skip empty review bodies and dismissed reviews
+		if strings.TrimSpace(r.Body) == "" || r.State == "DISMISSED" {
+			continue
+		}
+
+		submittedAt, _ := time.Parse(time.RFC3339, r.SubmittedAt)
+		
+		// Check if review is outdated (not from the current head commit)
+		isOutdated := r.CommitID != pr.HeadSHA
+
+		review := PRReview{
+			ID:          r.ID,
+			Body:        r.Body,
+			State:       r.State,
+			Author:      r.User.Login,
+			SubmittedAt: submittedAt,
+			CommitID:    r.CommitID,
+		}
+
+		// Convert review to comment format if not outdated
+		if !isOutdated {
+			reviewComment := PRComment{
+				ID:                 r.ID,
+				Body:               r.Body,
+				Author:             r.User.Login,
+				CreatedAt:          submittedAt,
+				UpdatedAt:          submittedAt,
+				State:              strings.ToLower(r.State),
+				Type:               "review",
+				CommitID:           r.CommitID,
+				PullRequestReviewID: r.ID,
+				IsOutdated:         isOutdated,
+				IsResolved:         r.State == "DISMISSED",
+				Accepted:           false,
+			}
+			pr.Comments = append(pr.Comments, reviewComment)
+		}
+
+		pr.Reviews = append(pr.Reviews, review)
+	}
+
+	return nil
+}
+
+func (pr *PullRequest) fetchReviewComments(workingDir string) error {
+	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/comments", pr.Number))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to fetch review comments: %w", err)
 	}
 
 	var reviewComments []struct {
-		ID               int    `json:"id"`
-		Body             string `json:"body"`
-		Path             string `json:"path"`
-		Line             int    `json:"line"`
-		OriginalLine     int    `json:"original_line"`
-		User             struct{ Login string `json:"login"` } `json:"user"`
-		CreatedAt        string `json:"created_at"`
-		UpdatedAt        string `json:"updated_at"`
-		PullRequestReviewID int `json:"pull_request_review_id"`
+		ID                  int     `json:"id"`
+		Body                string  `json:"body"`
+		Path                string  `json:"path"`
+		Line                *int    `json:"line"`
+		OriginalLine        int     `json:"original_line"`
+		Position            *int    `json:"position"`
+		OriginalPosition    *int    `json:"original_position"`
+		User                struct{ Login string `json:"login"` } `json:"user"`
+		CreatedAt           string  `json:"created_at"`
+		UpdatedAt           string  `json:"updated_at"`
+		CommitID            string  `json:"commit_id"`
+		OriginalCommitID    string  `json:"original_commit_id"`
+		PullRequestReviewID int     `json:"pull_request_review_id"`
 	}
 
 	if err := json.Unmarshal(output, &reviewComments); err != nil {
 		return fmt.Errorf("failed to parse review comments: %w", err)
 	}
 
-	pr.Comments = []PRComment{}
 	for _, rc := range reviewComments {
+		// Skip empty comments
+		if strings.TrimSpace(rc.Body) == "" {
+			continue
+		}
+
 		createdAt, _ := time.Parse(time.RFC3339, rc.CreatedAt)
 		updatedAt, _ := time.Parse(time.RFC3339, rc.UpdatedAt)
 		
+		// Check if comment is outdated
+		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
+		
+		// Check if comment is resolved (this would need additional API calls to be fully accurate)
+		isResolved := false // We'll keep this simple for now
+
+		// Skip outdated comments
+		if isOutdated {
+			continue
+		}
+
+		line := 0
+		if rc.Line != nil {
+			line = *rc.Line
+		}
+
 		comment := PRComment{
-			ID:        rc.ID,
-			Body:      rc.Body,
-			Path:      rc.Path,
-			Line:      rc.Line,
-			Author:    rc.User.Login,
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-			State:     "pending",
-			Type:      "review",
-			Accepted:  false,
+			ID:                 rc.ID,
+			Body:               rc.Body,
+			Path:               rc.Path,
+			Line:               line,
+			OriginalLine:       rc.OriginalLine,
+			Author:             rc.User.Login,
+			CreatedAt:          createdAt,
+			UpdatedAt:          updatedAt,
+			State:              "pending",
+			Type:               "review_comment",
+			CommitID:           rc.CommitID,
+			OriginalCommitID:   rc.OriginalCommitID,
+			Position:           rc.Position,
+			OriginalPosition:   rc.OriginalPosition,
+			PullRequestReviewID: rc.PullRequestReviewID,
+			IsOutdated:         isOutdated,
+			IsResolved:         isResolved,
+			Accepted:           false,
 		}
 		pr.Comments = append(pr.Comments, comment)
 	}
 
-	cmdIssueComments := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/issues/%d/comments", pr.Number))
-	cmdIssueComments.Dir = workingDir
-	output, err = cmdIssueComments.Output()
+	return nil
+}
+
+func (pr *PullRequest) fetchIssueComments(workingDir string) error {
+	cmd := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/issues/%d/comments", pr.Number))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to fetch issue comments: %w", err)
 	}
@@ -150,18 +274,25 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	}
 
 	for _, ic := range issueComments {
+		// Skip empty comments
+		if strings.TrimSpace(ic.Body) == "" {
+			continue
+		}
+
 		createdAt, _ := time.Parse(time.RFC3339, ic.CreatedAt)
 		updatedAt, _ := time.Parse(time.RFC3339, ic.UpdatedAt)
 		
 		comment := PRComment{
-			ID:        ic.ID,
-			Body:      ic.Body,
-			Author:    ic.User.Login,
-			CreatedAt: createdAt,
-			UpdatedAt: updatedAt,
-			State:     "pending",
-			Type:      "issue",
-			Accepted:  false,
+			ID:         ic.ID,
+			Body:       ic.Body,
+			Author:     ic.User.Login,
+			CreatedAt:  createdAt,
+			UpdatedAt:  updatedAt,
+			State:      "pending",
+			Type:       "issue_comment",
+			IsOutdated: false, // Issue comments are never outdated
+			IsResolved: false,
+			Accepted:   false,
 		}
 		pr.Comments = append(pr.Comments, comment)
 	}
