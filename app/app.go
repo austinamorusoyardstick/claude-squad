@@ -1232,6 +1232,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
+	} else if m.state == stateBookmark {
+		if m.textInputOverlay == nil {
+			log.ErrorLog.Printf("text input overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.textInputOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
