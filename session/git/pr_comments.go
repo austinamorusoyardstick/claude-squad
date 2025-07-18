@@ -9,16 +9,24 @@ import (
 )
 
 type PRComment struct {
-	ID        int       `json:"id"`
-	Body      string    `json:"body"`
-	Path      string    `json:"path"`
-	Line      int       `json:"line"`
-	Author    string    `json:"author"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	State     string    `json:"state"`
-	Type      string    `json:"type"`
-	Accepted  bool      `json:"-"`
+	ID                 int       `json:"id"`
+	Body               string    `json:"body"`
+	Path               string    `json:"path"`
+	Line               int       `json:"line"`
+	OriginalLine       int       `json:"original_line"`
+	Author             string    `json:"author"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+	State              string    `json:"state"`
+	Type               string    `json:"type"`
+	CommitID           string    `json:"commit_id"`
+	OriginalCommitID   string    `json:"original_commit_id"`
+	Position           *int      `json:"position"`
+	OriginalPosition   *int      `json:"original_position"`
+	PullRequestReviewID int      `json:"pull_request_review_id"`
+	IsOutdated         bool      `json:"is_outdated"`
+	IsResolved         bool      `json:"is_resolved"`
+	Accepted           bool      `json:"-"`
 }
 
 type PullRequest struct {
