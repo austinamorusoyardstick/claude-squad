@@ -62,8 +62,8 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			footerHeight = 0
 		}
 		
-		// Add a small safety margin to prevent edge case cutoffs
-		safetyMargin := 1
+		// Minimal safety margin since we have padding in the content
+		safetyMargin := 0
 		
 		if !m.ready {
 			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight-safetyMargin)
