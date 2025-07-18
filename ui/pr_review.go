@@ -66,13 +66,13 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		safetyMargin := 1
 		
 		if !m.ready {
-			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight)
+			m.viewport = viewport.New(m.width, m.height-headerHeight-footerHeight-safetyMargin)
 			m.viewport.HighPerformanceRendering = false
 			m.ready = true
 			m.viewport.SetYOffset(0)
 		} else {
 			m.viewport.Width = m.width
-			m.viewport.Height = m.height - headerHeight - footerHeight
+			m.viewport.Height = m.height - headerHeight - footerHeight - safetyMargin
 		}
 		
 		m.updateViewportContent()
