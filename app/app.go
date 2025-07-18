@@ -1450,7 +1450,7 @@ func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 		// Reload keybindings
 		if err := keys.InitializeCustomKeyBindings(); err != nil {
-			log.Error("Failed to reload custom keybindings: %v", err)
+			log.ErrorLog.Printf("Failed to reload custom keybindings: %v", err)
 		}
 
 		// Update menu to reflect new keybindings
