@@ -513,15 +513,25 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, nil
 	}
 
-	// Exit scrolling mode when ESC is pressed and preview pane is in scrolling mode
-	// Check if Escape key was pressed and we're not in the diff tab (meaning we're in preview tab)
+	// Exit scrolling mode when ESC is pressed and preview or terminal pane is in scrolling mode
+	// Check if Escape key was pressed
 	// Always check for escape key first to ensure it doesn't get intercepted elsewhere
 	if msg.Type == tea.KeyEsc {
+		// Use the selected instance from the list
+		selected := m.list.GetSelectedInstance()
+		
 		// If in preview tab and in scroll mode, exit scroll mode
-		if !m.tabbedWindow.IsInDiffTab() && m.tabbedWindow.IsPreviewInScrollMode() {
-			// Use the selected instance from the list
-			selected := m.list.GetSelectedInstance()
+		if !m.tabbedWindow.IsInDiffTab() && !m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsPreviewInScrollMode() {
 			err := m.tabbedWindow.ResetPreviewToNormalMode(selected)
+			if err != nil {
+				return m, m.handleError(err)
+			}
+			return m, m.instanceChanged()
+		}
+		
+		// If in terminal tab and in scroll mode, exit scroll mode
+		if m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsTerminalInScrollMode() {
+			err := m.tabbedWindow.ResetTerminalToNormalMode(selected)
 			if err != nil {
 				return m, m.handleError(err)
 			}
