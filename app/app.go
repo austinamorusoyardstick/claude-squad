@@ -112,6 +112,8 @@ type home struct {
 	branchSelectorOverlay *overlay.BranchSelectorOverlay
 	// prReviewOverlay handles PR comment review
 	prReviewOverlay *ui.PRReviewModel
+	// historyOverlay displays scrollable history content
+	historyOverlay *overlay.HistoryOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
