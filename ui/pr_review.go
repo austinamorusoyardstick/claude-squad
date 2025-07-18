@@ -54,8 +54,8 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		
-		// Header: title (1) + status (1) + blank line after status (1) + blank line before viewport (1) = 4
-		headerHeight := 4
+		// Header: title (1) + status (1) + blank line after status (1) = 3
+		headerHeight := 3
 		// Footer: blank line before help (1) + help text (1) = 2
 		footerHeight := 2
 		if !m.showHelp {
