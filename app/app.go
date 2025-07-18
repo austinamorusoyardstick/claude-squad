@@ -1531,7 +1531,7 @@ func (m *home) showHistoryView() tea.Cmd {
 
 	// Set state to history
 	m.state = stateHistory
-	m.menu.SetState(ui.StateOverlay)
+	m.menu.SetState(ui.StateDefault)
 
 	return tea.WindowSize()
 }
