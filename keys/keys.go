@@ -265,7 +265,7 @@ type KeyBindingsConfig struct {
 // InitializeCustomKeyBindings loads custom keybindings from config
 func InitializeCustomKeyBindings() error {
 	// Load keybindings config
-	kbConfig, err := config.LoadKeyBindings()
+	kbConfig, err := LoadKeyBindings()
 	if err != nil {
 		return err
 	}
