@@ -1241,3 +1241,53 @@ func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) 
 
 	return m, tea.Batch(m.instanceChanged(), cmd)
 }
+
+// showHistoryView displays the history overlay for the current pane
+func (m *home) showHistoryView() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return nil
+	}
+
+	var content string
+	var title string
+	var err error
+
+	// Determine which pane's history to show based on the active tab
+	if m.tabbedWindow.IsInTerminalTab() {
+		// Show terminal pane history
+		content, err = selected.GetTerminalFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get terminal history: %v", err))
+		}
+		title = fmt.Sprintf("Terminal History - %s", selected.Title)
+	} else if m.tabbedWindow.IsInAITab() {
+		// Show AI pane history
+		content, err = selected.GetAIFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get AI history: %v", err))
+		}
+		title = fmt.Sprintf("AI History - %s", selected.Title)
+	} else {
+		// Default to AI pane if we're in diff view
+		content, err = selected.GetAIFullHistory()
+		if err != nil {
+			return m.handleError(fmt.Errorf("failed to get AI history: %v", err))
+		}
+		title = fmt.Sprintf("AI History - %s", selected.Title)
+	}
+
+	// Create the history overlay
+	m.historyOverlay = overlay.NewHistoryOverlay(title, content)
+	m.historyOverlay.OnDismiss = func() {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.historyOverlay = nil
+	}
+
+	// Set state to history
+	m.state = stateHistory
+	m.menu.SetState(ui.StateOverlay)
+
+	return tea.WindowSize()
+}
