@@ -116,6 +116,8 @@ type home struct {
 	prReviewOverlay *ui.PRReviewModel
 	// historyOverlay displays scrollable history content
 	historyOverlay *overlay.HistoryOverlay
+	// keybindingEditorOverlay displays keybinding editor interface
+	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
