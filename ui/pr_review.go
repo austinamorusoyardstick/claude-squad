@@ -491,6 +491,11 @@ func (m PRReviewModel) simpleView() string {
 			status = "[✓]"
 		}
 		
+		// Add visual indicator if comment was originally resolved but still showing (shouldn't happen)
+		if comment.IsResolved {
+			status += " (resolved)"
+		}
+		
 		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(m.pr.Comments)))
 		
 		// Format comment type with better descriptions
