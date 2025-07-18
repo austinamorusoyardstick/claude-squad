@@ -124,11 +124,6 @@ func (p *PreviewPane) String() string {
 			Render(strings.Join(lines, ""))
 	}
 
-	// If in copy mode, use the viewport to display scrollable content
-	if p.isScrolling {
-		return p.viewport.View()
-	}
-
 	// Normal mode display
 	// Calculate available height accounting for border and margin
 	availableHeight := p.height - 1 //  1 for ellipsis
