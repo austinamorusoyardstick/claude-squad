@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	
+
 	"github.com/charmbracelet/bubbles/key"
 )
 
@@ -305,7 +305,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "end", Keys: []string{"end", "ctrl+e", "ctrl+end"}, Help: "end/ctrl+e"},
 			{Command: "page_up", Keys: []string{"pgup"}, Help: "pgup"},
 			{Command: "page_down", Keys: []string{"pgdown"}, Help: "pgdn"},
-			
+
 			// Instance management
 			{Command: "new", Keys: []string{"n"}, Help: "n"},
 			{Command: "new_with_prompt", Keys: []string{"N"}, Help: "N"},
@@ -315,7 +315,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "resume", Keys: []string{"r"}, Help: "r"},
 			{Command: "push", Keys: []string{"p"}, Help: "p"},
 			{Command: "rebase", Keys: []string{"b"}, Help: "b"},
-			
+
 			// Diff view
 			{Command: "scroll_up", Keys: []string{"shift+up"}, Help: "shift+↑"},
 			{Command: "scroll_down", Keys: []string{"shift+down"}, Help: "shift+↓"},
@@ -326,7 +326,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "prev_commit", Keys: []string{"left"}, Help: "←"},
 			{Command: "next_commit", Keys: []string{"right"}, Help: "→"},
 			{Command: "scroll_lock", Keys: []string{"s"}, Help: "s"},
-			
+
 			// Actions
 			{Command: "enter", Keys: []string{"enter", "o"}, Help: "↵/o"},
 			{Command: "tab", Keys: []string{"tab"}, Help: "tab"},
@@ -343,49 +343,49 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 // LoadKeyBindings loads keybindings from the config file
 func LoadKeyBindings() (*KeyBindingsConfig, error) {
 	configPath := filepath.Join(os.Getenv("HOME"), ".claude-squad", "keybindings.json")
-	
+
 	// Check if file exists
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		// Return defaults if file doesn't exist
 		return DefaultKeyBindings(), nil
 	}
-	
+
 	// Read the file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse JSON
 	var config KeyBindingsConfig
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
-	
+
 	// If no bindings are defined, use defaults
 	if len(config.Bindings) == 0 {
 		return DefaultKeyBindings(), nil
 	}
-	
+
 	return &config, nil
 }
 
 // Save saves keybindings to the config file
 func (k *KeyBindingsConfig) Save() error {
 	configPath := filepath.Join(os.Getenv("HOME"), ".claude-squad", "keybindings.json")
-	
+
 	// Ensure directory exists
 	dir := filepath.Dir(configPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	
+
 	// Marshal to JSON with pretty printing
 	data, err := json.MarshalIndent(k, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	// Write to file
 	return os.WriteFile(configPath, data, 0644)
 }
@@ -393,10 +393,10 @@ func (k *KeyBindingsConfig) Save() error {
 // ToKeyMap converts the keybindings config to a map for easy lookup
 func (k *KeyBindingsConfig) ToKeyMap() map[string]KeyName {
 	keyMap := make(map[string]KeyName)
-	
+
 	// Map command names to KeyName constants
 	commandToKeyName := getCommandToKeyNameMap()
-	
+
 	// Build the key map
 	for _, binding := range k.Bindings {
 		if keyName, ok := commandToKeyName[binding.Command]; ok {
@@ -405,7 +405,7 @@ func (k *KeyBindingsConfig) ToKeyMap() map[string]KeyName {
 			}
 		}
 	}
-	
+
 	return keyMap
 }
 
@@ -428,7 +428,7 @@ func (k *KeyBindingsConfig) SetBinding(command string, keys []string, help strin
 			return
 		}
 	}
-	
+
 	// Add new binding if not found
 	k.Bindings = append(k.Bindings, KeyBinding{
 		Command: command,
@@ -441,21 +441,21 @@ func (k *KeyBindingsConfig) SetBinding(command string, keys []string, help strin
 func (k *KeyBindingsConfig) ValidateBindings() map[string][]string {
 	conflicts := make(map[string][]string)
 	keyToCommands := make(map[string][]string)
-	
+
 	// Build map of keys to commands
 	for _, binding := range k.Bindings {
 		for _, key := range binding.Keys {
 			keyToCommands[key] = append(keyToCommands[key], binding.Command)
 		}
 	}
-	
+
 	// Find conflicts
 	for key, commands := range keyToCommands {
 		if len(commands) > 1 {
 			conflicts[key] = commands
 		}
 	}
-	
+
 	return conflicts
 }
 
@@ -492,8 +492,8 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"next_commit":      KeyRight,
 		"scroll_lock":      KeyScrollLock,
 		"open_in_ide":      KeyOpenInIDE,
+		"edit_keybindings": KeyEditKeybindings,
 	}
-
 	// Update each binding
 	for _, binding := range kbConfig.Bindings {
 		if keyName, ok := commandToKeyName[binding.Command]; ok {
