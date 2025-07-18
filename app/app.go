@@ -1245,6 +1245,68 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 	)
 }
 
+// parseFailedTestFiles parses Jest output to find failed test file paths
+func parseFailedTestFiles(output string, webPath string) []string {
+	var failedFiles []string
+	lines := strings.Split(output, "\n")
+	
+	for _, line := range lines {
+		// Look for FAIL lines which contain the test file path
+		if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				// The file path is usually the second part after FAIL
+				testFile := parts[1]
+				// Convert relative path to absolute
+				if !filepath.IsAbs(testFile) {
+					testFile = filepath.Join(webPath, testFile)
+				}
+				// Check if file exists
+				if _, err := os.Stat(testFile); err == nil {
+					failedFiles = append(failedFiles, testFile)
+				}
+			}
+		}
+	}
+	
+	return failedFiles
+}
+
+// parseJestJSON parses Jest JSON output to find failed test files
+func parseJestJSON(jsonData []byte, webPath string) []string {
+	var failedFiles []string
+	
+	// Simple JSON parsing for test results
+	// Jest JSON format includes testResults array with status and name fields
+	type TestResult struct {
+		Name   string `json:"name"`
+		Status string `json:"status"`
+	}
+	
+	type JestResults struct {
+		TestResults []TestResult `json:"testResults"`
+	}
+	
+	var results JestResults
+	if err := json.Unmarshal(jsonData, &results); err == nil {
+		for _, result := range results.TestResults {
+			if result.Status == "failed" {
+				testFile := result.Name
+				// Convert relative path to absolute
+				if !filepath.IsAbs(testFile) {
+					testFile = filepath.Join(webPath, testFile)
+				}
+				// Check if file exists
+				if _, err := os.Stat(testFile); err == nil {
+					failedFiles = append(failedFiles, testFile)
+				}
+			}
+		}
+	}
+	
+	return failedFiles
+}
+
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
