@@ -13,12 +13,13 @@ This feature allows you to review pull request comments and automatically proces
 ## Usage
 
 1. **Prerequisites**
-   - Have an active pull request for your current branch
+   - The selected instance must have an active pull request for its branch
    - GitHub CLI (`gh`) must be installed and authenticated
+   - The instance must be started (not paused)
 
 2. **Access the PR Review Interface**
-   - In claude-squad, select an instance
-   - Press `R` to open the PR review interface
+   - In claude-squad, select a started instance with a PR
+   - Press `R` to open the PR review interface for that instance's worktree
 
 3. **Review Comments**
    - Use `j/k` or arrow keys to navigate between comments
