@@ -64,8 +64,9 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 	return pr, nil
 }
 
-func (pr *PullRequest) FetchComments() error {
+func (pr *PullRequest) FetchComments(workingDir string) error {
 	cmdReviewComments := exec.Command("gh", "api", fmt.Sprintf("repos/{owner}/{repo}/pulls/%d/comments", pr.Number))
+	cmdReviewComments.Dir = workingDir
 	output, err := cmdReviewComments.Output()
 	if err != nil {
 		return fmt.Errorf("failed to fetch review comments: %w", err)
