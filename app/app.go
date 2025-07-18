@@ -862,14 +862,23 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 		
-		// Get current PR info
-		pr, err := git.GetCurrentPR()
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
 		if err != nil {
-			return m, m.handleError(fmt.Errorf("no pull request found for current branch: %w", err))
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+		
+		// Get current PR info from the worktree
+		pr, err := git.GetCurrentPR(worktreePath)
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
 		}
 		
 		// Fetch PR comments
-		if err := pr.FetchComments(); err != nil {
+		if err := pr.FetchComments(worktreePath); err != nil {
 			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
 		}
 		
