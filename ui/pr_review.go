@@ -260,8 +260,9 @@ func (m PRReviewModel) View() string {
 	// Debug: show viewport dimensions
 	// scrollInfo += fmt.Sprintf(" | H:%d/%d", m.viewport.Height, m.height)
 	
-	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total, %d accepted | Comment %d/%d%s", 
-		len(m.pr.Comments), acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
+	total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
+	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
+		total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
 	header.WriteString("\n") // Single newline after status
 
 	// Build the footer (help text)
