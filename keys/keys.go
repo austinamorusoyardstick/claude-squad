@@ -2,7 +2,7 @@ package keys
 
 import (
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/austinamoruso/configuration/config"
+	"claude-squad/config"
 )
 
 type KeyName int
