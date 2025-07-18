@@ -218,3 +218,126 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithHelp("enter", "submit name"),
 	),
 }
+
+// CustomKeyStringsMap is a mutable map that can be updated with custom keybindings
+var CustomKeyStringsMap map[string]KeyName
+
+// InitializeCustomKeyBindings loads custom keybindings from config
+func InitializeCustomKeyBindings() error {
+	// Load keybindings config
+	kbConfig, err := config.LoadKeyBindings()
+	if err != nil {
+		return err
+	}
+	
+	// Convert to key map
+	CustomKeyStringsMap = kbConfig.ToKeyMap()
+	
+	// Also update the GlobalkeyBindings with custom keys
+	updateGlobalBindings(kbConfig)
+	
+	return nil
+}
+
+// GetKeyName returns the KeyName for a given key string, checking custom bindings first
+func GetKeyName(keyStr string) (KeyName, bool) {
+	// Check custom bindings first
+	if CustomKeyStringsMap != nil {
+		if keyName, ok := CustomKeyStringsMap[keyStr]; ok {
+			return keyName, true
+		}
+	}
+	
+	// Fall back to default bindings
+	keyName, ok := GlobalKeyStringsMap[keyStr]
+	return keyName, ok
+}
+
+// updateGlobalBindings updates the GlobalkeyBindings with custom keybindings
+func updateGlobalBindings(kbConfig *config.KeyBindingsConfig) {
+	// Map command names to KeyName constants
+	commandToKeyName := map[string]KeyName{
+		"up":               KeyUp,
+		"down":             KeyDown,
+		"enter":            KeyEnter,
+		"new":              KeyNew,
+		"new_with_prompt":  KeyPrompt,
+		"existing_branch":  KeyExistingBranch,
+		"kill":             KeyKill,
+		"quit":             KeyQuit,
+		"push":             KeySubmit,
+		"checkout":         KeyCheckout,
+		"resume":           KeyResume,
+		"help":             KeyHelp,
+		"error_log":        KeyErrorLog,
+		"webstorm":         KeyWebStorm,
+		"rebase":           KeyRebase,
+		"tab":              KeyTab,
+		"scroll_up":        KeyShiftUp,
+		"scroll_down":      KeyShiftDown,
+		"home":             KeyHome,
+		"end":              KeyEnd,
+		"page_up":          KeyPageUp,
+		"page_down":        KeyPageDown,
+		"prev_file":        KeyAltUp,
+		"next_file":        KeyAltDown,
+		"diff_all":         KeyDiffAll,
+		"diff_last_commit": KeyDiffLastCommit,
+		"prev_commit":      KeyLeft,
+		"next_commit":      KeyRight,
+		"scroll_lock":      KeyScrollLock,
+		"open_in_ide":      KeyOpenInIDE,
+	}
+	
+	// Update each binding
+	for _, binding := range kbConfig.Bindings {
+		if keyName, ok := commandToKeyName[binding.Command]; ok {
+			// Update the global binding
+			GlobalkeyBindings[keyName] = key.NewBinding(
+				key.WithKeys(binding.Keys...),
+				key.WithHelp(binding.Help, getHelpText(binding.Command)),
+			)
+		}
+	}
+}
+
+// getHelpText returns the help text for a command
+func getHelpText(command string) string {
+	helpTexts := map[string]string{
+		"up":               "up",
+		"down":             "down",
+		"enter":            "open",
+		"new":              "new",
+		"new_with_prompt":  "new with prompt",
+		"existing_branch":  "existing branch",
+		"kill":             "kill",
+		"quit":             "quit",
+		"push":             "push branch",
+		"checkout":         "checkout",
+		"resume":           "resume",
+		"help":             "help",
+		"error_log":        "error log",
+		"webstorm":         "open WebStorm",
+		"rebase":           "rebase",
+		"tab":              "switch tab",
+		"scroll_up":        "scroll",
+		"scroll_down":      "scroll",
+		"home":             "scroll to top",
+		"end":              "scroll to bottom",
+		"page_up":          "page up",
+		"page_down":        "page down",
+		"prev_file":        "prev file",
+		"next_file":        "next file",
+		"diff_all":         "all changes",
+		"diff_last_commit": "last commit diff",
+		"prev_commit":      "prev commit",
+		"next_commit":      "next commit",
+		"scroll_lock":      "toggle scroll lock",
+		"open_in_ide":      "open in IDE",
+	}
+	
+	if text, ok := helpTexts[command]; ok {
+		return text
+	}
+	return command
+}
