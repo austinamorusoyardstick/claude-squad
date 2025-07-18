@@ -37,7 +37,8 @@ This feature allows you to review pull request comments and automatically proces
 
 ## Implementation Details
 
-- **PR Comment Fetching**: Uses GitHub CLI to fetch both review comments and issue comments
+- **PR Comment Fetching**: Uses GitHub CLI to fetch both review comments and issue comments from the selected instance's worktree
+- **Worktree Integration**: PR is fetched from the specific worktree path of the selected instance, not the current directory
 - **UI Component**: Built with bubbletea framework for interactive terminal UI
 - **Claude Integration**: Formats comments as prompts and sends them directly to the AI pane (Claude) in the active instance
 - **AI Pane Communication**: Uses tmux to send prompts directly to pane 1 where Claude is running
