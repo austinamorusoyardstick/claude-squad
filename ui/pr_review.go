@@ -173,7 +173,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m PRReviewModel) View() string {
+func (m *PRReviewModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'q' to go back", m.err)
 	}
