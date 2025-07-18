@@ -9,10 +9,12 @@ import (
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
