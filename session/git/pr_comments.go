@@ -301,8 +301,14 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 			continue
 		}
 
-		createdAt, _ := time.Parse(time.RFC3339, rc.CreatedAt)
-		updatedAt, _ := time.Parse(time.RFC3339, rc.UpdatedAt)
+		createdAt, err := time.Parse(time.RFC3339, rc.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse createdAt for review comment ID %d: %w", rc.ID, err)
+		}
+		updatedAt, err := time.Parse(time.RFC3339, rc.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse updatedAt for review comment ID %d: %w", rc.ID, err)
+		}
 		
 		// Check if comment is outdated
 		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
