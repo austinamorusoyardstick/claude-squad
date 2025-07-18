@@ -249,3 +249,38 @@ func (g *GitWorktree) RebaseWithMain() error {
 
 	return nil
 }
+
+// hasMergeConflicts checks if there are currently merge conflicts in the worktree
+func (g *GitWorktree) hasMergeConflicts() bool {
+	// Check git status for conflict markers
+	output, err := g.runGitCommand(g.worktreePath, "status", "--porcelain")
+	if err != nil {
+		return false
+	}
+	
+	// Look for files with conflict status (UU, AA, etc.)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		if len(line) >= 2 {
+			status := line[:2]
+			// Common conflict statuses: UU (both modified), AA (both added), etc.
+			if strings.Contains(status, "U") || status == "AA" || status == "DD" {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// openWebStormForConflicts opens WebStorm at the worktree path for conflict resolution
+func (g *GitWorktree) openWebStormForConflicts() error {
+	// Open WebStorm at the worktree path
+	cmd := exec.Command("webstorm", g.worktreePath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to open WebStorm: %w", err)
+	}
+	
+	log.InfoLog.Printf("WebStorm opened for conflict resolution at: %s", g.worktreePath)
+	return nil
+}
