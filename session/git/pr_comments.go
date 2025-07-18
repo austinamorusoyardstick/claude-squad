@@ -52,7 +52,7 @@ type PullRequest struct {
 }
 
 func GetCurrentPR(workingDir string) (*PullRequest, error) {
-	cmd := exec.Command("gh", "pr", "view", "--json", "number,title,state,headRefName,baseRefName,url")
+	cmd := exec.Command("gh", "pr", "view", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid")
 	cmd.Dir = workingDir
 	output, err := cmd.Output()
 	if err != nil {
@@ -66,6 +66,7 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 		HeadRefName  string `json:"headRefName"`
 		BaseRefName  string `json:"baseRefName"`
 		URL          string `json:"url"`
+		HeadRefOid   string `json:"headRefOid"`
 	}
 
 	if err := json.Unmarshal(output, &prData); err != nil {
@@ -79,6 +80,7 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 		HeadRef: prData.HeadRefName,
 		BaseRef: prData.BaseRefName,
 		URL:     prData.URL,
+		HeadSHA: prData.HeadRefOid,
 	}
 
 	return pr, nil
