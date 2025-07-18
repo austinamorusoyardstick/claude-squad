@@ -474,7 +474,9 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"next_commit":      KeyRight,
 		"scroll_lock":      KeyScrollLock,
 		"open_in_ide":      KeyOpenInIDE,
+		"edit_keybindings": KeyEditKeybindings,
 	}
+}
 	
 	// Update each binding
 	for _, binding := range kbConfig.Bindings {
