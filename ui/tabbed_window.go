@@ -153,16 +153,20 @@ func (w *TabbedWindow) UpdateTerminal(instance *session.Instance) {
 func (w *TabbedWindow) ScrollUp() {
 	switch w.activeTab {
 	case AITab:
-		err := w.preview.ScrollUp(w.instance)
-		if err != nil {
-			log.InfoLog.Printf("tabbed window failed to scroll up: %v", err)
+		if w.instance != nil {
+			err := w.instance.ScrollUpAI()
+			if err != nil {
+				log.InfoLog.Printf("failed to scroll up AI pane: %v", err)
+			}
 		}
 	case DiffTab:
 		w.diff.ScrollUp()
 	case TerminalTab:
-		err := w.terminal.ScrollUp(w.instance)
-		if err != nil {
-			log.InfoLog.Printf("terminal pane failed to scroll up: %v", err)
+		if w.instance != nil {
+			err := w.instance.ScrollUpTerminal()
+			if err != nil {
+				log.InfoLog.Printf("failed to scroll up terminal pane: %v", err)
+			}
 		}
 	}
 }
