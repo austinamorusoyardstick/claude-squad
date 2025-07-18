@@ -775,28 +775,19 @@ func (i *Instance) UpdateDiffStats() error {
 	return nil
 }
 
-// GetDiffStats returns the current git diff statistics fetched on demand
+// GetDiffStats returns the cached git diff statistics
 func (i *Instance) GetDiffStats() *git.DiffStats {
 	if !i.started {
 		return nil
 	}
 
 	if i.Status == Paused {
-		// For paused instances, return nil
-		return nil
+		// For paused instances, return cached stats if available
+		return i.diffStatsCache
 	}
 
-	stats := i.gitWorktree.Diff()
-	if stats.Error != nil {
-		if strings.Contains(stats.Error.Error(), "base commit SHA not set") {
-			// Worktree is not fully set up yet, not an error
-			return nil
-		}
-		// Return the stats with the error set
-		return stats
-	}
-
-	return stats
+	// Return cached stats
+	return i.diffStatsCache
 }
 
 // GetLastCommitDiffStats returns the diff statistics for uncommitted changes if they exist, otherwise the last commit
