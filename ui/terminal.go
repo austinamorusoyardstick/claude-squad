@@ -59,42 +59,27 @@ func (t *TerminalPane) UpdateContent(instance *session.Instance) error {
 		return nil
 	}
 
-	var content string
-	var err error
+	// If in scroll mode, don't update content (to preserve scroll position)
+	if t.isScrolling {
+		return nil
+	}
 
-	// If in scroll mode but haven't captured content yet, do it now
-	if t.isScrolling && t.viewport.Height > 0 && len(t.viewport.View()) == 0 {
-		// Capture full terminal content including scrollback history
-		content, err = instance.GetTerminalFullHistory()
-		if err != nil {
-			t.setFallbackState("Terminal not available yet...")
-			return nil
-		}
+	// In normal mode, use the usual terminal content
+	content, err := instance.GetTerminalContent()
+	if err != nil {
+		t.setFallbackState("Terminal not available yet...")
+		return nil
+	}
 
-		// Set content in the viewport
-		footer := lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#808080", Dark: "#808080"}).
-			Render("ESC to exit scroll mode")
+	// If content is empty, show a welcome message
+	if strings.TrimSpace(content) == "" {
+		content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
+			"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
+	}
 
-		t.viewport.SetContent(lipgloss.JoinVertical(lipgloss.Left, content, footer))
-	} else if !t.isScrolling {
-		// In normal mode, use the usual terminal content
-		content, err = instance.GetTerminalContent()
-		if err != nil {
-			t.setFallbackState("Terminal not available yet...")
-			return nil
-		}
-
-		// If content is empty, show a welcome message
-		if strings.TrimSpace(content) == "" {
-			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
-				"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
-		}
-
-		t.terminalState = terminalState{
-			fallback: false,
-			text:     content,
-		}
+	t.terminalState = terminalState{
+		fallback: false,
+		text:     content,
 	}
 
 	return nil
