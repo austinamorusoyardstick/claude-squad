@@ -128,6 +128,12 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	// Load application state
 	appState := config.LoadState()
 
+	// Initialize custom keybindings
+	if err := keys.InitializeCustomKeyBindings(); err != nil {
+		// Log error but continue with defaults
+		log.Error("Failed to load custom keybindings: %v", err)
+	}
+
 	// Initialize storage
 	storage, err := session.NewStorage(appState)
 	if err != nil {
