@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/spinner"
@@ -51,6 +52,8 @@ const (
 	stateErrorLog
 	// statePRReview is the state when reviewing PR comments.
 	statePRReview
+	// stateBookmark is the state when creating a bookmark commit.
+	stateBookmark
 )
 
 type home struct {
@@ -238,10 +241,10 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			*m.prReviewOverlay = updatedModel
 			return m, cmd
 		}
-		
+
 		updatedModel, cmd := m.prReviewOverlay.Update(msg)
 		*m.prReviewOverlay = updatedModel
-		
+
 		// Check for completion or cancellation messages
 		switch msg.(type) {
 		case ui.PRReviewCompleteMsg:
@@ -249,7 +252,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			acceptedComments := msg.(ui.PRReviewCompleteMsg).AcceptedComments
 			m.state = stateDefault
 			m.prReviewOverlay = nil
-			
+
 			// Process accepted comments with Claude
 			if len(acceptedComments) > 0 {
 				return m, m.processAcceptedComments(acceptedComments)
@@ -261,7 +264,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.prReviewOverlay = nil
 			return m, nil
 		}
-		
+
 		return m, cmd
 	}
 
@@ -322,13 +325,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeyPress(msg)
 	case tea.WindowSizeMsg:
 		m.updateHandleWindowSizeEvent(msg)
-		
+
 		// Also update PR review overlay if it's active
 		if m.state == statePRReview && m.prReviewOverlay != nil {
 			updatedModel, _ := m.prReviewOverlay.Update(msg)
 			*m.prReviewOverlay = updatedModel
 		}
-		
+
 		return m, nil
 	case error:
 		// Handle errors from confirmation actions
@@ -360,8 +363,8 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Comments have been processed, return to default state
 		m.state = stateDefault
 		m.textOverlay = nil
-		
-		// Show success message 
+
+		// Show success message
 		// Note: Using error box for now to show success message
 		successErr := fmt.Errorf("✓ PR comments processed successfully!")
 		m.errBox.SetError(successErr)
@@ -539,6 +542,33 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 					return nil
 				},
 			)
+		}
+
+		return m, nil
+	} else if m.state == stateBookmark {
+		// Handle bookmark state
+		shouldClose := m.textInputOverlay.HandleKeyPress(msg)
+
+		if shouldClose {
+			selected := m.list.GetSelectedInstance()
+			if selected == nil {
+				return m, nil
+			}
+
+			var finalCmd tea.Cmd = tea.WindowSize()
+			if m.textInputOverlay.IsSubmitted() {
+				// Create bookmark commit
+				commitMsg := m.textInputOverlay.GetValue()
+				cmd := m.createBookmarkCommit(selected, commitMsg)
+				finalCmd = tea.Batch(tea.WindowSize(), cmd)
+			}
+
+			// Common state reset logic
+			m.textInputOverlay = nil
+			m.state = stateDefault
+			m.menu.SetState(ui.StateDefault)
+
+			return m, finalCmd
 		}
 
 		return m, nil
@@ -883,45 +913,55 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if selected == nil {
 			return m, nil
 		}
-		
+
 		// Check if instance is started
 		if !selected.Started() {
 			return m, m.handleError(fmt.Errorf("instance '%s' is not started", selected.Title))
 		}
-		
+
 		// Check if instance is paused
 		if selected.Paused() {
 			return m, m.handleError(fmt.Errorf("instance '%s' is paused - please resume it first", selected.Title))
 		}
-		
+
 		// Get the worktree for the selected instance
 		worktree, err := selected.GetGitWorktree()
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
 		}
-		
+
 		// Get the worktree path
 		worktreePath := worktree.GetWorktreePath()
-		
+
 		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
 		}
-		
+
 		// Fetch PR comments (always fresh - includes resolved status detection)
 		if err := pr.FetchComments(worktreePath); err != nil {
 			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
 		}
-		
+
 		// Show PR review UI
 		m.state = statePRReview
 		prReviewModel := ui.NewPRReviewModel(pr)
 		m.prReviewOverlay = &prReviewModel
-		
+
 		// Initialize the PR review model
 		initCmd := prReviewModel.Init()
 		return m, initCmd
+	case keys.KeyBookmark:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Show the bookmark creation state
+		m.state = stateBookmark
+		m.menu.SetState(ui.StateBookmark)
+		m.textInputOverlay = overlay.NewTextInputOverlay("Enter bookmark message (or leave empty for auto-generated)", "")
+		return m, nil
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1013,6 +1053,62 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 		}
 
 		return nil
+	}
+}
+
+const (
+	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
+	maxBookmarkSummaryLen = 100
+)
+
+func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
+	return func() tea.Msg {
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+
+		// Get current branch name
+		currentBranch, err := worktree.GetCurrentBranch()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+
+		var commitMessage string
+		if userMessage != "" {
+			// Use user-provided message
+			commitMessage = fmt.Sprintf("[BOOKMARK] %s", userMessage)
+		} else {
+			// Generate message from commits since last bookmark
+			lastBookmarkSHA, err := worktree.FindLastBookmarkCommit(currentBranch)
+			if err != nil {
+				return fmt.Errorf("failed to find last bookmark: %w", err)
+			}
+
+			// Get commit messages since last bookmark
+			messages, err := worktree.GetCommitMessagesSince(lastBookmarkSHA, currentBranch)
+			if err != nil {
+				return fmt.Errorf("failed to get commit messages: %w", err)
+			}
+
+			if len(messages) == 0 {
+				commitMessage = "[BOOKMARK] No changes since last bookmark"
+			} else {
+				// Generate a summary by concatenating the commit messages
+				summary := strings.Join(messages, "; ")
+				if len(summary) > maxBookmarkSummaryLen {
+					summary = summary[:maxBookmarkSummaryLen-len("...")] + "..."
+				}
+				commitMessage = fmt.Sprintf("[BOOKMARK] %s", summary)
+			}
+		}
+
+		// Create the bookmark commit (allow empty)
+		if err := worktree.CreateBookmarkCommit(commitMessage); err != nil {
+			return fmt.Errorf("failed to create bookmark commit: %w", err)
+		}
+
+		return instanceChangedMsg{}
 	}
 }
 
@@ -1249,6 +1345,13 @@ func (m *home) View() string {
 		}
 		// Return PR review directly - it manages its own full-screen layout
 		return m.prReviewOverlay.View()
+	} else if m.state == stateBookmark {
+		if m.textInputOverlay == nil {
+			log.ErrorLog.Printf("text input overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.textInputOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView

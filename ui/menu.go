@@ -40,6 +40,7 @@ const (
 	StateEmpty
 	StateNewInstance
 	StatePrompt
+	StateBookmark
 )
 
 type Menu struct {
@@ -122,6 +123,9 @@ func (m *Menu) updateOptions() {
 		m.options = newInstanceMenuOptions
 	case StatePrompt:
 		m.options = promptMenuOptions
+	case StateBookmark:
+		// No menu options during bookmark input
+		m.options = []keys.KeyName{}
 	}
 }
 
