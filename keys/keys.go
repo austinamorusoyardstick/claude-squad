@@ -222,6 +222,7 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyBookmark: key.NewBinding(
 		key.WithKeys("B"),
 		key.WithHelp("B", "bookmark"),
+	),
 	KeyHistory: key.NewBinding(
 		key.WithKeys("ctrl+h"),
 		key.WithHelp("ctrl+h", "view history"),
