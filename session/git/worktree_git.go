@@ -232,10 +232,109 @@ func (g *GitWorktree) RebaseWithMain() error {
 
 	// Perform the rebase
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
-		// If rebase fails, try to abort and restore
+		// Check if this is a merge conflict by examining the git status
+		if g.hasMergeConflicts() {
+			// Open WebStorm with the conflicted files
+			if webstormErr := g.openWebStormForConflicts(); webstormErr != nil {
+				// If WebStorm fails to open, still return the conflict info
+				log.WarningLog.Printf("Failed to open WebStorm for conflict resolution: %v", webstormErr)
+			}
+			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. WebStorm opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
+		}
+		
+		// If it's not a merge conflict, abort the rebase as before
 		g.runGitCommand(g.worktreePath, "rebase", "--abort")
 		return fmt.Errorf("rebase failed with origin/%s. Backup branch created: %s", mainBranch, backupBranch)
 	}
 
+	return nil
+}
+
+// hasMergeConflicts checks if there are currently merge conflicts in the worktree
+func (g *GitWorktree) hasMergeConflicts() bool {
+	// Check git status for conflict markers
+	output, err := g.runGitCommand(g.worktreePath, "status", "--porcelain")
+	if err != nil {
+		return false
+	}
+	
+	// Look for files with conflict status (UU, AA, etc.)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		if len(line) >= 2 {
+			status := line[:2]
+			// Common conflict statuses: UU (both modified), AA (both added), etc.
+			if strings.Contains(status, "U") || status == "AA" || status == "DD" {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// openWebStormForConflicts opens WebStorm at the worktree path for conflict resolution
+func (g *GitWorktree) openWebStormForConflicts() error {
+	// Open WebStorm at the worktree path
+	cmd := exec.Command("webstorm", g.worktreePath)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to open WebStorm: %w", err)
+	}
+	
+	log.InfoLog.Printf("WebStorm opened for conflict resolution at: %s", g.worktreePath)
+	return nil
+}
+
+// IsRebaseInProgress checks if a rebase is currently in progress
+func (g *GitWorktree) IsRebaseInProgress() bool {
+	// Check if .git/rebase-merge or .git/rebase-apply directories exist
+	rebaseMergePath := fmt.Sprintf("%s/.git/rebase-merge", g.worktreePath)
+	rebaseApplyPath := fmt.Sprintf("%s/.git/rebase-apply", g.worktreePath)
+	
+	if _, err := os.Stat(rebaseMergePath); err == nil {
+		return true
+	}
+	if _, err := os.Stat(rebaseApplyPath); err == nil {
+		return true
+	}
+	
+	return false
+}
+
+// ContinueRebase continues a rebase after conflicts have been resolved
+func (g *GitWorktree) ContinueRebase() error {
+	// Check if rebase is in progress
+	if !g.IsRebaseInProgress() {
+		return fmt.Errorf("no rebase in progress")
+	}
+	
+	// Check if there are still conflicts
+	if g.hasMergeConflicts() {
+		return fmt.Errorf("merge conflicts still exist, please resolve them first")
+	}
+	
+	// Stage all resolved files
+	if _, err := g.runGitCommand(g.worktreePath, "add", "."); err != nil {
+		return fmt.Errorf("failed to stage resolved files: %w", err)
+	}
+	
+	// Continue the rebase
+	if _, err := g.runGitCommand(g.worktreePath, "rebase", "--continue"); err != nil {
+		return fmt.Errorf("failed to continue rebase: %w", err)
+	}
+	
+	return nil
+}
+
+// AbortRebase aborts the current rebase and returns to the original state
+func (g *GitWorktree) AbortRebase() error {
+	if !g.IsRebaseInProgress() {
+		return fmt.Errorf("no rebase in progress")
+	}
+	
+	if _, err := g.runGitCommand(g.worktreePath, "rebase", "--abort"); err != nil {
+		return fmt.Errorf("failed to abort rebase: %w", err)
+	}
+	
 	return nil
 }
