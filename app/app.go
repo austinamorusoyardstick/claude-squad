@@ -1235,6 +1235,7 @@ func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 		// Run npm test without watch mode
 		cmd := exec.Command("yarn", "test", "--watchAll=false", "--json", "--outputFile=test-results.json")
 		cmd.Dir = worktreePath
+		cmd.Env = append(os.Environ(), "CI=true")
 		// Capture output
 		output, _ := cmd.CombinedOutput()
 
