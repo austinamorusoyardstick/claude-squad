@@ -1896,3 +1896,35 @@ func (m *home) showGitStatusOverlay(instance *session.Instance) tea.Cmd {
 
 	return tea.WindowSize()
 }
+
+// showGitStatusOverlayBookmarkMode displays the git status overlay in bookmark mode
+func (m *home) showGitStatusOverlayBookmarkMode(instance *session.Instance) tea.Cmd {
+	// Get the git worktree for the instance
+	worktree, err := instance.GetGitWorktree()
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+	}
+
+	// Get the current branch name
+	branchName, err := worktree.GetCurrentBranch()
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to get current branch: %w", err))
+	}
+
+	// Create the git status overlay in bookmark mode
+	gitStatusOverlay, err := overlay.NewGitStatusOverlayBookmarkMode(branchName, worktree)
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to create bookmark git status overlay: %w", err))
+	}
+
+	m.gitStatusOverlay = gitStatusOverlay
+	m.gitStatusOverlay.OnDismiss = func() {
+		m.state = stateDefault
+		m.gitStatusOverlay = nil
+	}
+
+	// Set state to git status
+	m.state = stateGitStatus
+
+	return tea.WindowSize()
+}
