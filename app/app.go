@@ -1135,7 +1135,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 // instanceChanged updates the AI pane, menu, diff pane, and terminal pane based on the selected instance. It returns an error
 // Cmd if there was any error.
-func (m *home) openWebStorm(instance *session.Instance) tea.Cmd {
+func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 	return func() tea.Msg {
 		// Get the git worktree to access the worktree path
 		gitWorktree, err := instance.GetGitWorktree()
