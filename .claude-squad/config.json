@@ -1,4 +1,4 @@
 {
-  "ide_command": "cursor",
-  "diff_command": "meld"
+  "ide_command": "goland",
+  "diff_command": "goland"
 }
