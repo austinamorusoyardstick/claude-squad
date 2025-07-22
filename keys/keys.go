@@ -521,6 +521,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"edit_keybindings": KeyEditKeybindings,
 		"external_diff":    KeyExternalDiff,
 		"git_status":       KeyGitStatus,
+		"git_status_bookmark": KeyGitStatusBookmark,
 	}
 }
 
