@@ -588,6 +588,12 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 	// Also get uncommitted changes (working directory + staged)
 	uncommittedOutput, err := g.runGitCommand(g.worktreePath, "status", "--porcelain")
 	if err == nil && strings.TrimSpace(uncommittedOutput) != "" {
+		// Create a map to track existing files for O(1) lookup
+		existingFiles := make(map[string]struct{})
+		for _, f := range files {
+			existingFiles[f.Path] = struct{}{}
+		}
+		
 		uncommittedLines := strings.Split(strings.TrimSpace(uncommittedOutput), "\n")
 		for _, line := range uncommittedLines {
 			line = strings.TrimSpace(line)
