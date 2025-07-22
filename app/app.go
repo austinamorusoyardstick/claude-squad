@@ -1146,13 +1146,12 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 
 		// Get the IDE command from configuration
 		globalConfig := config.LoadConfig()
-		worktreePath := gitWorktree.GetWorktreePath()
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
 		
 		// Open IDE with the specific file
 		cmd := exec.Command(ideCommand, fullPath)
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("failed to open file in WebStorm: %w", err)
+			return fmt.Errorf("failed to open file in IDE (%s): %w", ideCommand, err)
 		}
 
 		return nil
