@@ -560,6 +560,7 @@ func getHelpText(command string) string {
 		"next_commit":      "next commit",
 		"scroll_lock":      "toggle scroll lock",
 		"open_in_ide":      "open in IDE",
+		"git_status":       "git status",
 	}
 
 	if text, ok := helpTexts[command]; ok {
