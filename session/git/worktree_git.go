@@ -274,15 +274,19 @@ func (g *GitWorktree) hasMergeConflicts() bool {
 	return false
 }
 
-// openWebStormForConflicts opens WebStorm at the worktree path for conflict resolution
-func (g *GitWorktree) openWebStormForConflicts() error {
-	// Open WebStorm at the worktree path
-	cmd := exec.Command("webstorm", g.worktreePath)
+// openIdeForConflicts opens the configured IDE at the worktree path for conflict resolution
+func (g *GitWorktree) openIdeForConflicts() error {
+	// Get the IDE command from configuration
+	globalConfig := config.LoadConfig()
+	ideCommand := config.GetEffectiveIdeCommand(g.repoPath, globalConfig)
+	
+	// Open IDE at the worktree path
+	cmd := exec.Command(ideCommand, g.worktreePath)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to open WebStorm: %w", err)
+		return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
 	}
 
-	log.InfoLog.Printf("WebStorm opened for conflict resolution at: %s", g.worktreePath)
+	log.InfoLog.Printf("IDE (%s) opened for conflict resolution at: %s", ideCommand, g.worktreePath)
 	return nil
 }
 
