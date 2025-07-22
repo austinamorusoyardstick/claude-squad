@@ -245,6 +245,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("t"),
 		key.WithHelp("t", "run tests"),
 	),
+	KeyExternalDiff: key.NewBinding(
+		key.WithKeys("x"),
+		key.WithHelp("x", "external diff"),
+	),
 
 	// -- Special keybindings --
 
