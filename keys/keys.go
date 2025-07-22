@@ -487,7 +487,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"resume":           KeyResume,
 		"help":             KeyHelp,
 		"error_log":        KeyErrorLog,
-		"webstorm":         KeyWebStorm,
+		"open_ide":         KeyOpenIDE,
 		"rebase":           KeyRebase,
 		"tab":              KeyTab,
 		"scroll_up":        KeyShiftUp,
