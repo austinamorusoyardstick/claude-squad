@@ -476,3 +476,85 @@ func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
 
 	return files, nil
 }
+
+// GetAllBookmarkCommits returns all bookmark commit SHAs in chronological order (oldest first)
+func (g *GitWorktree) GetAllBookmarkCommits() ([]string, error) {
+	// Get all bookmark commits on the current branch, in chronological order
+	output, err := g.runGitCommand(g.worktreePath, "log", "--reverse", "--oneline", "--grep=^\\[BOOKMARK\\]", "--format=%H")
+	if err != nil {
+		// If no bookmarks found, return empty slice
+		if strings.Contains(err.Error(), "does not have any commits") {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to get bookmark commits: %w", err)
+	}
+
+	if strings.TrimSpace(output) == "" {
+		return []string{}, nil
+	}
+
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var bookmarks []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			bookmarks = append(bookmarks, line)
+		}
+	}
+
+	return bookmarks, nil
+}
+
+// GetChangedFilesBetweenCommits gets files changed between two commits
+func (g *GitWorktree) GetChangedFilesBetweenCommits(fromCommit, toCommit string) ([]GitFileStatus, error) {
+	var args []string
+	if fromCommit == "" {
+		// If no from commit, show all changes up to toCommit
+		args = []string{"diff", "--name-status", fmt.Sprintf("%s^", toCommit), toCommit}
+	} else {
+		// Show changes between fromCommit and toCommit
+		args = []string{"diff", "--name-status", fromCommit, toCommit}
+	}
+
+	output, err := g.runGitCommand(g.worktreePath, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changed files between commits: %w", err)
+	}
+
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+
+	// Sort files by status first, then by path for consistent ordering
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].Status != files[j].Status {
+			return files[i].Status < files[j].Status
+		}
+		return files[i].Path < files[j].Path
+	})
+
+	return files, nil
+}
+
+// GetCommitMessage returns the commit message for a given SHA
+func (g *GitWorktree) GetCommitMessage(commitSHA string) (string, error) {
+	output, err := g.runGitCommand(g.worktreePath, "log", "--format=%s", "-n", "1", commitSHA)
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit message: %w", err)
+	}
+	return strings.TrimSpace(output), nil
+}
