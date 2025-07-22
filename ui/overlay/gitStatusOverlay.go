@@ -10,6 +10,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// NavigationView represents a single view in bookmark navigation
+type NavigationView struct {
+	Type        string // "current", "recent_commits", "bookmark", "initial"
+	Title       string // Display title for this view
+	Description string // Description line
+	FromCommit  string // Starting commit (empty for initial)
+	ToCommit    string // Ending commit ("HEAD" for current changes)
+}
+
 // GitStatusOverlay represents a git status overlay showing changed files
 type GitStatusOverlay struct {
 	// Whether the overlay has been dismissed
