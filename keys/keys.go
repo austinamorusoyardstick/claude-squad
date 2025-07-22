@@ -354,6 +354,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "webstorm", Keys: []string{"w"}, Help: "w"},
 			{Command: "open_in_ide", Keys: []string{"i"}, Help: "i"},
 			{Command: "edit_keybindings", Keys: []string{"K"}, Help: "K"},
+			{Command: "git_status", Keys: []string{"g"}, Help: "g"},
 		},
 	}
 }
