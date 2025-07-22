@@ -119,6 +119,37 @@ func (g *GitStatusOverlay) Render() string {
 			}
 			content.WriteString("\n")
 		}
+
+		// Handle any remaining statuses not in the predefined order
+		for status, files := range statusGroups {
+			found := false
+			for _, s := range statusOrder {
+				if s == status {
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+
+			statusName := statusNames[status]
+			if statusName == "" {
+				statusName = status
+			}
+			
+			// Use default cyan color for unknown statuses
+			statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+			
+			content.WriteString(statusStyle.Render(fmt.Sprintf("● %s (%s):", statusName, status)))
+			content.WriteString("\n")
+			
+			for _, file := range files {
+				content.WriteString(fmt.Sprintf("  %s", file))
+				content.WriteString("\n")
+			}
+			content.WriteString("\n")
+		}
 		
 		// Summary
 		content.WriteString(fmt.Sprintf("Total: %d files changed", len(g.files)))
