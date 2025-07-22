@@ -36,6 +36,18 @@ type Config struct {
 	DaemonPollInterval int `json:"daemon_poll_interval"`
 	// BranchPrefix is the prefix used for git branches created by the application.
 	BranchPrefix string `json:"branch_prefix"`
+	// DefaultIdeCommand is the default IDE command to use when none is configured per-repo
+	DefaultIdeCommand string `json:"default_ide_command"`
+	// DefaultDiffCommand is the default external diff command to use when none is configured per-repo
+	DefaultDiffCommand string `json:"default_diff_command"`
+}
+
+// RepoConfig represents per-repository configuration
+type RepoConfig struct {
+	// IdeCommand is the IDE command to use for this repository
+	IdeCommand string `json:"ide_command,omitempty"`
+	// DiffCommand is the external diff command to use for this repository  
+	DiffCommand string `json:"diff_command,omitempty"`
 }
 
 // DefaultConfig returns the default configuration
