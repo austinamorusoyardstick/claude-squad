@@ -1195,7 +1195,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 
 		// Get the diff command from configuration
 		worktreePath := gitWorktree.GetWorktreePath()
-		globalConfig := config.LoadConfig()
+		globalConfig := m.appConfig
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
 		
 		if diffCommand == "" {
