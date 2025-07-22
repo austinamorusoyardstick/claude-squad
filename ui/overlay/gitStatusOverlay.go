@@ -126,12 +126,8 @@ func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
 	minIndex := -1
 	
 	// Check if current changes exist to determine if -1 is valid
-	if minIndex == -1 && len(g.bookmarks) > 0 {
-		lastBookmark := g.bookmarks[len(g.bookmarks)-1]
-		currentChanges, err := g.worktree.GetChangedFilesSinceCommit(lastBookmark)
-		if err != nil || len(currentChanges) == 0 {
-			minIndex = 0 // No current changes, so minimum is first bookmark
-		}
+	if minIndex == -1 && !g.hasCurrentChanges {
+		minIndex = 0 // No current changes, so minimum is first bookmark
 	}
 	
 	if newIndex < minIndex || newIndex > maxIndex {
