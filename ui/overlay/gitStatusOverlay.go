@@ -275,13 +275,8 @@ func (g *GitStatusOverlay) Render() string {
 			statusGroups[status] = append(statusGroups[status], file.Path)
 		}
 		
-		// Display files grouped by status in a consistent order
-		statusOrder := []string{"A", "M", "D", "R", "C"} // Added, Modified, Deleted, Renamed, Copied
-		for _, status := range statusOrder {
-			files, exists := statusGroups[status]
-			if !exists {
-				continue
-			}
+		// Extract rendering logic into a helper function to avoid duplication
+		renderGroup := func(status string, files []string) {
 			statusName := statusNames[status]
 			if statusName == "" {
 				statusName = status
@@ -310,35 +305,25 @@ func (g *GitStatusOverlay) Render() string {
 			content.WriteString("\n")
 		}
 
-		// Handle any remaining statuses not in the predefined order
-		for status, files := range statusGroups {
-			found := false
-			for _, s := range statusOrder {
-				if s == status {
-					found = true
-					break
-				}
+		// Display files grouped by status in preferred order
+		statusOrder := []string{"A", "M", "D", "R", "C"} // Added, Modified, Deleted, Renamed, Copied
+		for _, status := range statusOrder {
+			if files, ok := statusGroups[status]; ok {
+				renderGroup(status, files)
+				delete(statusGroups, status)
 			}
-			if found {
-				continue
-			}
+		}
 
-			statusName := statusNames[status]
-			if statusName == "" {
-				statusName = status
-			}
-			
-			// Use default cyan color for unknown statuses
-			statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-			
-			content.WriteString(statusStyle.Render(fmt.Sprintf("● %s (%s):", statusName, status)))
-			content.WriteString("\n")
-			
-			for _, file := range files {
-				content.WriteString(fmt.Sprintf("  %s", file))
-				content.WriteString("\n")
-			}
-			content.WriteString("\n")
+		// Handle any remaining statuses not in the predefined order
+		// Sort remaining keys for consistent display order
+		var remainingKeys []string
+		for k := range statusGroups {
+			remainingKeys = append(remainingKeys, k)
+		}
+		sort.Strings(remainingKeys)
+
+		for _, status := range remainingKeys {
+			renderGroup(status, statusGroups[status])
 		}
 		
 		// Summary
