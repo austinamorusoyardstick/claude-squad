@@ -467,14 +467,41 @@ func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
 	}
 
 	// Sort files by status first, then by path for consistent ordering
+	sortGitFileStatus(files)
+
+	return files, nil
+}
+
+// parseDiffNameStatus parses the output of 'git diff --name-status'
+func parseDiffNameStatus(diffOutput string) []GitFileStatus {
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(diffOutput), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+	return files
+}
+
+// sortGitFileStatus sorts a slice of GitFileStatus by status first, then by path
+func sortGitFileStatus(files []GitFileStatus) {
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].Status != files[j].Status {
 			return files[i].Status < files[j].Status
 		}
 		return files[i].Path < files[j].Path
 	})
-
-	return files, nil
 }
 
 // GetAllBookmarkCommits returns all bookmark commit SHAs in chronological order (oldest first)
@@ -540,14 +567,41 @@ func (g *GitWorktree) GetChangedFilesBetweenCommits(fromCommit, toCommit string)
 	}
 
 	// Sort files by status first, then by path for consistent ordering
+	sortGitFileStatus(files)
+
+	return files, nil
+}
+
+// parseDiffNameStatus parses the output of 'git diff --name-status'
+func parseDiffNameStatus(diffOutput string) []GitFileStatus {
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(diffOutput), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+	return files
+}
+
+// sortGitFileStatus sorts a slice of GitFileStatus by status first, then by path
+func sortGitFileStatus(files []GitFileStatus) {
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].Status != files[j].Status {
 			return files[i].Status < files[j].Status
 		}
 		return files[i].Path < files[j].Path
 	})
-
-	return files, nil
 }
 
 // GetCommitMessage returns the commit message for a given SHA
@@ -650,12 +704,39 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 	}
 
 	// Sort files by status first, then by path for consistent ordering
+	sortGitFileStatus(files)
+
+	return files, nil
+}
+
+// parseDiffNameStatus parses the output of 'git diff --name-status'
+func parseDiffNameStatus(diffOutput string) []GitFileStatus {
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(diffOutput), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+	return files
+}
+
+// sortGitFileStatus sorts a slice of GitFileStatus by status first, then by path
+func sortGitFileStatus(files []GitFileStatus) {
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].Status != files[j].Status {
 			return files[i].Status < files[j].Status
 		}
 		return files[i].Path < files[j].Path
 	})
-
-	return files, nil
 }
