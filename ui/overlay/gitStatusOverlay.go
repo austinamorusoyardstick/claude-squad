@@ -56,8 +56,17 @@ func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktre
 		return nil, fmt.Errorf("no bookmarks found in this branch")
 	}
 
-	// Start with the most recent bookmark (last in the list)
-	currentIndex := len(bookmarks) - 1
+	// Check if there are changes after the most recent bookmark
+	var currentIndex int
+	lastBookmark := bookmarks[len(bookmarks)-1]
+	currentChanges, err := worktree.GetChangedFilesSinceCommit(lastBookmark)
+	if err == nil && len(currentChanges) > 0 {
+		// Start with current changes (-1 means "current changes after last bookmark")
+		currentIndex = -1
+	} else {
+		// No current changes, start with the most recent bookmark
+		currentIndex = len(bookmarks) - 1
+	}
 	
 	overlay := &GitStatusOverlay{
 		Dismissed:       false,
