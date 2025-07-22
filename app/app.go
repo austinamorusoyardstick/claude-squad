@@ -1090,6 +1090,13 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Run Jest tests in the web directory
 		cmd := m.runJestTests(selected)
 		return m, cmd
+	case keys.KeyGitStatus:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Show git status overlay
+		return m, m.showGitStatusOverlay(selected)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
