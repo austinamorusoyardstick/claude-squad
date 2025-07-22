@@ -248,42 +248,14 @@ func (g *GitStatusOverlay) Render() string {
 	
 	// Title
 	var title string
-	if g.bookmarkMode {
-		if g.currentBookmark == -1 {
-			// Current changes mode
-			title = "Current Changes"
-			content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
-			content.WriteString("\n")
-			content.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Branch: %s | Changes since last bookmark", g.branchName)))
-			content.WriteString("\n\n")
-		} else {
-			// Bookmark mode
-			currentCommit := g.bookmarks[g.currentBookmark]
-			commitMsg, err := g.worktree.GetCommitMessage(currentCommit)
-			if err != nil {
-				commitMsg = "Unknown bookmark"
-			}
-			
-			// Extract just the bookmark message (remove [BOOKMARK] prefix if present)
-			bookmarkTitle := commitMsg
-			if strings.HasPrefix(commitMsg, "[BOOKMARK] ") {
-				bookmarkTitle = strings.TrimPrefix(commitMsg, "[BOOKMARK] ")
-			}
-			
-			// Special display for single bookmark
-			if len(g.bookmarks) == 1 {
-				title = fmt.Sprintf("Bookmark (All Changes) - %s", bookmarkTitle)
-				content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
-				content.WriteString("\n")
-				content.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Branch: %s | SHA: %s | Changes since bookmark", g.branchName, currentCommit[:8])))
-			} else {
-				title = fmt.Sprintf("Bookmark %d/%d - %s", g.currentBookmark+1, len(g.bookmarks), bookmarkTitle)
-				content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
-				content.WriteString("\n")
-				content.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Branch: %s | SHA: %s", g.branchName, currentCommit[:8])))
-			}
-			content.WriteString("\n\n")
-		}
+	if g.bookmarkMode && g.currentView >= 0 && g.currentView < len(g.navigationViews) {
+		// Use NavigationView data
+		view := g.navigationViews[g.currentView]
+		title = view.Title
+		content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
+		content.WriteString("\n")
+		content.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Branch: %s | %s", g.branchName, view.Description)))
+		content.WriteString("\n\n")
 	} else {
 		title = fmt.Sprintf("Git Status - Branch: %s", g.branchName)
 		content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
