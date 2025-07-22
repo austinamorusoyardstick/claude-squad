@@ -577,6 +577,7 @@ func getHelpText(command string) string {
 		"open_in_ide":      "open in IDE",
 		"external_diff":    "external diff",
 		"git_status":       "git status",
+		"git_status_bookmark": "git status bookmarks",
 	}
 
 	if text, ok := helpTexts[command]; ok {
