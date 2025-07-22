@@ -542,7 +542,7 @@ func getHelpText(command string) string {
 		"resume":           "resume",
 		"help":             "help",
 		"error_log":        "error log",
-		"webstorm":         "open IDE",
+		"open_ide":         "open IDE",
 		"rebase":           "rebase",
 		"tab":              "switch tab",
 		"scroll_up":        "scroll",
