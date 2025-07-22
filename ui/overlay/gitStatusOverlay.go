@@ -163,12 +163,42 @@ func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
 
 // loadBookmarkFiles loads the files changed for the current bookmark
 func (g *GitStatusOverlay) loadBookmarkFiles() error {
-	if !g.bookmarkMode || g.currentBookmark < 0 || g.currentBookmark >= len(g.bookmarks) {
-		return fmt.Errorf("invalid bookmark index")
+	if !g.bookmarkMode {
+		return fmt.Errorf("not in bookmark mode")
+	}
+
+	if g.currentBookmark == -1 {
+		// Load current changes since the last bookmark
+		if len(g.bookmarks) == 0 {
+			return fmt.Errorf("no bookmarks available for current changes")
+		}
+		
+		lastBookmark := g.bookmarks[len(g.bookmarks)-1]
+		files, err := g.worktree.GetChangedFilesSinceCommit(lastBookmark)
+		if err != nil {
+			return fmt.Errorf("failed to get current changes: %w", err)
+		}
+		
+		g.files = files
+		return nil
+	}
+	
+	if g.currentBookmark < 0 || g.currentBookmark >= len(g.bookmarks) {
+		return fmt.Errorf("invalid bookmark index: %d", g.currentBookmark)
 	}
 
 	currentCommit := g.bookmarks[g.currentBookmark]
 	var fromCommit string
+	
+	// Special case: if there's only one bookmark, show changes from that bookmark to HEAD
+	if len(g.bookmarks) == 1 {
+		files, err := g.worktree.GetChangedFilesSinceCommit(currentCommit)
+		if err != nil {
+			return fmt.Errorf("failed to get changes since single bookmark: %w", err)
+		}
+		g.files = files
+		return nil
+	}
 	
 	// If this is not the first bookmark, get changes since the previous one
 	if g.currentBookmark > 0 {
