@@ -368,19 +368,27 @@ func (g *GitStatusOverlay) Render() string {
 	
 	content.WriteString("\n\n")
 	if g.bookmarkMode {
-		// Show appropriate navigation message
-		if g.currentBookmark == -1 {
-			content.WriteString(lipgloss.NewStyle().Faint(true).Render("← Navigate to bookmarks | Any other key to close"))
-		} else if len(g.bookmarks) == 1 {
-			// Check if current changes exist for navigation hint
-			if g.hasCurrentChanges {
-				content.WriteString(lipgloss.NewStyle().Faint(true).Render("→ View current changes | Any other key to close"))
-			} else {
-				content.WriteString(lipgloss.NewStyle().Faint(true).Render("Only one bookmark | Any other key to close"))
-			}
+		// Show navigation message based on current position
+		var navMsg string
+		if len(g.navigationViews) <= 1 {
+			navMsg = "Only one view available | Any other key to close"
 		} else {
-			content.WriteString(lipgloss.NewStyle().Faint(true).Render("← → Navigate bookmarks | Any other key to close"))
+			// Show navigation hints based on position
+			leftHint := "←"
+			rightHint := "→"
+			if g.currentView == 0 {
+				leftHint = "" // Can't go newer
+			}
+			if g.currentView >= len(g.navigationViews)-1 {
+				rightHint = "" // Can't go older
+			}
+			
+			navMsg = fmt.Sprintf("%s%s Navigate (left=older, right=newer) | Any other key to close", leftHint, rightHint)
+			if leftHint == "" && rightHint == "" {
+				navMsg = "No more views to navigate | Any other key to close"
+			}
 		}
+		content.WriteString(lipgloss.NewStyle().Faint(true).Render(navMsg))
 	} else {
 		content.WriteString(lipgloss.NewStyle().Faint(true).Render("Press any key to close"))
 	}
