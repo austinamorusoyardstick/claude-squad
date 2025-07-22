@@ -51,6 +51,11 @@ func (g *GitStatusOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 
 // Render renders the git status overlay
 func (g *GitStatusOverlay) Render() string {
+	// Return cached content if already rendered
+	if g.cachedContent != "" {
+		return g.cachedContent
+	}
+
 	// Create the content
 	var content strings.Builder
 	
