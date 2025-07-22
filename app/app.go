@@ -419,17 +419,9 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Open failed test files in IDE if any
 		if len(msg.failedFiles) > 0 {
 			// Get the IDE command from configuration - use the first failed file's directory for context
-			globalConfig := config.LoadConfig()
-			var ideCommand string
-			if len(msg.failedFiles) > 0 {
-				fileDir := filepath.Dir(msg.failedFiles[0])
-				ideCommand = config.GetEffectiveIdeCommand(fileDir, globalConfig)
-			} else {
-				ideCommand = globalConfig.DefaultIdeCommand
-				if ideCommand == "" {
-					ideCommand = "webstorm"
-				}
-			}
+			globalConfig := m.appConfig
+			fileDir := filepath.Dir(msg.failedFiles[0])
+			ideCommand := config.GetEffectiveIdeCommand(fileDir, globalConfig)
 			
 			for _, file := range msg.failedFiles {
 				cmd := exec.Command(ideCommand, file)
