@@ -416,15 +416,28 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Parse final stats from output
 		finalStats := parseJestFinalStats(msg.output)
 
-		// Open failed test files in WebStorm if any
+		// Open failed test files in IDE if any
 		if len(msg.failedFiles) > 0 {
+			// Get the IDE command from configuration - use the first failed file's directory for context
+			globalConfig := config.LoadConfig()
+			var ideCommand string
+			if len(msg.failedFiles) > 0 {
+				fileDir := filepath.Dir(msg.failedFiles[0])
+				ideCommand = config.GetEffectiveIdeCommand(fileDir, globalConfig)
+			} else {
+				ideCommand = globalConfig.DefaultIdeCommand
+				if ideCommand == "" {
+					ideCommand = "webstorm"
+				}
+			}
+			
 			for _, file := range msg.failedFiles {
-				cmd := exec.Command("webstorm", file)
+				cmd := exec.Command(ideCommand, file)
 				cmd.Start()
 			}
 			// Show brief status about failed tests with counts
-			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in WebStorm",
-				finalStats.passed, finalStats.total, finalStats.failed))
+			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in IDE (%s)",
+				finalStats.passed, finalStats.total, finalStats.failed, ideCommand))
 		} else {
 			// All tests passed
 			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed",
