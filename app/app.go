@@ -1121,11 +1121,16 @@ func (m *home) openWebStorm(instance *session.Instance) tea.Cmd {
 			return fmt.Errorf("failed to get git worktree: %w", err)
 		}
 
-		// Open WebStorm at the worktree path (not the git root)
+		// Open IDE at the worktree path (not the git root)
 		worktreePath := gitWorktree.GetWorktreePath()
-		cmd := exec.Command("webstorm", worktreePath)
+		
+		// Get the IDE command from configuration
+		globalConfig := config.LoadConfig()
+		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
+		
+		cmd := exec.Command(ideCommand, worktreePath)
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("failed to open WebStorm: %w", err)
+			return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
 		}
 
 		return nil
