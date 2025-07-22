@@ -514,6 +514,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"open_in_ide":      KeyOpenInIDE,
 		"edit_keybindings": KeyEditKeybindings,
 		"git_status":       KeyGitStatus,
+		"git_status_bookmark": KeyGitStatusBookmark,
 	}
 }
 
