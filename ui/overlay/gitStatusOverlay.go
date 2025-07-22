@@ -361,7 +361,21 @@ func (g *GitStatusOverlay) Render() string {
 	
 	content.WriteString("\n\n")
 	if g.bookmarkMode {
-		content.WriteString(lipgloss.NewStyle().Faint(true).Render("← → Navigate bookmarks | Any other key to close"))
+		// Show appropriate navigation message
+		if g.currentBookmark == -1 {
+			content.WriteString(lipgloss.NewStyle().Faint(true).Render("← Navigate to bookmarks | Any other key to close"))
+		} else if len(g.bookmarks) == 1 {
+			// Check if current changes exist for navigation hint
+			lastBookmark := g.bookmarks[len(g.bookmarks)-1]
+			currentChanges, err := g.worktree.GetChangedFilesSinceCommit(lastBookmark)
+			if err == nil && len(currentChanges) > 0 {
+				content.WriteString(lipgloss.NewStyle().Faint(true).Render("→ View current changes | Any other key to close"))
+			} else {
+				content.WriteString(lipgloss.NewStyle().Faint(true).Render("Only one bookmark | Any other key to close"))
+			}
+		} else {
+			content.WriteString(lipgloss.NewStyle().Faint(true).Render("← → Navigate bookmarks | Any other key to close"))
+		}
 	} else {
 		content.WriteString(lipgloss.NewStyle().Faint(true).Render("Press any key to close"))
 	}
