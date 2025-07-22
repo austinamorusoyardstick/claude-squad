@@ -35,12 +35,47 @@ type GitStatusOverlay struct {
 // NewGitStatusOverlay creates a new git status overlay
 func NewGitStatusOverlay(branchName string, files []git.GitFileStatus) *GitStatusOverlay {
 	return &GitStatusOverlay{
-		Dismissed:  false,
-		files:      files,
-		branchName: branchName,
-		width:      80,
-		height:     20,
+		Dismissed:    false,
+		files:        files,
+		branchName:   branchName,
+		bookmarkMode: false,
+		width:        80,
+		height:       20,
 	}
+}
+
+// NewGitStatusOverlayBookmarkMode creates a new git status overlay in bookmark mode
+func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktree) (*GitStatusOverlay, error) {
+	// Get all bookmarks
+	bookmarks, err := worktree.GetAllBookmarkCommits()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bookmarks: %w", err)
+	}
+
+	if len(bookmarks) == 0 {
+		return nil, fmt.Errorf("no bookmarks found in this branch")
+	}
+
+	// Start with the most recent bookmark (last in the list)
+	currentIndex := len(bookmarks) - 1
+	
+	overlay := &GitStatusOverlay{
+		Dismissed:       false,
+		branchName:      branchName,
+		bookmarkMode:    true,
+		bookmarks:       bookmarks,
+		currentBookmark: currentIndex,
+		worktree:        worktree,
+		width:           80,
+		height:          20,
+	}
+
+	// Load files for the current bookmark
+	if err := overlay.loadBookmarkFiles(); err != nil {
+		return nil, fmt.Errorf("failed to load bookmark files: %w", err)
+	}
+
+	return overlay, nil
 }
 
 // HandleKeyPress processes a key press and updates the state
