@@ -102,6 +102,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"K":          KeyEditKeybindings,
 	"t":          KeyTest,
 	"g":          KeyGitStatus,
+	"G":          KeyGitStatusBookmark,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
