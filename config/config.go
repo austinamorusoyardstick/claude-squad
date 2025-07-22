@@ -159,6 +159,15 @@ func LoadConfig() *Config {
 		return DefaultConfig()
 	}
 
+	// Merge with defaults for missing fields to handle config file migration
+	defaults := DefaultConfig()
+	if config.DefaultIdeCommand == "" {
+		config.DefaultIdeCommand = defaults.DefaultIdeCommand
+	}
+	if config.DefaultDiffCommand == "" {
+		config.DefaultDiffCommand = defaults.DefaultDiffCommand
+	}
+
 	return &config
 }
 
