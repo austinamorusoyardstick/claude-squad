@@ -598,7 +598,19 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 			// Parse porcelain format: "MM file.go" or " M file.go" or "A  file.go"
 			if len(line) >= 3 {
 				statusChars := line[:2]
-				filePath := strings.TrimSpace(line[2:])
+				
+				// Handle renamed files specially
+				var filePath string
+				if statusChars[0] == 'R' || statusChars[1] == 'R' {
+					// Handle renamed files, which have the format "R  source -> destination"
+					if parts := strings.Split(strings.TrimSpace(line[2:]), " -> "); len(parts) == 2 {
+						filePath = parts[1] // Use destination path
+					} else {
+						continue // Skip malformed line
+					}
+				} else {
+					filePath = strings.TrimSpace(line[2:])
+				}
 				
 				// Convert porcelain status to diff status
 				var status string
