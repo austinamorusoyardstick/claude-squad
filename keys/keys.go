@@ -251,6 +251,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("x"),
 		key.WithHelp("x", "external diff"),
 	),
+	KeyGitStatus: key.NewBinding(
+		key.WithKeys("g"),
+		key.WithHelp("g", "git status"),
+	),
 
 	// -- Special keybindings --
 
