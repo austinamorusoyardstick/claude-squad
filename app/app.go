@@ -976,7 +976,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(err)
 		}
 		return m, tea.WindowSize()
-	case keys.KeyWebStorm:
+	case keys.KeyOpenIDE:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
 			return m, nil
