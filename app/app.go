@@ -900,6 +900,23 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
+	case keys.KeyExternalDiff:
+		// Only handle 'x' when in diff view
+		if m.tabbedWindow.IsInDiffTab() {
+			selected := m.list.GetSelectedInstance()
+			if selected == nil {
+				return m, nil
+			}
+			// Get the current file from diff view
+			currentFile := m.tabbedWindow.GetCurrentDiffFile()
+			if currentFile == "" {
+				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+			}
+			// Open the file in external diff tool
+			cmd := m.openFileInExternalDiff(selected, currentFile)
+			return m, cmd
+		}
+		return m, nil
 	case keys.KeyKill:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
