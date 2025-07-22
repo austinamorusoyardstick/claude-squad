@@ -1793,9 +1793,7 @@ func (m *home) handleGitStatusState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Let the overlay handle the key press
 	if m.gitStatusOverlay.HandleKeyPress(msg) {
-		// Overlay was dismissed
-		m.state = stateDefault
-		m.gitStatusOverlay = nil
+		// Overlay was dismissed, and the OnDismiss callback has already cleaned up.
 		return m, nil
 	}
 
