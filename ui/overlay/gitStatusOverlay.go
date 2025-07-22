@@ -73,14 +73,15 @@ func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktre
 	}
 	
 	overlay := &GitStatusOverlay{
-		Dismissed:       false,
-		branchName:      branchName,
-		bookmarkMode:    true,
-		bookmarks:       bookmarks,
-		currentBookmark: currentIndex,
-		worktree:        worktree,
-		width:           80,
-		height:          20,
+		Dismissed:         false,
+		branchName:        branchName,
+		bookmarkMode:      true,
+		bookmarks:         bookmarks,
+		currentBookmark:   currentIndex,
+		worktree:          worktree,
+		hasCurrentChanges: hasCurrentChanges,
+		width:             80,
+		height:            20,
 	}
 
 	// Load files for the current bookmark
