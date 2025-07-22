@@ -553,3 +553,93 @@ func (g *GitWorktree) GetCommitMessage(commitSHA string) (string, error) {
 	}
 	return strings.TrimSpace(output), nil
 }
+
+// GetChangedFilesSinceCommit gets all files changed since a specific commit (including uncommitted changes)
+func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileStatus, error) {
+	// Get changes from the commit to HEAD
+	output, err := g.runGitCommand(g.worktreePath, "diff", "--name-status", fromCommit, "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changed files since commit: %w", err)
+	}
+
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+
+	// Also get uncommitted changes (working directory + staged)
+	uncommittedOutput, err := g.runGitCommand(g.worktreePath, "status", "--porcelain")
+	if err == nil && strings.TrimSpace(uncommittedOutput) != "" {
+		uncommittedLines := strings.Split(strings.TrimSpace(uncommittedOutput), "\n")
+		for _, line := range uncommittedLines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			
+			// Parse porcelain format: "MM file.go" or " M file.go" or "A  file.go"
+			if len(line) >= 3 {
+				statusChars := line[:2]
+				filePath := strings.TrimSpace(line[2:])
+				
+				// Convert porcelain status to diff status
+				var status string
+				switch {
+				case strings.Contains(statusChars, "A"):
+					status = "A" // Added
+				case strings.Contains(statusChars, "D"):
+					status = "D" // Deleted
+				case strings.Contains(statusChars, "M"):
+					status = "M" // Modified
+				case strings.Contains(statusChars, "R"):
+					status = "R" // Renamed
+				case strings.Contains(statusChars, "C"):
+					status = "C" // Copied
+				case strings.Contains(statusChars, "?"):
+					status = "A" // Untracked files as added
+				default:
+					status = "M" // Default to modified
+				}
+				
+				// Check if this file is already in our list (avoid duplicates)
+				found := false
+				for _, existing := range files {
+					if existing.Path == filePath {
+						found = true
+						break
+					}
+				}
+				
+				if !found {
+					files = append(files, GitFileStatus{
+						Path:   filePath,
+						Status: status,
+					})
+				}
+			}
+		}
+	}
+
+	// Sort files by status first, then by path for consistent ordering
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].Status != files[j].Status {
+			return files[i].Status < files[j].Status
+		}
+		return files[i].Path < files[j].Path
+	})
+
+	return files, nil
+}
