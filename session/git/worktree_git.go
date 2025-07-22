@@ -235,12 +235,12 @@ func (g *GitWorktree) RebaseWithMain() error {
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
 		// Check if this is a merge conflict by examining the git status
 		if g.hasMergeConflicts() {
-			// Open WebStorm with the conflicted files
-			if webstormErr := g.openWebStormForConflicts(); webstormErr != nil {
-				// If WebStorm fails to open, still return the conflict info
-				log.WarningLog.Printf("Failed to open WebStorm for conflict resolution: %v", webstormErr)
+			// Open IDE with the conflicted files
+			if ideErr := g.openIdeForConflicts(); ideErr != nil {
+				// If IDE fails to open, still return the conflict info
+				log.WarningLog.Printf("Failed to open IDE for conflict resolution: %v", ideErr)
 			}
-			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. WebStorm opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
+			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. IDE opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
 		}
 
 		// If it's not a merge conflict, abort the rebase as before
