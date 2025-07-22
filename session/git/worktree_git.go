@@ -275,9 +275,8 @@ func (g *GitWorktree) hasMergeConflicts() bool {
 }
 
 // openIdeForConflicts opens the configured IDE at the worktree path for conflict resolution
-func (g *GitWorktree) openIdeForConflicts() error {
+func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 	// Get the IDE command from configuration
-	globalConfig := config.LoadConfig()
 	ideCommand := config.GetEffectiveIdeCommand(g.repoPath, globalConfig)
 	
 	// Open IDE at the worktree path
