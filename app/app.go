@@ -61,6 +61,8 @@ const (
 	stateHistory
 	// stateKeybindingEditor is the state when editing keybindings.
 	stateKeybindingEditor
+	// stateGitStatus is the state when displaying the git status overlay.
+	stateGitStatus
 )
 
 type home struct {
