@@ -1778,6 +1778,23 @@ func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 	return m, nil
 }
 
+func (m *home) handleGitStatusState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.gitStatusOverlay == nil {
+		m.state = stateDefault
+		return m, nil
+	}
+
+	// Let the overlay handle the key press
+	if m.gitStatusOverlay.HandleKeyPress(msg) {
+		// Overlay was dismissed
+		m.state = stateDefault
+		m.gitStatusOverlay = nil
+		return m, nil
+	}
+
+	return m, nil
+}
+
 func (m *home) showTestResults(output string) {
 	// Create text overlay with test results
 	m.textOverlay = overlay.NewTextOverlay(output)
