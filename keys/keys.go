@@ -31,7 +31,7 @@ const (
 	KeyHelp           // Key for showing help screen
 	KeyExistingBranch // Key for creating instance from existing branch
 	KeyErrorLog       // Key for showing error log
-	KeyWebStorm       // Key for opening WebStorm
+	KeyOpenIDE        // Key for opening IDE
 	KeyRebase         // Key for rebasing with main branch
 	KeyBookmark       // Key for creating a bookmark commit
 	KeyTest           // Key for running Jest tests
