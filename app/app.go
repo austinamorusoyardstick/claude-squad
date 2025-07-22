@@ -1193,6 +1193,42 @@ func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) t
 	}
 }
 
+func (m *home) openFileInExternalDiff(instance *session.Instance, filePath string) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+
+		// Get the diff command from configuration
+		worktreePath := gitWorktree.GetWorktreePath()
+		globalConfig := config.LoadConfig()
+		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
+		
+		if diffCommand == "" {
+			return fmt.Errorf("no external diff tool configured. Set diff_command in global config or repository CLAUDE.md")
+		}
+
+		// Construct the full path to the file using the worktree path
+		fullPath := filepath.Join(worktreePath, filePath)
+
+		// Check if file exists
+		if _, err := os.Stat(fullPath); err != nil {
+			return fmt.Errorf("file not found: %s", fullPath)
+		}
+
+		// Split command and args - simple implementation for commands like "code --diff file1 file2"
+		// For now, we'll pass the file path as an argument
+		cmd := exec.Command(diffCommand, fullPath)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open file in external diff tool (%s): %w", diffCommand, err)
+		}
+
+		return nil
+	}
+}
+
 const (
 	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
 	maxBookmarkSummaryLen = 100
