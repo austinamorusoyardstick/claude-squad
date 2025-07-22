@@ -982,7 +982,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 		// Open WebStorm at the instance's path and connect Claude
-		cmd := m.openWebStorm(selected)
+		cmd := m.openIDE(selected)
 		return m, cmd
 	case keys.KeyRebase:
 		selected := m.list.GetSelectedInstance()
