@@ -3,6 +3,7 @@ package overlay
 import (
 	"claude-squad/session/git"
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
