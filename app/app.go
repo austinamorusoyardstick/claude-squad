@@ -1856,3 +1856,36 @@ func (m *home) showHistoryView() tea.Cmd {
 
 	return tea.WindowSize()
 }
+
+// showGitStatusOverlay displays the git status overlay for the current instance
+func (m *home) showGitStatusOverlay(instance *session.Instance) tea.Cmd {
+	// Get the git worktree for the instance
+	worktree, err := instance.GetGitWorktree()
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+	}
+
+	// Get changed files for the branch
+	files, err := worktree.GetChangedFilesForBranch()
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to get changed files: %w", err))
+	}
+
+	// Get the current branch name
+	branchName, err := worktree.GetCurrentBranch()
+	if err != nil {
+		return m.handleError(fmt.Errorf("failed to get current branch: %w", err))
+	}
+
+	// Create the git status overlay
+	m.gitStatusOverlay = overlay.NewGitStatusOverlay(branchName, files)
+	m.gitStatusOverlay.OnDismiss = func() {
+		m.state = stateDefault
+		m.gitStatusOverlay = nil
+	}
+
+	// Set state to git status
+	m.state = stateGitStatus
+
+	return tea.WindowSize()
+}
