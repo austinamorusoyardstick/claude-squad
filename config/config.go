@@ -238,8 +238,7 @@ func loadRepoConfigFromCLAUDEMD(repoPath string) *RepoConfig {
 	content := string(data)
 	
 	// Look for [claude-squad] section
-	re := regexp.MustCompile(`(?i)\[claude-squad\]([\s\S]*?)(?:\n\[|$)`)
-	matches := re.FindStringSubmatch(content)
+	matches := claudeSquadSectionRe.FindStringSubmatch(content)
 	if len(matches) < 2 {
 		return nil
 	}
@@ -248,19 +247,13 @@ func loadRepoConfigFromCLAUDEMD(repoPath string) *RepoConfig {
 	config := &RepoConfig{}
 
 	// Parse ide_command
-	if ideRe := regexp.MustCompile(`(?m)^ide_command\s*[:=]\s*(.+)$`); ideRe.MatchString(configSection) {
-		ideMatches := ideRe.FindStringSubmatch(configSection)
-		if len(ideMatches) > 1 {
-			config.IdeCommand = strings.TrimSpace(ideMatches[1])
-		}
+	if ideMatches := ideCommandRe.FindStringSubmatch(configSection); len(ideMatches) > 1 {
+		config.IdeCommand = strings.TrimSpace(ideMatches[1])
 	}
 
 	// Parse diff_command  
-	if diffRe := regexp.MustCompile(`(?m)^diff_command\s*[:=]\s*(.+)$`); diffRe.MatchString(configSection) {
-		diffMatches := diffRe.FindStringSubmatch(configSection)
-		if len(diffMatches) > 1 {
-			config.DiffCommand = strings.TrimSpace(diffMatches[1])
-		}
+	if diffMatches := diffCommandRe.FindStringSubmatch(configSection); len(diffMatches) > 1 {
+		config.DiffCommand = strings.TrimSpace(diffMatches[1])
 	}
 
 	return config
