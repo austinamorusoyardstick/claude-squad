@@ -57,7 +57,7 @@ func NewGitStatusOverlay(branchName string, files []git.GitFileStatus) *GitStatu
 
 // NewGitStatusOverlayBookmarkMode creates a new git status overlay in bookmark mode
 func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktree) (*GitStatusOverlay, error) {
-	// Get all bookmarks
+	// Get all bookmarks (oldest to newest)
 	bookmarks, err := worktree.GetAllBookmarkCommits()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bookmarks: %w", err)
@@ -67,36 +67,88 @@ func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktre
 		return nil, fmt.Errorf("no bookmarks found in this branch")
 	}
 
-	// Check if there are changes after the most recent bookmark (and cache the result)
-	var currentIndex int
-	var hasCurrentChanges bool
+	// Build navigation views from most recent to oldest
+	var navigationViews []NavigationView
+	
+	// 1. Check for unstaged/uncommitted changes (most recent)
 	lastBookmark := bookmarks[len(bookmarks)-1]
 	currentChanges, err := worktree.GetChangedFilesSinceCommit(lastBookmark)
 	if err == nil && len(currentChanges) > 0 {
-		// Start with current changes (-1 means "current changes after last bookmark")
-		currentIndex = -1
-		hasCurrentChanges = true
-	} else {
-		// No current changes, start with the most recent bookmark
-		currentIndex = len(bookmarks) - 1
-		hasCurrentChanges = false
+		navigationViews = append(navigationViews, NavigationView{
+			Type:        "current",
+			Title:       "Current Changes",
+			Description: "Uncommitted changes since last bookmark",
+			FromCommit:  lastBookmark,
+			ToCommit:    "HEAD",
+		})
+	}
+	
+	// 2. Latest commits before most recent bookmark (if more than one bookmark)
+	if len(bookmarks) > 1 {
+		secondLastBookmark := bookmarks[len(bookmarks)-2]
+		navigationViews = append(navigationViews, NavigationView{
+			Type:        "recent_commits", 
+			Title:       "Recent Changes",
+			Description: "Changes in most recent bookmark period",
+			FromCommit:  secondLastBookmark,
+			ToCommit:    lastBookmark,
+		})
+	}
+	
+	// 3. Bookmark to bookmark (newer to older)
+	for i := len(bookmarks) - 2; i >= 1; i-- {
+		currentBookmark := bookmarks[i]
+		prevBookmark := bookmarks[i-1]
+		
+		// Get bookmark message for title
+		commitMsg, err := worktree.GetCommitMessage(currentBookmark)
+		if err != nil {
+			commitMsg = "Unknown bookmark"
+		}
+		bookmarkTitle := strings.TrimPrefix(commitMsg, "[BOOKMARK] ")
+		
+		navigationViews = append(navigationViews, NavigationView{
+			Type:        "bookmark",
+			Title:       fmt.Sprintf("Bookmark %d/%d - %s", i+1, len(bookmarks), bookmarkTitle),
+			Description: fmt.Sprintf("Changes since previous bookmark"),
+			FromCommit:  prevBookmark,
+			ToCommit:    currentBookmark,
+		})
+	}
+	
+	// 4. First bookmark to branch creation (oldest)
+	if len(bookmarks) > 0 {
+		firstBookmark := bookmarks[0]
+		commitMsg, err := worktree.GetCommitMessage(firstBookmark)
+		if err != nil {
+			commitMsg = "Unknown bookmark"
+		}
+		bookmarkTitle := strings.TrimPrefix(commitMsg, "[BOOKMARK] ")
+		
+		navigationViews = append(navigationViews, NavigationView{
+			Type:        "initial",
+			Title:       fmt.Sprintf("Initial Bookmark - %s", bookmarkTitle),
+			Description: "Changes since branch creation",
+			FromCommit:  "", // Empty means from start
+			ToCommit:    firstBookmark,
+		})
 	}
 	
 	overlay := &GitStatusOverlay{
-		Dismissed:         false,
-		branchName:        branchName,
-		bookmarkMode:      true,
-		bookmarks:         bookmarks,
-		currentBookmark:   currentIndex,
-		worktree:          worktree,
-		hasCurrentChanges: hasCurrentChanges,
-		width:             80,
-		height:            20,
+		Dismissed:       false,
+		branchName:      branchName,
+		bookmarkMode:    true,
+		bookmarks:       bookmarks,
+		currentView:     0, // Start with most recent (index 0)
+		navigationViews: navigationViews,
+		worktree:        worktree,
+		width:           80,
+		height:          20,
 	}
 
-	// Load files for the current bookmark
-	if err := overlay.loadBookmarkFiles(); err != nil {
-		return nil, fmt.Errorf("failed to load bookmark files: %w", err)
+	// Load files for the current view
+	if err := overlay.loadViewFiles(); err != nil {
+		return nil, fmt.Errorf("failed to load view files: %w", err)
 	}
 
 	return overlay, nil
