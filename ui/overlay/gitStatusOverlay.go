@@ -174,34 +174,26 @@ func (g *GitStatusOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 	return true
 }
 
-// navigateBookmark moves to the next/previous bookmark
+// navigateView moves to the next/previous view in the navigation list
 // Returns false to indicate the overlay should stay open
-func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
-	if !g.bookmarkMode || len(g.bookmarks) == 0 {
+func (g *GitStatusOverlay) navigateView(direction int) bool {
+	if !g.bookmarkMode || len(g.navigationViews) == 0 {
 		return false
 	}
 
-	newIndex := g.currentBookmark + direction
+	newIndex := g.currentView + direction
 	
-	// Handle bounds: -1 is "current changes", 0 to len-1 are bookmarks
-	maxIndex := len(g.bookmarks) - 1
-	minIndex := -1
-	
-	// Check if current changes exist to determine if -1 is valid
-	if minIndex == -1 && !g.hasCurrentChanges {
-		minIndex = 0 // No current changes, so minimum is first bookmark
-	}
-	
-	if newIndex < minIndex || newIndex > maxIndex {
+	// Check bounds
+	if newIndex < 0 || newIndex >= len(g.navigationViews) {
 		// Don't navigate beyond bounds
 		return false
 	}
 
-	g.currentBookmark = newIndex
+	g.currentView = newIndex
 	g.cachedContent = "" // Clear cache to force re-render
 	
-	// Load files for the new position
-	if err := g.loadBookmarkFiles(); err != nil {
+	// Load files for the new view
+	if err := g.loadViewFiles(); err != nil {
 		// On error, just stay at current position
 		return false
 	}
@@ -209,53 +201,35 @@ func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
 	return false // Keep overlay open
 }
 
-// loadBookmarkFiles loads the files changed for the current bookmark
-func (g *GitStatusOverlay) loadBookmarkFiles() error {
-	if !g.bookmarkMode {
-		return fmt.Errorf("not in bookmark mode")
+// loadViewFiles loads the files for the current navigation view
+func (g *GitStatusOverlay) loadViewFiles() error {
+	if !g.bookmarkMode || g.currentView < 0 || g.currentView >= len(g.navigationViews) {
+		return fmt.Errorf("invalid view index")
 	}
 
-	if g.currentBookmark == -1 {
-		// Load current changes since the last bookmark
-		if len(g.bookmarks) == 0 {
-			return fmt.Errorf("no bookmarks available for current changes")
-		}
-		
-		lastBookmark := g.bookmarks[len(g.bookmarks)-1]
-		files, err := g.worktree.GetChangedFilesSinceCommit(lastBookmark)
-		if err != nil {
-			return fmt.Errorf("failed to get current changes: %w", err)
-		}
-		
-		g.files = files
-		return nil
-	}
-	
-	if g.currentBookmark < 0 || g.currentBookmark >= len(g.bookmarks) {
-		return fmt.Errorf("invalid bookmark index: %d", g.currentBookmark)
+	view := g.navigationViews[g.currentView]
+	var files []git.GitFileStatus
+	var err error
+
+	switch view.Type {
+	case "current":
+		// Current uncommitted changes since last bookmark
+		files, err = g.worktree.GetChangedFilesSinceCommit(view.FromCommit)
+	case "recent_commits":
+		// Changes between two bookmark commits
+		files, err = g.worktree.GetChangedFilesBetweenCommits(view.FromCommit, view.ToCommit)
+	case "bookmark":
+		// Changes between two bookmark commits
+		files, err = g.worktree.GetChangedFilesBetweenCommits(view.FromCommit, view.ToCommit)
+	case "initial":
+		// Changes from branch start to first bookmark
+		files, err = g.worktree.GetChangedFilesBetweenCommits(view.FromCommit, view.ToCommit)
+	default:
+		return fmt.Errorf("unknown view type: %s", view.Type)
 	}
 
-	currentCommit := g.bookmarks[g.currentBookmark]
-	var fromCommit string
-	
-	// Special case: if there's only one bookmark, show changes from that bookmark to HEAD
-	if len(g.bookmarks) == 1 {
-		files, err := g.worktree.GetChangedFilesSinceCommit(currentCommit)
-		if err != nil {
-			return fmt.Errorf("failed to get changes since single bookmark: %w", err)
-		}
-		g.files = files
-		return nil
-	}
-	
-	// If this is not the first bookmark, get changes since the previous one
-	if g.currentBookmark > 0 {
-		fromCommit = g.bookmarks[g.currentBookmark-1]
-	}
-
-	files, err := g.worktree.GetChangedFilesBetweenCommits(fromCommit, currentCommit)
 	if err != nil {
-		return fmt.Errorf("failed to get changed files between commits: %w", err)
+		return fmt.Errorf("failed to load files for view %s: %w", view.Type, err)
 	}
 
 	g.files = files
