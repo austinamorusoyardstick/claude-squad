@@ -54,6 +54,7 @@ const (
 	KeyOpenInIDE
 	KeyHistory
 	KeyEditKeybindings // Key for opening keybinding editor
+	KeyGitStatus       // Key for showing git status overlay
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
