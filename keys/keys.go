@@ -100,6 +100,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"ctrl+h":     KeyHistory,
 	"K":          KeyEditKeybindings,
 	"t":          KeyTest,
+	"x":          KeyExternalDiff,
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
