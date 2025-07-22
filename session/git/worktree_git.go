@@ -638,19 +638,12 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 				}
 				
 				// Check if this file is already in our list (avoid duplicates)
-				found := false
-				for _, existing := range files {
-					if existing.Path == filePath {
-						found = true
-						break
-					}
-				}
-				
-				if !found {
+				if _, found := existingFiles[filePath]; !found {
 					files = append(files, GitFileStatus{
 						Path:   filePath,
 						Status: status,
 					})
+					existingFiles[filePath] = struct{}{}
 				}
 			}
 		}
