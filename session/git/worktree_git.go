@@ -437,13 +437,13 @@ func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
 	mergeBase = strings.TrimSpace(mergeBase)
 
 	// Get changed files since merge base
-	output, err = g.runGitCommand(g.worktreePath, "diff", "--name-status", mergeBase)
+	diffOutput, err := g.runGitCommand(g.worktreePath, "diff", "--name-status", mergeBase)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changed files: %w", err)
 	}
 
 	var files []GitFileStatus
-	lines := strings.Split(strings.TrimSpace(output), "\n")
+	lines := strings.Split(strings.TrimSpace(diffOutput), "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
