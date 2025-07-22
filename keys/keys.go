@@ -217,7 +217,7 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("l"),
 		key.WithHelp("l", "error log"),
 	),
-	KeyWebStorm: key.NewBinding(
+	KeyOpenIDE: key.NewBinding(
 		key.WithKeys("w"),
 		key.WithHelp("w", "open IDE"),
 	),
