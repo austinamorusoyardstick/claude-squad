@@ -404,3 +404,61 @@ func (g *GitWorktree) CreateBookmarkCommit(message string) error {
 
 	return nil
 }
+
+// GitFileStatus represents the status of a file in git
+type GitFileStatus struct {
+	Path   string
+	Status string // M=Modified, A=Added, D=Deleted, R=Renamed, C=Copied
+}
+
+// GetChangedFilesForBranch gets all files changed in the current branch compared to main branch
+func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
+	// Determine the main branch name
+	mainBranch := "main"
+	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd.Dir = g.worktreePath
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		mainBranch = strings.TrimSpace(string(output))
+	} else {
+		// Fallback: Try common defaults if the command fails
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/main"); err != nil {
+			if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/master"); err == nil {
+				mainBranch = "master"
+			}
+		}
+	}
+
+	// Get the merge base between current branch and main
+	mergeBase, err := g.runGitCommand(g.worktreePath, "merge-base", fmt.Sprintf("origin/%s", mainBranch), "HEAD")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find merge base: %w", err)
+	}
+	mergeBase = strings.TrimSpace(mergeBase)
+
+	// Get changed files since merge base
+	output, err = g.runGitCommand(g.worktreePath, "diff", "--name-status", mergeBase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get changed files: %w", err)
+	}
+
+	var files []GitFileStatus
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
+		parts := strings.Split(line, "\t")
+		if len(parts) >= 2 {
+			files = append(files, GitFileStatus{
+				Path:   parts[1],
+				Status: parts[0],
+			})
+		}
+	}
+
+	return files, nil
+}
