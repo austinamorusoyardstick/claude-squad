@@ -1075,6 +1075,13 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		// Show git status overlay
 		return m, m.showGitStatusOverlay(selected)
+	case keys.KeyGitStatusBookmark:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Show git status overlay in bookmark mode
+		return m, m.showGitStatusOverlayBookmarkMode(selected)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
