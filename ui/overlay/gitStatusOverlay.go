@@ -25,7 +25,7 @@ type GitStatusOverlay struct {
 	// Bookmark mode settings
 	bookmarkMode    bool
 	bookmarks       []string // List of bookmark commit SHAs
-	currentBookmark int      // Index in bookmarks slice
+	currentBookmark int      // Index in bookmarks slice (-1 for "current changes")
 	worktree        *git.GitWorktree // Reference to git worktree for bookmark navigation
 
 	width  int
