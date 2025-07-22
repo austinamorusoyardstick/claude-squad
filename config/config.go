@@ -12,6 +12,13 @@ import (
 	"strings"
 )
 
+var (
+	// Pre-compiled regex patterns for parsing CLAUDE.md
+	claudeSquadSectionRe = regexp.MustCompile(`(?i)\[claude-squad\]([\s\S]*?)(?:\n\[|$)`)
+	ideCommandRe         = regexp.MustCompile(`(?m)^ide_command\s*[:=]\s*(.+)$`)
+	diffCommandRe        = regexp.MustCompile(`(?m)^diff_command\s*[:=]\s*(.+)$`)
+)
+
 const (
 	ConfigFileName = "config.json"
 	defaultProgram = "claude"
