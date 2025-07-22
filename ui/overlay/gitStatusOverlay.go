@@ -21,6 +21,12 @@ type GitStatusOverlay struct {
 	branchName string
 	// Cached rendered content to prevent re-rendering
 	cachedContent string
+	
+	// Bookmark mode settings
+	bookmarkMode    bool
+	bookmarks       []string // List of bookmark commit SHAs
+	currentBookmark int      // Index in bookmarks slice
+	worktree        *git.GitWorktree // Reference to git worktree for bookmark navigation
 
 	width  int
 	height int
