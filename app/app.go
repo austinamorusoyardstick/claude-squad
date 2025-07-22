@@ -1147,7 +1147,7 @@ func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 		worktreePath := gitWorktree.GetWorktreePath()
 		
 		// Get the IDE command from configuration
-		globalConfig := config.LoadConfig()
+		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
 		
 		cmd := exec.Command(ideCommand, worktreePath)
@@ -1172,7 +1172,7 @@ func (m *home) openFileInIDE(instance *session.Instance, filePath string) tea.Cm
 		fullPath := filepath.Join(worktreePath, filePath)
 
 		// Get the IDE command from configuration
-		globalConfig := config.LoadConfig()
+		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
 		
 		// Open IDE with the specific file
