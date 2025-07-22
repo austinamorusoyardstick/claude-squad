@@ -887,8 +887,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			if currentFile == "" {
 				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
 			}
-			// Open the file in WebStorm
-			cmd := m.openFileInWebStorm(selected, currentFile)
+			// Open the file in IDE
+			cmd := m.openFileInIDE(selected, currentFile)
 			return m, cmd
 		}
 		return m, nil
