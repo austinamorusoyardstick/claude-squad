@@ -589,23 +589,7 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 		return nil, fmt.Errorf("failed to get changed files since commit: %w", err)
 	}
 
-	var files []GitFileStatus
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		
-		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
-		parts := strings.Split(line, "\t")
-		if len(parts) >= 2 {
-			files = append(files, GitFileStatus{
-				Path:   parts[1],
-				Status: parts[0],
-			})
-		}
-	}
+	files := parseDiffNameStatus(output)
 
 	// Also get uncommitted changes (working directory + staged)
 	uncommittedOutput, err := g.runGitCommand(g.worktreePath, "status", "--porcelain")
