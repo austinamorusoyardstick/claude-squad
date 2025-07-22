@@ -130,7 +130,21 @@ func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
 	}
 
 	newIndex := g.currentBookmark + direction
-	if newIndex < 0 || newIndex >= len(g.bookmarks) {
+	
+	// Handle bounds: -1 is "current changes", 0 to len-1 are bookmarks
+	maxIndex := len(g.bookmarks) - 1
+	minIndex := -1
+	
+	// Check if current changes exist to determine if -1 is valid
+	if minIndex == -1 && len(g.bookmarks) > 0 {
+		lastBookmark := g.bookmarks[len(g.bookmarks)-1]
+		currentChanges, err := g.worktree.GetChangedFilesSinceCommit(lastBookmark)
+		if err != nil || len(currentChanges) == 0 {
+			minIndex = 0 // No current changes, so minimum is first bookmark
+		}
+	}
+	
+	if newIndex < minIndex || newIndex > maxIndex {
 		// Don't navigate beyond bounds
 		return false
 	}
@@ -138,9 +152,9 @@ func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
 	g.currentBookmark = newIndex
 	g.cachedContent = "" // Clear cache to force re-render
 	
-	// Load files for the new bookmark
+	// Load files for the new position
 	if err := g.loadBookmarkFiles(); err != nil {
-		// On error, just stay at current bookmark
+		// On error, just stay at current position
 		return false
 	}
 
