@@ -19,6 +19,8 @@ type GitStatusOverlay struct {
 	files []git.GitFileStatus
 	// Branch name
 	branchName string
+	// Cached rendered content to prevent re-rendering
+	cachedContent string
 
 	width  int
 	height int
