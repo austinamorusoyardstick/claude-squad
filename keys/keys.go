@@ -245,6 +245,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("t"),
 		key.WithHelp("t", "run tests"),
 	),
+	KeyGitStatus: key.NewBinding(
+		key.WithKeys("g"),
+		key.WithHelp("g", "git status"),
+	),
 
 	// -- Special keybindings --
 
