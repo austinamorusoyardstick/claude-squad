@@ -290,7 +290,11 @@ func (g *GitStatusOverlay) Render() string {
 	}
 	
 	content.WriteString("\n\n")
-	content.WriteString(lipgloss.NewStyle().Faint(true).Render("Press any key to close"))
+	if g.bookmarkMode {
+		content.WriteString(lipgloss.NewStyle().Faint(true).Render("← → Navigate bookmarks | Any other key to close"))
+	} else {
+		content.WriteString(lipgloss.NewStyle().Faint(true).Render("Press any key to close"))
+	}
 
 	// Create styles
 	style := lipgloss.NewStyle().
