@@ -160,9 +160,9 @@ func (g *GitStatusOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 	if g.bookmarkMode {
 		switch msg.String() {
 		case "left":
-			return g.navigateBookmark(-1)
+			return g.navigateView(1) // Go older (higher index)
 		case "right":
-			return g.navigateBookmark(1)
+			return g.navigateView(-1) // Go newer (lower index)
 		}
 	}
 
