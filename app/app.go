@@ -1159,7 +1159,7 @@ func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 	}
 }
 
-func (m *home) openFileInWebStorm(instance *session.Instance, filePath string) tea.Cmd {
+func (m *home) openFileInIDE(instance *session.Instance, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		// Get the git worktree to access the worktree path
 		gitWorktree, err := instance.GetGitWorktree()
