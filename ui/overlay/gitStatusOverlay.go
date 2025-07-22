@@ -172,9 +172,31 @@ func (g *GitStatusOverlay) Render() string {
 	var content strings.Builder
 	
 	// Title
-	title := fmt.Sprintf("Git Status - Branch: %s", g.branchName)
-	content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
-	content.WriteString("\n\n")
+	var title string
+	if g.bookmarkMode {
+		// Get bookmark commit message
+		currentCommit := g.bookmarks[g.currentBookmark]
+		commitMsg, err := g.worktree.GetCommitMessage(currentCommit)
+		if err != nil {
+			commitMsg = "Unknown bookmark"
+		}
+		
+		// Extract just the bookmark message (remove [BOOKMARK] prefix if present)
+		bookmarkTitle := commitMsg
+		if strings.HasPrefix(commitMsg, "[BOOKMARK] ") {
+			bookmarkTitle = strings.TrimPrefix(commitMsg, "[BOOKMARK] ")
+		}
+		
+		title = fmt.Sprintf("Bookmark %d/%d - %s", g.currentBookmark+1, len(g.bookmarks), bookmarkTitle)
+		content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
+		content.WriteString("\n")
+		content.WriteString(lipgloss.NewStyle().Faint(true).Render(fmt.Sprintf("Branch: %s | SHA: %s", g.branchName, currentCommit[:8])))
+		content.WriteString("\n\n")
+	} else {
+		title = fmt.Sprintf("Git Status - Branch: %s", g.branchName)
+		content.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
+		content.WriteString("\n\n")
+	}
 
 	if len(g.files) == 0 {
 		content.WriteString("No files changed in this branch.")
