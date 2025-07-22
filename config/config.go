@@ -70,6 +70,8 @@ func DefaultConfig() *Config {
 			}
 			return fmt.Sprintf("%s/", strings.ToLower(user.Username))
 		}(),
+		DefaultIdeCommand:  "webstorm",
+		DefaultDiffCommand: "",
 	}
 }
 
