@@ -505,6 +505,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"scroll_lock":      KeyScrollLock,
 		"open_in_ide":      KeyOpenInIDE,
 		"edit_keybindings": KeyEditKeybindings,
+		"external_diff":    KeyExternalDiff,
 	}
 }
 
