@@ -125,6 +125,8 @@ type home struct {
 	historyOverlay *overlay.HistoryOverlay
 	// keybindingEditorOverlay displays keybinding editor interface
 	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
+	// gitStatusOverlay displays git status information
+	gitStatusOverlay *overlay.GitStatusOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
