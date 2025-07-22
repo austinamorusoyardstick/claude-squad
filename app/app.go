@@ -1218,9 +1218,12 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 			return fmt.Errorf("file not found: %s", fullPath)
 		}
 
-		// Split command and args - simple implementation for commands like "code --diff file1 file2"
-		// For now, we'll pass the file path as an argument
-		cmd := exec.Command(diffCommand, fullPath)
+		// Split command and args to handle commands like "code --diff"
+		parts := strings.Fields(diffCommand)
+		if len(parts) == 0 {
+			return fmt.Errorf("empty diff command")
+		}
+		cmd := exec.Command(parts[0], append(parts[1:], fullPath)...)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open file in external diff tool (%s): %w", diffCommand, err)
 		}
