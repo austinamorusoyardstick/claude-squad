@@ -12,7 +12,7 @@ describe('Example Test', () => {
   })
 
   it('should fail to demonstrate error handling', async () => {
-    await wait(1000);
-    expect(1 + 1).toBe(3) // This will fail
+    await wait(3000);
+    expect(1 + 1).toBe(2) // This will fail
   })
 })
