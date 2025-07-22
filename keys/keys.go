@@ -35,6 +35,7 @@ const (
 	KeyRebase         // Key for rebasing with main branch
 	KeyBookmark       // Key for creating a bookmark commit
 	KeyTest           // Key for running Jest tests
+	KeyExternalDiff   // Key for opening in external diff tool
 
 	// Diff keybindings
 	KeyShiftUp
