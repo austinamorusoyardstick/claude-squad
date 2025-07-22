@@ -461,5 +461,13 @@ func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
 		}
 	}
 
+	// Sort files by status first, then by path for consistent ordering
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].Status != files[j].Status {
+			return files[i].Status < files[j].Status
+		}
+		return files[i].Path < files[j].Path
+	})
+
 	return files, nil
 }
