@@ -3,7 +3,6 @@ package main
 import (
 	"claude-squad/config"
 	"fmt"
-	"path/filepath"
 )
 
 func main() {
