@@ -113,6 +113,54 @@ func (g *GitStatusOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 	return true
 }
 
+// navigateBookmark moves to the next/previous bookmark
+// Returns false to indicate the overlay should stay open
+func (g *GitStatusOverlay) navigateBookmark(direction int) bool {
+	if !g.bookmarkMode || len(g.bookmarks) == 0 {
+		return false
+	}
+
+	newIndex := g.currentBookmark + direction
+	if newIndex < 0 || newIndex >= len(g.bookmarks) {
+		// Don't navigate beyond bounds
+		return false
+	}
+
+	g.currentBookmark = newIndex
+	g.cachedContent = "" // Clear cache to force re-render
+	
+	// Load files for the new bookmark
+	if err := g.loadBookmarkFiles(); err != nil {
+		// On error, just stay at current bookmark
+		return false
+	}
+
+	return false // Keep overlay open
+}
+
+// loadBookmarkFiles loads the files changed for the current bookmark
+func (g *GitStatusOverlay) loadBookmarkFiles() error {
+	if !g.bookmarkMode || g.currentBookmark < 0 || g.currentBookmark >= len(g.bookmarks) {
+		return fmt.Errorf("invalid bookmark index")
+	}
+
+	currentCommit := g.bookmarks[g.currentBookmark]
+	var fromCommit string
+	
+	// If this is not the first bookmark, get changes since the previous one
+	if g.currentBookmark > 0 {
+		fromCommit = g.bookmarks[g.currentBookmark-1]
+	}
+
+	files, err := g.worktree.GetChangedFilesBetweenCommits(fromCommit, currentCommit)
+	if err != nil {
+		return fmt.Errorf("failed to get changed files between commits: %w", err)
+	}
+
+	g.files = files
+	return nil
+}
+
 // Render renders the git status overlay
 func (g *GitStatusOverlay) Render() string {
 	// Return cached content if already rendered
