@@ -130,8 +130,9 @@ func (g *GitStatusOverlay) Render() string {
 		Width(g.width).
 		Height(g.height)
 
-	// Apply the border style and return
-	return style.Render(content.String())
+	// Apply the border style and cache the result
+	g.cachedContent = style.Render(content.String())
+	return g.cachedContent
 }
 
 // SetSize sets the size of the overlay
