@@ -85,8 +85,13 @@ func (g *GitStatusOverlay) Render() string {
 			statusGroups[status] = append(statusGroups[status], file.Path)
 		}
 		
-		// Display files grouped by status
-		for status, files := range statusGroups {
+		// Display files grouped by status in a consistent order
+		statusOrder := []string{"A", "M", "D", "R", "C"} // Added, Modified, Deleted, Renamed, Copied
+		for _, status := range statusOrder {
+			files, exists := statusGroups[status]
+			if !exists {
+				continue
+			}
 			statusName := statusNames[status]
 			if statusName == "" {
 				statusName = status
