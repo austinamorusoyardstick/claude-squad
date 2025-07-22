@@ -90,32 +90,17 @@ func NewGitStatusOverlayBookmarkMode(branchName string, worktree *git.GitWorktre
 // HandleKeyPress processes a key press and updates the state
 // Returns true if the overlay should be closed
 func (g *GitStatusOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
-	// In bookmark mode, handle navigation keys
 	if g.bookmarkMode {
 		switch msg.String() {
 		case "left":
 			return g.navigateBookmark(-1)
 		case "right":
 			return g.navigateBookmark(1)
-		case "esc", "q":
-			g.Dismissed = true
-			if g.OnDismiss != nil {
-				g.OnDismiss()
-			}
-			return true
-		default:
-			// Any other key closes the overlay
-			g.Dismissed = true
-			if g.OnDismiss != nil {
-				g.OnDismiss()
-			}
-			return true
 		}
 	}
-	
-	// In normal mode, close on any key
+
+	// For normal mode, or any other key in bookmark mode, close the overlay.
 	g.Dismissed = true
-	// Call the OnDismiss callback if it exists
 	if g.OnDismiss != nil {
 		g.OnDismiss()
 	}
