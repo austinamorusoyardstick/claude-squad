@@ -235,8 +235,9 @@ func (g *GitWorktree) RebaseWithMain() error {
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
 		// Check if this is a merge conflict by examining the git status
 		if g.hasMergeConflicts() {
-			// Open IDE with the conflicted files
-			if ideErr := g.openIdeForConflicts(); ideErr != nil {
+			// Open IDE with the conflicted files - for now, load config here since we can't change the function signature easily
+			globalConfig := config.LoadConfig()
+			if ideErr := g.openIdeForConflicts(globalConfig); ideErr != nil {
 				// If IDE fails to open, still return the conflict info
 				log.WarningLog.Printf("Failed to open IDE for conflict resolution: %v", ideErr)
 			}
