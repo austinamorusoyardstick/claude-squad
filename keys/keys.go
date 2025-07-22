@@ -92,7 +92,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"p":          KeySubmit,
 	"?":          KeyHelp,
 	"l":          KeyErrorLog,
-	"w":          KeyWebStorm,
+	"w":          KeyOpenIDE,
 	"i":          KeyOpenInIDE,
 	"b":          KeyRebase,
 	"B":          KeyBookmark,
