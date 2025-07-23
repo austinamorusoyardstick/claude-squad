@@ -491,7 +491,7 @@ func stripMarkdownSimple(content string) string {
 }
 
 // getCommentStats is a private helper that calculates stats for a given slice of comments
-func getCommentStats(comments []*PRComment) (total, reviews, reviewComments, issueComments, outdated, resolved int) {
+func getCommentStats(comments []*PRComment) (total, reviews, reviewComments, issueComments, outdated, resolved, geminiReviews int) {
 	for _, comment := range comments {
 		total++
 		if comment.IsOutdated {
@@ -499,6 +499,9 @@ func getCommentStats(comments []*PRComment) (total, reviews, reviewComments, iss
 		}
 		if comment.IsResolved {
 			resolved++
+		}
+		if comment.IsGeminiReview {
+			geminiReviews++
 		}
 		switch comment.Type {
 		case "review":
