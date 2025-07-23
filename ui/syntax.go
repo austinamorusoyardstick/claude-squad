@@ -61,79 +61,102 @@ func highlightJSLine(line string) string {
 		return line
 	}
 	
-	// Track what has been highlighted to avoid overlaps
-	highlighted := make([]bool, len(line))
-	result := make([]string, len(line))
-	
-	// Helper to apply highlighting
-	applyHighlight := func(regex *regexp.Regexp, style lipgloss.Style, groupIndex int) {
-		matches := regex.FindAllStringSubmatchIndex(line, -1)
-		for _, match := range matches {
-			start := match[groupIndex*2]
-			end := match[groupIndex*2+1]
-			
-			// Check if already highlighted
-			alreadyHighlighted := false
-			for j := start; j < end; j++ {
-				if highlighted[j] {
-					alreadyHighlighted = true
-					break
-				}
-			}
-			
-			if !alreadyHighlighted {
-				styledText := style.Render(line[start:end])
-				// Mark as highlighted
-				for j := start; j < end; j++ {
-					highlighted[j] = true
-				}
-				// Store the styled text at the start position
-				result[start] = styledText
-				// Mark other positions as handled
-				for j := start + 1; j < end; j++ {
-					result[j] = ""
-				}
-			}
-		}
+	// Create a structure to track replacements
+	type replacement struct {
+		start, end int
+		text       string
 	}
 	
-	// Apply highlighting in order of precedence
-	// 1. Comments (highest precedence)
-	applyHighlight(jsSingleCommentRegex, commentStyle, 0)
-	applyHighlight(jsMultiCommentRegex, commentStyle, 0)
+	var replacements []replacement
+	
+	// Helper to add a replacement
+	addReplacement := func(start, end int, text string) {
+		// Check for overlaps
+		for _, r := range replacements {
+			if (start >= r.start && start < r.end) || (end > r.start && end <= r.end) {
+				return // Skip overlapping replacements
+			}
+		}
+		replacements = append(replacements, replacement{start, end, text})
+	}
+	
+	// Apply highlighting patterns
+	// 1. Comments (highest priority)
+	for _, match := range jsSingleCommentRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], commentStyle.Render(line[match[0]:match[1]]))
+	}
+	for _, match := range jsMultiCommentRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], commentStyle.Render(line[match[0]:match[1]]))
+	}
 	
 	// 2. Strings
-	applyHighlight(jsStringRegex, stringStyle, 0)
+	for _, match := range jsStringRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], stringStyle.Render(line[match[0]:match[1]]))
+	}
 	
 	// 3. Numbers
-	applyHighlight(jsNumberRegex, numberStyle, 0)
+	for _, match := range jsNumberRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], numberStyle.Render(line[match[0]:match[1]]))
+	}
 	
 	// 4. Booleans and special values
-	applyHighlight(jsBooleanRegex, numberStyle, 0)
+	for _, match := range jsBooleanRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], numberStyle.Render(line[match[0]:match[1]]))
+	}
 	
 	// 5. Keywords
-	applyHighlight(jsKeywordRegex, keywordStyle, 0)
+	for _, match := range jsKeywordRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], keywordStyle.Render(line[match[0]:match[1]]))
+	}
 	
 	// 6. Built-in objects
-	applyHighlight(jsBuiltinRegex, builtinStyle, 0)
+	for _, match := range jsBuiltinRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], builtinStyle.Render(line[match[0]:match[1]]))
+	}
 	
-	// 7. Functions (group 1 is the function name)
-	applyHighlight(jsFunctionRegex, functionStyle, 1)
-	
-	// 8. Operators
-	applyHighlight(jsOperatorRegex, operatorStyle, 0)
-	
-	// Build the final result
-	var finalResult strings.Builder
-	for i, char := range line {
-		if !highlighted[i] {
-			finalResult.WriteString(defaultStyle.Render(string(char)))
-		} else if result[i] != "" {
-			finalResult.WriteString(result[i])
+	// 7. Functions
+	matches := jsFunctionRegex.FindAllStringSubmatchIndex(line, -1)
+	for _, match := range matches {
+		if len(match) >= 4 {
+			// match[2] and match[3] are the start and end of the function name (group 1)
+			addReplacement(match[2], match[3], functionStyle.Render(line[match[2]:match[3]]))
 		}
 	}
 	
-	return finalResult.String()
+	// 8. Operators
+	for _, match := range jsOperatorRegex.FindAllStringIndex(line, -1) {
+		addReplacement(match[0], match[1], operatorStyle.Render(line[match[0]:match[1]]))
+	}
+	
+	// Sort replacements by start position
+	for i := 0; i < len(replacements); i++ {
+		for j := i + 1; j < len(replacements); j++ {
+			if replacements[j].start < replacements[i].start {
+				replacements[i], replacements[j] = replacements[j], replacements[i]
+			}
+		}
+	}
+	
+	// Build the final result
+	var result strings.Builder
+	lastEnd := 0
+	
+	for _, r := range replacements {
+		// Add any unhighlighted text before this replacement
+		if r.start > lastEnd {
+			result.WriteString(defaultStyle.Render(line[lastEnd:r.start]))
+		}
+		// Add the highlighted text
+		result.WriteString(r.text)
+		lastEnd = r.end
+	}
+	
+	// Add any remaining unhighlighted text
+	if lastEnd < len(line) {
+		result.WriteString(defaultStyle.Render(line[lastEnd:]))
+	}
+	
+	return result.String()
 }
 
 // HighlightCode applies syntax highlighting based on the language
