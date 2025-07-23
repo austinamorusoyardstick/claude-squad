@@ -27,6 +27,7 @@ type PRComment struct {
 	PullRequestReviewID int      `json:"pull_request_review_id"`
 	IsOutdated         bool      `json:"is_outdated"`
 	IsResolved         bool      `json:"is_resolved"`
+	IsGeminiReview     bool      `json:"is_gemini_review"`
 	Accepted           bool      `json:"-"`
 	// Cached rendered content
 	RenderedBody       string    `json:"-"`
