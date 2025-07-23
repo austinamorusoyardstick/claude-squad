@@ -527,11 +527,15 @@ func (m PRReviewModel) simpleView() string {
 	b.WriteString(headerStyle.Render(fmt.Sprintf("PR #%d: %s", m.pr.Number, m.pr.Title)))
 	b.WriteString("\n")
 	
-	// Show that data is fresh
-	freshStyle := lipgloss.NewStyle().
+	// Show filter status
+	filterStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
-	b.WriteString(freshStyle.Render("(Fresh data - automatically excludes outdated and resolved comments)"))
+	if m.filterEnabled {
+		b.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved)"))
+	} else {
+		b.WriteString(filterStyle.Render("(Filter: OFF - showing all comments)"))
+	}
 	b.WriteString("\n\n")
 	
 	acceptedCount := len(m.pr.GetAcceptedComments())
