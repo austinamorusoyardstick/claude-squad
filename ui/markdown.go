@@ -11,11 +11,29 @@ import (
 
 // Pre-compiled regexes for better performance
 var (
-	inlineCodeRegex      = regexp.MustCompile("`([^`]+)`")
-	boldRegex            = regexp.MustCompile(`(\*\*|__)([^*_]+)(\*\*|__)`)
-	singleAsteriskRegex  = regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
+	// Basic formatting
+	inlineCodeRegex       = regexp.MustCompile("`([^`]+)`")
+	boldRegex             = regexp.MustCompile(`(\*\*|__)([^*_]+)(\*\*|__)`)
+	singleAsteriskRegex   = regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
 	singleUnderscoreRegex = regexp.MustCompile(`(?:^|\s)_([^_\n]+)_(?:\s|$)`)
-	listItemRegex        = regexp.MustCompile(`^\s*\d+\.`)
+	strikethroughRegex    = regexp.MustCompile(`~~([^~]+)~~`)
+	
+	// Lists
+	unorderedListRegex = regexp.MustCompile(`^(\s*)([-*+])\s+(.*)`)
+	orderedListRegex   = regexp.MustCompile(`^(\s*)(\d+)\.\s+(.*)`)
+	
+	// Links and images
+	linkRegex  = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
+	imageRegex = regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
+	
+	// Block elements
+	blockquoteRegex = regexp.MustCompile(`^>\s*(.*)`)
+	hrRegex         = regexp.MustCompile(`^(---|\*\*\*|___)$`)
+	headerRegex     = regexp.MustCompile(`^(#{1,6})\s+(.*)`)
+	
+	// Code blocks
+	codeBlockStartRegex = regexp.MustCompile(`^` + "```" + `(\w*)`)
+	codeBlockEndRegex   = regexp.MustCompile(`^` + "```" + `$`)
 )
 
 // RenderMarkdown renders markdown content for terminal display
