@@ -346,10 +346,14 @@ func (m PRReviewModel) View() string {
 		header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
 			total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	} else {
-		// Count stats from all comments
-		total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetStatsForAllComments()
-		header.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%dR %dRC %dG, %d outdated, %d resolved), %d accepted | %d/%d%s", 
-			total, reviews, reviewComments, issueComments, outdated, resolved, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
+		// Count stats from all comments including gemini
+		total, reviews, reviewComments, issueComments, outdated, resolved, geminiReviews := m.pr.GetStatsForAllCommentsWithGemini()
+		filterInfo := fmt.Sprintf("%d outdated, %d resolved", outdated, resolved)
+		if geminiReviews > 0 {
+			filterInfo += fmt.Sprintf(", %d gemini", geminiReviews)
+		}
+		header.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%dR %dRC %dG, %s), %d accepted | %d/%d%s", 
+			total, reviews, reviewComments, issueComments, filterInfo, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	}
 	header.WriteString("\n") // Single newline after status
 
