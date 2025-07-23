@@ -527,12 +527,16 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			}
 			
 			if j < maxCols-1 {
-				rowStr.WriteString("│")
+				rowStr.WriteString(borderStyle.Render("│"))
 			}
 		}
-		rowStr.WriteString("│")
+		rowStr.WriteString(borderStyle.Render("│"))
 		
-		result = append(result, rowStr.String())
+		// Format the complete row
+		var completeRow strings.Builder
+		completeRow.WriteString(borderStyle.Render("│"))
+		completeRow.WriteString(rowStr.String()[1:]) // Skip the first │ we already added
+		result = append(result, completeRow.String())
 		
 		// Add separator after header
 		if i == 0 && hasHeader {
