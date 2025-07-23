@@ -103,6 +103,7 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 func (pr *PullRequest) FetchComments(workingDir string) error {
 	// Always clear existing data to ensure fresh fetch
 	pr.Comments = []PRComment{}
+	pr.AllComments = []PRComment{}
 	pr.Reviews = []PRReview{}
 
 	// First fetch resolved status for review threads
@@ -126,6 +127,14 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	// Fetch general issue comments
 	if err := pr.fetchIssueComments(workingDir); err != nil {
 		return err
+	}
+
+	// After fetching all comments, separate filtered from all
+	pr.Comments = []PRComment{}
+	for _, comment := range pr.AllComments {
+		if !comment.IsOutdated && !comment.IsResolved {
+			pr.Comments = append(pr.Comments, comment)
+		}
 	}
 
 	return nil
@@ -259,24 +268,22 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 			CommitID:    r.CommitID,
 		}
 
-		// Convert review to comment format if not outdated
-		if !isOutdated {
-			reviewComment := PRComment{
-				ID:                 r.ID,
-				Body:               r.Body,
-				Author:             r.User.Login,
-				CreatedAt:          submittedAt,
-				UpdatedAt:          submittedAt,
-				State:              strings.ToLower(r.State),
-				Type:               "review",
-				CommitID:           r.CommitID,
-				PullRequestReviewID: r.ID,
-				IsOutdated:         isOutdated,
-				IsResolved:         r.State == "DISMISSED",
-				Accepted:           false,
-			}
-			pr.Comments = append(pr.Comments, reviewComment)
+		// Convert review to comment format
+		reviewComment := PRComment{
+			ID:                 r.ID,
+			Body:               r.Body,
+			Author:             r.User.Login,
+			CreatedAt:          submittedAt,
+			UpdatedAt:          submittedAt,
+			State:              strings.ToLower(r.State),
+			Type:               "review",
+			CommitID:           r.CommitID,
+			PullRequestReviewID: r.ID,
+			IsOutdated:         isOutdated,
+			IsResolved:         r.State == "DISMISSED",
+			Accepted:           false,
 		}
+		pr.AllComments = append(pr.AllComments, reviewComment)
 
 		pr.Reviews = append(pr.Reviews, review)
 	}
