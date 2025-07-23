@@ -529,30 +529,8 @@ func (j *JestPane) ScrollDown() {
 }
 
 func (j *JestPane) NextFailure() {
-	state := j.getCurrentState()
-	if state == nil || len(state.failedFiles) == 0 {
-		return
-	}
-
-	startIdx := state.currentIndex + 1
-	for i := startIdx; i < len(state.testResults); i++ {
-		if state.testResults[i].Status == "failed" {
-			state.currentIndex = i
-			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex(state)
-			return
-		}
-	}
-
-	// Wrap around to beginning
-	for i := 0; i < startIdx && i < len(state.testResults); i++ {
-		if state.testResults[i].Status == "failed" {
-			state.currentIndex = i
-			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex(state)
-			return
-		}
-	}
+	// Navigation disabled when showing raw output
+	return
 }
 
 func (j *JestPane) PreviousFailure() {
