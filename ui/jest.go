@@ -385,33 +385,20 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 		searchDir = filepath.Dir(startPath)
 	}
 
-	// Search upward for package.json with Jest
+	// First, check if the starting directory itself has a package.json
+	packagePath := filepath.Join(searchDir, "package.json")
+	if _, err := os.Stat(packagePath); err == nil {
+		// Found package.json in the starting directory, use it
+		return searchDir, nil
+	}
+
+	// Search upward for package.json
 	currentDir := searchDir
 	for {
 		packagePath := filepath.Join(currentDir, "package.json")
 		if _, err := os.Stat(packagePath); err == nil {
-			// Check if this package.json has Jest
-			data, err := os.ReadFile(packagePath)
-			if err == nil {
-				var pkg map[string]interface{}
-				if err := json.Unmarshal(data, &pkg); err == nil {
-					// Check for Jest in dependencies or devDependencies
-					if deps, ok := pkg["dependencies"].(map[string]interface{}); ok {
-						if _, hasJest := deps["jest"]; hasJest {
-							return currentDir, nil
-						}
-					}
-					if devDeps, ok := pkg["devDependencies"].(map[string]interface{}); ok {
-						if _, hasJest := devDeps["jest"]; hasJest {
-							return currentDir, nil
-						}
-					}
-					// Also check for Jest config
-					if _, hasJestConfig := pkg["jest"]; hasJestConfig {
-						return currentDir, nil
-					}
-				}
-			}
+			// Found a package.json, use this directory
+			return currentDir, nil
 		}
 
 		// Move up one directory
@@ -430,29 +417,8 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 				return nil // Continue walking
 			}
 			if info.Name() == "package.json" {
-				data, err := os.ReadFile(path)
-				if err == nil {
-					var pkg map[string]interface{}
-					if err := json.Unmarshal(data, &pkg); err == nil {
-						// Check for Jest
-						if deps, ok := pkg["dependencies"].(map[string]interface{}); ok {
-							if _, hasJest := deps["jest"]; hasJest {
-								foundDir = filepath.Dir(path)
-								return io.EOF // Stop walking
-							}
-						}
-						if devDeps, ok := pkg["devDependencies"].(map[string]interface{}); ok {
-							if _, hasJest := devDeps["jest"]; hasJest {
-								foundDir = filepath.Dir(path)
-								return io.EOF // Stop walking
-							}
-						}
-						if _, hasJestConfig := pkg["jest"]; hasJestConfig {
-							foundDir = filepath.Dir(path)
-							return io.EOF // Stop walking
-						}
-					}
-				}
+				foundDir = filepath.Dir(path)
+				return io.EOF // Stop walking on first package.json found
 			}
 			return nil
 		})
@@ -462,7 +428,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no Jest configuration found")
+	return "", fmt.Errorf("no package.json found in %s or parent directories", startPath)
 }
 
 func (j *JestPane) parseJestJSON(state *JestInstanceState, data []byte) {
