@@ -204,12 +204,25 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	state.liveOutput = ""
 	j.mu.Unlock()
 
-	// Find Jest working directory
-	workDir, err := j.findJestWorkingDir(instance.Path)
+	// Get the git worktree path from the instance
+	gitWorktree, err := instance.GetGitWorktree()
 	if err != nil {
 		j.mu.Lock()
 		state.running = false
-		state.liveOutput = errorStyle.Render(fmt.Sprintf("Error finding Jest: %v", err))
+		state.liveOutput = errorStyle.Render(fmt.Sprintf("Error getting git worktree: %v", err))
+		j.mu.Unlock()
+		j.viewport.SetContent(j.formatContent())
+		return err
+	}
+	
+	worktreePath := gitWorktree.GetWorktreePath()
+	
+	// Find package.json in the worktree directory
+	workDir, err := j.findJestWorkingDir(worktreePath)
+	if err != nil {
+		j.mu.Lock()
+		state.running = false
+		state.liveOutput = errorStyle.Render(fmt.Sprintf("Error finding package.json: %v", err))
 		j.mu.Unlock()
 		j.viewport.SetContent(j.formatContent())
 		return err
