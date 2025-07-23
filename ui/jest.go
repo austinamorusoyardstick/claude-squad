@@ -254,7 +254,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 	// If not found upward, search downward from original directory
 	if info.IsDir() {
 		var foundDir string
-		err := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		_ = filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil // Continue walking
 			}
