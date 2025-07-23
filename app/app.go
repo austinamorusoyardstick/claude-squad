@@ -1324,8 +1324,8 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 	return tea.Sequence(
 		// First, switch to Jest tab
 		func() tea.Msg {
-			// Set the active tab to JestTab (3)
-			for m.tabbedWindow.activeTab != 3 {
+			// Set the active tab to JestTab by toggling until we get there
+			for !m.tabbedWindow.IsInJestTab() {
 				m.tabbedWindow.Toggle()
 			}
 			m.menu.SetInDiffTab(false)
