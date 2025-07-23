@@ -286,7 +286,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 }
 
 // getActiveComments returns the comments based on filter state
-func (m *PRReviewModel) getActiveComments() []git.PRComment {
+func (m PRReviewModel) getActiveComments() []*git.PRComment {
 	if m.filterEnabled {
 		return m.pr.Comments
 	}
