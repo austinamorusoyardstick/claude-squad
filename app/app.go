@@ -1304,12 +1304,20 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 	return tea.Sequence(
-		// First, send a message that tests have started
+		// First, switch to Jest tab
 		func() tea.Msg {
-			return testStartedMsg{}
+			// Set the active tab to JestTab (3)
+			for m.tabbedWindow.activeTab != 3 {
+				m.tabbedWindow.Toggle()
+			}
+			m.menu.SetInDiffTab(false)
+			return nil
 		},
-		// Then run the tests with progress tracking
-		m.runJestTestsWithProgress(instance),
+		// Then update the Jest pane with test results
+		func() tea.Msg {
+			m.tabbedWindow.UpdateJest(instance)
+			return nil
+		},
 	)
 }
 
