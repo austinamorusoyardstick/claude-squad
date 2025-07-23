@@ -92,6 +92,7 @@ func (j *JestPane) String() string {
 
 func (j *JestPane) formatContent() string {
 	if len(j.testResults) == 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		return dimStyle.Render("No test results to display.\nPress 'r' to run tests.")
 	}
 
