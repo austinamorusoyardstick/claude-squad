@@ -191,45 +191,21 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			}
 			return m, nil
 		
-		case "A":
-			// Accept all comments in the current view
+		case "A", "D":
+			isAcceptAll := msg.String() == "A"
 			comments := m.getActiveComments()
 			for _, comment := range comments {
 				// Update in AllComments
 				for i := range m.pr.AllComments {
 					if m.pr.AllComments[i].ID == comment.ID {
-						m.pr.AllComments[i].Accepted = true
+						m.pr.AllComments[i].Accepted = isAcceptAll
 						break
 					}
 				}
 				// Update in filtered comments if applicable
 				for i := range m.pr.Comments {
 					if m.pr.Comments[i].ID == comment.ID {
-						m.pr.Comments[i].Accepted = true
-						break
-					}
-				}
-			}
-			if m.ready {
-				m.updateViewportContent()
-			}
-			return m, nil
-		
-		case "D":
-			// Deny all comments in the current view
-			comments := m.getActiveComments()
-			for _, comment := range comments {
-				// Update in AllComments
-				for i := range m.pr.AllComments {
-					if m.pr.AllComments[i].ID == comment.ID {
-						m.pr.AllComments[i].Accepted = false
-						break
-					}
-				}
-				// Update in filtered comments if applicable
-				for i := range m.pr.Comments {
-					if m.pr.Comments[i].ID == comment.ID {
-						m.pr.Comments[i].Accepted = false
+						m.pr.Comments[i].Accepted = isAcceptAll
 						break
 					}
 				}
