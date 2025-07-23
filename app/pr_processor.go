@@ -108,7 +108,7 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 	}
 }
 
-func (m *home) sendCommentToClaude(comment git.PRComment) error {
+func (m *home) sendCommentToClaude(comment *git.PRComment) error {
 	selected := m.list.GetSelectedInstance()
 	if selected == nil {
 		return fmt.Errorf("no instance selected")
