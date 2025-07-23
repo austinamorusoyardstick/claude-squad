@@ -372,9 +372,14 @@ func RenderMarkdownLight(content string) string {
 	
 	// Handle any unclosed code block
 	if inCodeBlock && len(codeBlockLines) > 0 {
-		codeContent := strings.Join(codeBlockLines, "\n")
-		for _, codeLine := range strings.Split(codeContent, "\n") {
-			processedLines = append(processedLines, "  "+codeStyle.Render(codeLine))
+		codeBlockStyle := lipgloss.NewStyle().
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("252")).
+			PaddingLeft(1).
+			PaddingRight(1)
+		
+		for _, codeLine := range codeBlockLines {
+			processedLines = append(processedLines, codeBlockStyle.Render(codeLine))
 		}
 	}
 	
