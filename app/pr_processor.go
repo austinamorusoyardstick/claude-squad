@@ -121,7 +121,7 @@ func (m *home) sendCommentToClaude(comment git.PRComment) error {
 	return selected.SendPrompt(prompt)
 }
 
-func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
+func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 	var prompt strings.Builder
 	
 	// Format header based on comment type
