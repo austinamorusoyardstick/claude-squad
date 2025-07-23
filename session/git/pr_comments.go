@@ -132,7 +132,8 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	// After fetching all comments, separate filtered from all
 	filteredComments := make([]*PRComment, 0, len(pr.AllComments))
 	for _, comment := range pr.AllComments {
-		if !comment.IsOutdated && !comment.IsResolved {
+		// Filter out outdated, resolved, and gemini review comments
+		if !comment.IsOutdated && !comment.IsResolved && !strings.Contains(comment.Body, "/gemini review") {
 			filteredComments = append(filteredComments, comment)
 		}
 	}
