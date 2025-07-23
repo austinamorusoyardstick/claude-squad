@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"claude-squad/log"
 	"claude-squad/session"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
