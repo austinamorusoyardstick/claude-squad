@@ -215,9 +215,23 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "A":
+			// Accept all comments in the current view
 			comments := m.getActiveComments()
-			for i := range comments {
-				comments[i].Accepted = true
+			for _, comment := range comments {
+				// Update in AllComments
+				for i := range m.pr.AllComments {
+					if m.pr.AllComments[i].ID == comment.ID {
+						m.pr.AllComments[i].Accepted = true
+						break
+					}
+				}
+				// Update in filtered comments if applicable
+				for i := range m.pr.Comments {
+					if m.pr.Comments[i].ID == comment.ID {
+						m.pr.Comments[i].Accepted = true
+						break
+					}
+				}
 			}
 			if m.ready {
 				m.updateViewportContent()
@@ -225,9 +239,23 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "D":
+			// Deny all comments in the current view
 			comments := m.getActiveComments()
-			for i := range comments {
-				comments[i].Accepted = false
+			for _, comment := range comments {
+				// Update in AllComments
+				for i := range m.pr.AllComments {
+					if m.pr.AllComments[i].ID == comment.ID {
+						m.pr.AllComments[i].Accepted = false
+						break
+					}
+				}
+				// Update in filtered comments if applicable
+				for i := range m.pr.Comments {
+					if m.pr.Comments[i].ID == comment.ID {
+						m.pr.Comments[i].Accepted = false
+						break
+					}
+				}
 			}
 			if m.ready {
 				m.updateViewportContent()
