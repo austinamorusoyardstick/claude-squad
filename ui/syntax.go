@@ -31,6 +31,21 @@ var (
 	jsOperatorRegex = regexp.MustCompile(`(===|!==|==|!=|<=|>=|<|>|\+=|-=|\*=|\/=|%=|&&|\|\||!|\+\+|--|=>)`)
 )
 
+// Go syntax patterns
+var (
+	// Keywords
+	goKeywordRegex = regexp.MustCompile(`\b(break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var)\b`)
+	
+	// Built-in types and functions
+	goBuiltinRegex = regexp.MustCompile(`\b(bool|byte|complex64|complex128|error|float32|float64|int|int8|int16|int32|int64|rune|string|uint|uint8|uint16|uint32|uint64|uintptr|true|false|nil|append|cap|close|complex|copy|delete|imag|len|make|new|panic|print|println|real|recover)\b`)
+	
+	// Common packages
+	goPackageRegex = regexp.MustCompile(`\b(fmt|os|io|strings|strconv|time|errors|log|net|http|json|regexp|sort|sync|bytes|bufio|path|filepath|math|rand|reflect|runtime|testing)\b`)
+	
+	// Operators (including :=)
+	goOperatorRegex = regexp.MustCompile(`(:=|==|!=|<=|>=|<|>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|<<=|>>=|&&|\|\||!|\+\+|--)`)
+)
+
 // Syntax highlighting styles
 var (
 	keywordStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("204")) // Pink
@@ -167,8 +182,37 @@ func HighlightCode(code, language string) string {
 	case "typescript", "ts", "tsx":
 		// TypeScript is similar to JavaScript, so use the same highlighter
 		return HighlightJavaScript(code)
+	case "suggestion":
+		// GitHub suggestion blocks - try to detect the language
+		if strings.Contains(code, ":=") || strings.Contains(code, "func ") || strings.Contains(code, "package ") {
+			// Looks like Go code, but we don't have a Go highlighter yet
+			// For now, just highlight comments and strings
+			return highlightBasic(code)
+		} else if strings.Contains(code, "const ") || strings.Contains(code, "let ") || strings.Contains(code, "var ") {
+			// Looks like JavaScript
+			return HighlightJavaScript(code)
+		}
+		// Default to basic highlighting
+		return highlightBasic(code)
 	default:
 		// No highlighting for other languages yet
 		return code
 	}
+}
+
+// highlightBasic provides basic syntax highlighting for comments and strings
+func highlightBasic(code string) string {
+	lines := strings.Split(code, "\n")
+	highlightedLines := make([]string, len(lines))
+	
+	for i, line := range lines {
+		// Highlight single-line comments
+		if idx := strings.Index(line, "//"); idx != -1 {
+			highlightedLines[i] = defaultStyle.Render(line[:idx]) + commentStyle.Render(line[idx:])
+		} else {
+			highlightedLines[i] = defaultStyle.Render(line)
+		}
+	}
+	
+	return strings.Join(highlightedLines, "\n")
 }
