@@ -74,13 +74,8 @@ func (c *CommentDetailOverlay) updateContent() {
 	// Build the full comment content
 	var content strings.Builder
 	
-	// Render the markdown content
-	renderedBody, err := ui.RenderMarkdown(c.comment.Body, c.viewport.Width)
-	if err != nil {
-		// Fallback to formatted body if markdown rendering fails
-		renderedBody = c.comment.GetFormattedBody()
-	}
-	
+	// Use lightweight markdown rendering for better performance
+	renderedBody := ui.RenderMarkdownLight(c.comment.Body)
 	content.WriteString(renderedBody)
 	
 	// Add additional metadata if available
