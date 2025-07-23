@@ -356,7 +356,6 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 						}
 						if !alreadyAdded {
 							failedFiles = append(failedFiles, absPath)
-							outputChan <- fmt.Sprintf("[DEBUG] Found failed test file: %s", absPath)
 						}
 					}
 				}
