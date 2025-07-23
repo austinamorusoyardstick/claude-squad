@@ -270,7 +270,7 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 		}
 
 		// Convert review to comment format
-		reviewComment := PRComment{
+		reviewComment := &PRComment{
 			ID:                 r.ID,
 			Body:               r.Body,
 			Author:             r.User.Login,
