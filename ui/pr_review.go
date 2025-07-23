@@ -589,7 +589,7 @@ func (m PRReviewModel) simpleView() string {
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
 	if m.filterEnabled {
-		b.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved)"))
+		b.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved/gemini)"))
 	} else {
 		b.WriteString(filterStyle.Render("(Filter: OFF - showing all comments)"))
 	}
