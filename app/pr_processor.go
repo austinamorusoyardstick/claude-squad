@@ -66,6 +66,11 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 		for i, comment := range comments {
 			prompt := m.formatCommentAsPrompt(comment)
 			
+			// Skip empty prompts (e.g., split comments with no accepted pieces)
+			if prompt == "" {
+				continue
+			}
+			
 			// Debug: log the prompt being sent
 			log.WarningLog.Printf("Sending PR comment %d to Claude AI pane", i+1)
 			promptPreview := prompt
@@ -76,6 +81,10 @@ func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
 			
 			// First try sending a simple test message
 			testMsg := fmt.Sprintf("Processing PR comment %d from @%s", i+1, comment.Author)
+			if comment.IsSplit {
+				acceptedCount := len(comment.GetAcceptedPieces())
+				testMsg += fmt.Sprintf(" (%d pieces selected)", acceptedCount)
+			}
 			if err := selected.SendPromptToAI(testMsg); err != nil {
 				log.ErrorLog.Printf("Failed to send test message to Claude: %v", err)
 				return fmt.Errorf("failed to send test message to Claude: %w", err)
@@ -151,7 +160,27 @@ func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
 	
 	prompt.WriteString("\nComment:\n")
 	prompt.WriteString("---\n")
-	prompt.WriteString(comment.Body)
+	
+	// Handle split comments differently
+	if comment.IsSplit {
+		// Only include accepted pieces
+		acceptedPieces := comment.GetAcceptedPieces()
+		if len(acceptedPieces) == 0 {
+			// No accepted pieces, return empty prompt
+			return ""
+		}
+		
+		prompt.WriteString("Note: This comment has been split into pieces. Only the following selected pieces are included:\n\n")
+		for i, piece := range acceptedPieces {
+			if i > 0 {
+				prompt.WriteString("\n")
+			}
+			prompt.WriteString(piece.Content)
+		}
+	} else {
+		prompt.WriteString(comment.Body)
+	}
+	
 	prompt.WriteString("\n---\n\n")
 	
 	// Customize instructions based on comment type
