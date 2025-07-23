@@ -482,29 +482,16 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 		}
 	}
 	
-	// Table styles
-	tableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("251"))
-	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	// Table styles - simpler, cleaner look
+	tableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
+	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	
 	result := []string{}
-	
-	// Add top border
-	var topBorder strings.Builder
-	topBorder.WriteString("┌")
-	for j := 0; j < maxCols; j++ {
-		topBorder.WriteString(strings.Repeat("─", colWidths[j]+2))
-		if j < maxCols-1 {
-			topBorder.WriteString("┬")
-		}
-	}
-	topBorder.WriteString("┐")
-	result = append(result, borderStyle.Render(topBorder.String()))
 	
 	// Render rows
 	for i, row := range rows {
 		var rowStr strings.Builder
-		rowStr.WriteString(borderStyle.Render("│"))
 		
 		for j := 0; j < maxCols; j++ {
 			cell := ""
@@ -517,49 +504,34 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			if padding < 0 {
 				padding = 0
 			}
-			cell = " " + cell + strings.Repeat(" ", padding) + " "
+			
+			// Add spacing
+			if j > 0 {
+				rowStr.WriteString("  ")
+			}
 			
 			// Apply style
 			if i == 0 && hasHeader {
-				rowStr.WriteString(headerStyle.Render(cell))
+				rowStr.WriteString(headerStyle.Render(cell + strings.Repeat(" ", padding)))
 			} else {
-				rowStr.WriteString(tableStyle.Render(cell))
-			}
-			
-			if j < maxCols-1 {
-				rowStr.WriteString(borderStyle.Render("│"))
+				rowStr.WriteString(tableStyle.Render(cell + strings.Repeat(" ", padding)))
 			}
 		}
-		rowStr.WriteString(borderStyle.Render("│"))
 		
 		result = append(result, rowStr.String())
 		
-		// Add separator after header
+		// Add simple separator after header
 		if i == 0 && hasHeader {
 			var sepStr strings.Builder
-			sepStr.WriteString("├")
 			for j := 0; j < maxCols; j++ {
-				sepStr.WriteString(strings.Repeat("─", colWidths[j]+2))
-				if j < maxCols-1 {
-					sepStr.WriteString("┼")
+				if j > 0 {
+					sepStr.WriteString("  ")
 				}
+				sepStr.WriteString(strings.Repeat("─", colWidths[j]))
 			}
-			sepStr.WriteString("┤")
-			result = append(result, borderStyle.Render(sepStr.String()))
+			result = append(result, separatorStyle.Render(sepStr.String()))
 		}
 	}
-	
-	// Add bottom border
-	var bottomBorder strings.Builder
-	bottomBorder.WriteString("└")
-	for j := 0; j < maxCols; j++ {
-		bottomBorder.WriteString(strings.Repeat("─", colWidths[j]+2))
-		if j < maxCols-1 {
-			bottomBorder.WriteString("┴")
-		}
-	}
-	bottomBorder.WriteString("┘")
-	result = append(result, borderStyle.Render(bottomBorder.String()))
 	
 	return result
 }
