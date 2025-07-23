@@ -405,7 +405,7 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 			IsResolved: false,
 			Accepted:   false,
 		}
-		pr.Comments = append(pr.Comments, comment)
+		pr.AllComments = append(pr.AllComments, comment)
 	}
 
 	return nil
