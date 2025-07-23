@@ -1774,6 +1774,25 @@ func (m *home) handleHistoryState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m *home) handleCommentDetailState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.commentDetailOverlay == nil {
+		m.state = statePRReview
+		return m, nil
+	}
+
+	// Let the comment detail overlay handle the key press
+	shouldClose := m.commentDetailOverlay.HandleKeyPress(msg)
+	if shouldClose {
+		m.state = statePRReview
+		m.commentDetailOverlay = nil
+		return m, nil
+	}
+
+	// Update the viewport
+	_, cmd := m.commentDetailOverlay.Update(msg)
+	return m, cmd
+}
+
 func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.keybindingEditorOverlay == nil {
 		m.state = stateDefault
