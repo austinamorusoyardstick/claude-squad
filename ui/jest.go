@@ -120,10 +120,15 @@ func (j *JestPane) String() string {
 	header := titleStyle.Render("Jest Test Runner")
 	
 	var status string
+	var instanceInfo string
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	
+	if j.currentInstance != nil {
+		instanceInfo = fmt.Sprintf(" - %s", j.currentInstance.Title)
+	}
+	
 	state := j.getCurrentState()
-	if state == nil {
+	if j.currentInstance == nil {
 		status = statusStyle.Render("No instance selected")
 	} else if state.running {
 		status = statusStyle.Render("⏳ Running tests...")
@@ -142,7 +147,7 @@ func (j *JestPane) String() string {
 	
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		header,
+		header + instanceInfo,
 		status,
 		content,
 		help,
