@@ -614,7 +614,7 @@ func (m PRReviewModel) simpleView() string {
 		allTotal := len(m.pr.AllComments)
 		filtered := allTotal - total
 		if filtered > 0 {
-			b.WriteString(statusStyle.Render(fmt.Sprintf("Filtered out: %d outdated/resolved", filtered)))
+			b.WriteString(statusStyle.Render(fmt.Sprintf("Filtered out: %d outdated/resolved/gemini", filtered)))
 			b.WriteString("\n")
 		}
 	} else {
