@@ -173,7 +173,7 @@ func (m *home) formatCommentAsPrompt(comment git.PRComment) string {
 		prompt.WriteString("Note: This comment has been split into pieces. Only the following selected pieces are included:\n\n")
 		for i, piece := range acceptedPieces {
 			if i > 0 {
-				prompt.WriteString("\n")
+				prompt.WriteString("\n\n")
 			}
 			prompt.WriteString(piece.Content)
 		}
