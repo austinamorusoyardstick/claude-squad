@@ -240,6 +240,12 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInstanceState, workDir string, outputChan chan<- string) {
 	defer close(outputChan)
 
+	// Try running a simple command first to test output
+	testCmd := exec.Command("echo", "Testing output capture...")
+	testCmd.Dir = workDir
+	testOutput, _ := testCmd.CombinedOutput()
+	outputChan <- string(testOutput)
+
 	// Run Jest without JSON for live output
 	cmd := exec.Command("yarn", "tester")
 	cmd.Dir = workDir
