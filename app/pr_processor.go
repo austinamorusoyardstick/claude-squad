@@ -50,7 +50,7 @@ func (m *home) processAcceptedComments(comments []*git.PRComment) tea.Cmd {
 	return m.processCommentsSequentially(comments)
 }
 
-func (m *home) processCommentsSequentially(comments []git.PRComment) tea.Cmd {
+func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 	return func() tea.Msg {
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
