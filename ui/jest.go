@@ -15,7 +15,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/keiko-app/claude-squad/session"
+	"claude-squad/session"
 )
 
 type JestPane struct {
