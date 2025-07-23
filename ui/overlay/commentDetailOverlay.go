@@ -166,7 +166,7 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("86")).
 		Padding(1).
-		Width(c.width - 4). // Account for terminal padding
+		Width(c.width - TerminalPadding). // Account for terminal padding
 		Height(c.height - 2)
 	
 	// Build header
