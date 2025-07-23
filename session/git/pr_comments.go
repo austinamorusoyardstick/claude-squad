@@ -60,8 +60,8 @@ type PullRequest struct {
 	BaseRef     string `json:"baseRef"`
 	URL         string `json:"url"`
 	HeadSHA     string `json:"headSHA"`
-	Comments    []PRComment // Filtered comments (default view)
-	AllComments []PRComment // All comments including outdated/resolved
+	Comments    []*PRComment // Filtered comments (default view)
+	AllComments []*PRComment // All comments including outdated/resolved
 	Reviews     []PRReview
 }
 
