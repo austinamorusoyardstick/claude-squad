@@ -346,7 +346,7 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 			line = *rc.Line
 		}
 
-		comment := PRComment{
+		comment := &PRComment{
 			ID:                 rc.ID,
 			Body:               rc.Body,
 			Path:               rc.Path,
