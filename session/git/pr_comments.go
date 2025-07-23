@@ -130,7 +130,6 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	}
 
 	// After fetching all comments, separate filtered from all
-	pr.Comments = []PRComment{}
 	for _, comment := range pr.AllComments {
 		if !comment.IsOutdated && !comment.IsResolved {
 			pr.Comments = append(pr.Comments, comment)
