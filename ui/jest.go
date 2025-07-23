@@ -493,7 +493,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 	return "", fmt.Errorf("no Jest configuration found")
 }
 
-func (j *JestPane) parseJestJSON(data []byte) {
+func (j *JestPane) parseJestJSON(state *JestInstanceState, data []byte) {
 	var result struct {
 		TestResults []struct {
 			Name           string `json:"name"`
@@ -513,8 +513,8 @@ func (j *JestPane) parseJestJSON(data []byte) {
 		return
 	}
 	
-	j.testResults = []TestResult{}
-	j.failedFiles = []string{}
+	state.testResults = []TestResult{}
+	state.failedFiles = []string{}
 	failedSet := make(map[string]bool)
 	
 	for _, testFile := range result.TestResults {
@@ -529,29 +529,29 @@ func (j *JestPane) parseJestJSON(data []byte) {
 			if assertion.Status == "failed" && len(assertion.FailureMessages) > 0 {
 				tr.ErrorOutput = strings.Join(assertion.FailureMessages, "\n")
 				if !failedSet[testFile.Name] {
-					j.failedFiles = append(j.failedFiles, testFile.Name)
+					state.failedFiles = append(state.failedFiles, testFile.Name)
 					failedSet[testFile.Name] = true
 				}
 			}
 			
-			j.testResults = append(j.testResults, tr)
+			state.testResults = append(state.testResults, tr)
 		}
 	}
 	
-	if len(j.failedFiles) > 0 && j.currentIndex == -1 {
-		j.currentIndex = j.findFirstFailureIndex()
+	if len(state.failedFiles) > 0 && state.currentIndex == -1 {
+		state.currentIndex = j.findFirstFailureIndex(state)
 	}
 }
 
-func (j *JestPane) parseJestOutput(stdout, stderr string) {
+func (j *JestPane) parseJestOutput(state *JestInstanceState, output string) {
 	// Fallback parser for non-JSON output
-	lines := strings.Split(stdout+"\n"+stderr, "\n")
+	lines := strings.Split(output, "\n")
 	currentFile := ""
 	fileRegex := regexp.MustCompile(`(?:PASS|FAIL)\s+(.+\.(?:js|jsx|ts|tsx))`)
 	testRegex := regexp.MustCompile(`\s*([✓✗])\s+(.+)`)
 	
-	j.testResults = []TestResult{}
-	j.failedFiles = []string{}
+	state.testResults = []TestResult{}
+	state.failedFiles = []string{}
 	failedSet := make(map[string]bool)
 	
 	for _, line := range lines {
@@ -562,12 +562,12 @@ func (j *JestPane) parseJestOutput(stdout, stderr string) {
 			if matches[1] == "✗" {
 				status = "failed"
 				if !failedSet[currentFile] {
-					j.failedFiles = append(j.failedFiles, currentFile)
+					state.failedFiles = append(state.failedFiles, currentFile)
 					failedSet[currentFile] = true
 				}
 			}
 			
-			j.testResults = append(j.testResults, TestResult{
+			state.testResults = append(state.testResults, TestResult{
 				FilePath: currentFile,
 				TestName: matches[2],
 				Status:   status,
@@ -575,8 +575,8 @@ func (j *JestPane) parseJestOutput(stdout, stderr string) {
 		}
 	}
 	
-	if len(j.failedFiles) > 0 && j.currentIndex == -1 {
-		j.currentIndex = j.findFirstFailureIndex()
+	if len(state.failedFiles) > 0 && state.currentIndex == -1 {
+		state.currentIndex = j.findFirstFailureIndex(state)
 	}
 }
 
