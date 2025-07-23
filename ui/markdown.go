@@ -460,7 +460,7 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 }
 
 // renderSimpleTable renders a simple markdown table
-func renderSimpleTable(rows [][]string) []string {
+func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 	if len(rows) == 0 {
 		return []string{}
 	}
