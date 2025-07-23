@@ -549,7 +549,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 	if m.state == stateNew {
 		// Handle quit commands first. Don't handle q because the user might want to type that.
-		if msg.String() == "ctrl+c" {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "ctrl+c" {
 			m.state = stateDefault
 			m.promptAfterName = false
 			m.list.Kill()
