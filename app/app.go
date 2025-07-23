@@ -1746,6 +1746,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.gitStatusOverlay.Render(), mainView, true, true)
+	} else if m.state == stateCommentDetail {
+		if m.commentDetailOverlay == nil {
+			log.ErrorLog.Printf("comment detail overlay is nil")
+			m.state = statePRReview
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.commentDetailOverlay.Render(), mainView, true, true)
 	}
 
 	return mainView
