@@ -618,15 +618,19 @@ func (m PRReviewModel) simpleView() string {
 			b.WriteString("\n")
 		}
 	} else {
-		// Count stats from all comments
-		total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetStatsForAllComments()
+		// Count stats from all comments including gemini
+		total, reviews, reviewComments, issueComments, outdated, resolved, geminiReviews := m.pr.GetStatsForAllCommentsWithGemini()
 		
 		b.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%d reviews, %d review comments, %d general)", 
 			total, reviews, reviewComments, issueComments)))
 		b.WriteString("\n")
 		
-		if outdated > 0 || resolved > 0 {
-			b.WriteString(statusStyle.Render(fmt.Sprintf("Including: %d outdated, %d resolved", outdated, resolved)))
+		if outdated > 0 || resolved > 0 || geminiReviews > 0 {
+			filterInfo := fmt.Sprintf("Including: %d outdated, %d resolved", outdated, resolved)
+			if geminiReviews > 0 {
+				filterInfo += fmt.Sprintf(", %d gemini", geminiReviews)
+			}
+			b.WriteString(statusStyle.Render(filterInfo))
 			b.WriteString("\n")
 		}
 	}
