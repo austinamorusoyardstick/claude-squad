@@ -485,8 +485,21 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 	// Table styles
 	tableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("251"))
+	borderStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 	
 	result := []string{}
+	
+	// Add top border
+	var topBorder strings.Builder
+	topBorder.WriteString("┌")
+	for j := 0; j < maxCols; j++ {
+		topBorder.WriteString(strings.Repeat("─", colWidths[j]+2))
+		if j < maxCols-1 {
+			topBorder.WriteString("┬")
+		}
+	}
+	topBorder.WriteString("┐")
+	result = append(result, borderStyle.Render(topBorder.String()))
 	
 	// Render rows
 	for i, row := range rows {
