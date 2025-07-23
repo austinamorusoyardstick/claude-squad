@@ -17,7 +17,7 @@ const (
 	paddingHeight = 2 // Padding
 	headerHeight = 5 // Header (maximum height)
 	helpHeight = 2 // Help section
-	borderAndPaddingWidth = 6 // Border and padding on sides
+	borderAndPaddingWidth = 8 // Terminal padding (4) + border (2) + padding (2)
 	TerminalPadding = 4 // Terminal padding
 )
 
