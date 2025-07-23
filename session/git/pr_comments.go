@@ -740,14 +740,21 @@ func looksLikeBulletList(lines []string) bool {
 
 // Helper function to check if a line matches numbered list pattern
 func matchesNumberedList(line string) bool {
-	// Match patterns like "1. ", "2) ", etc.
-	if len(line) < 3 {
+	// Match patterns like "1. ", "2) ", "10. ", etc.
+	i := 0
+	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+		i++
+	}
+
+	// Must have at least one digit.
+	if i == 0 {
 		return false
 	}
-	if line[0] >= '0' && line[0] <= '9' {
-		if line[1] == '.' || line[1] == ')' {
-			return line[2] == ' '
-		}
+
+	// After digits, must have '.' or ')' followed by a space.
+	if i+1 < len(line) && (line[i] == '.' || line[i] == ')') && line[i+1] == ' ' {
+		return true
 	}
+
 	return false
 }
