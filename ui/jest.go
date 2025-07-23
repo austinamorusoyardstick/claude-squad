@@ -2,7 +2,6 @@ package ui
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,7 +72,7 @@ func (j *JestPane) getCurrentState() *JestInstanceState {
 		return nil
 	}
 	
-	state, exists := j.instanceStates[j.currentInstance.ID()]
+	state, exists := j.instanceStates[j.currentInstance.Title]
 	if !exists {
 		return nil
 	}
@@ -88,14 +87,14 @@ func (j *JestPane) getOrCreateState(instance *session.Instance) *JestInstanceSta
 		return nil
 	}
 	
-	state, exists := j.instanceStates[instance.ID()]
+	state, exists := j.instanceStates[instance.Title]
 	if !exists {
 		state = &JestInstanceState{
 			testResults:  []TestResult{},
 			failedFiles:  []string{},
 			currentIndex: -1,
 		}
-		j.instanceStates[instance.ID()] = state
+		j.instanceStates[instance.Title] = state
 	}
 	return state
 }
