@@ -64,6 +64,19 @@ func (j *JestPane) SetSize(width, height int) {
 	j.viewport.SetContent(j.formatContent())
 }
 
+func (j *JestPane) getInstanceKey(instance *session.Instance) string {
+	if instance == nil {
+		return ""
+	}
+	// Use a combination of Path and Branch as a unique key
+	// This handles cases where Title might be empty
+	key := fmt.Sprintf("%s:%s", instance.Path, instance.Branch)
+	if instance.Title != "" {
+		key = instance.Title
+	}
+	return key
+}
+
 func (j *JestPane) getCurrentState() *JestInstanceState {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -72,7 +85,8 @@ func (j *JestPane) getCurrentState() *JestInstanceState {
 		return nil
 	}
 	
-	state, exists := j.instanceStates[j.currentInstance.Title]
+	key := j.getInstanceKey(j.currentInstance)
+	state, exists := j.instanceStates[key]
 	if !exists {
 		// Create a new state for this instance if it doesn't exist
 		state = &JestInstanceState{
@@ -80,7 +94,7 @@ func (j *JestPane) getCurrentState() *JestInstanceState {
 			failedFiles:  []string{},
 			currentIndex: -1,
 		}
-		j.instanceStates[j.currentInstance.Title] = state
+		j.instanceStates[key] = state
 	}
 	return state
 }
