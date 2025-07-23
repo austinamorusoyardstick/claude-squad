@@ -417,7 +417,7 @@ func (m PRReviewModel) View() string {
 	if m.filterEnabled {
 		total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
 		header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
-			total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(comments), scrollInfo)))
+			total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	} else {
 		// Count stats from all comments
 		var total, reviews, reviewComments, issueComments, outdated, resolved int
@@ -439,7 +439,7 @@ func (m PRReviewModel) View() string {
 			}
 		}
 		header.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%dR %dRC %dG, %d outdated, %d resolved), %d accepted | %d/%d%s", 
-			total, reviews, reviewComments, issueComments, outdated, resolved, acceptedCount, m.currentIndex+1, len(comments), scrollInfo)))
+			total, reviews, reviewComments, issueComments, outdated, resolved, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	}
 	header.WriteString("\n") // Single newline after status
 
