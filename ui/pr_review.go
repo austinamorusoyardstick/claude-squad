@@ -294,6 +294,7 @@ func (m PRReviewModel) View() string {
 			"j/k:nav",
 			"a/d:accept/deny",
 			"A/D:all",
+			"e:expand",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
