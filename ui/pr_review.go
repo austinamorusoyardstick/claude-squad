@@ -220,6 +220,14 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// getActiveComments returns the comments based on filter state
+func (m *PRReviewModel) getActiveComments() []git.PRComment {
+	if m.filterEnabled {
+		return m.pr.Comments
+	}
+	return m.pr.AllComments
+}
+
 func (m PRReviewModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'q' to go back", m.err)
