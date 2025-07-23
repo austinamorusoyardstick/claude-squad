@@ -140,7 +140,7 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
 	
-	// Author style  
+	// Author style
 	authorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214"))
 		
