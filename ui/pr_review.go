@@ -25,7 +25,7 @@ type PRReviewModel struct {
 }
 
 type PRReviewCompleteMsg struct {
-	AcceptedComments []git.PRComment
+	AcceptedComments []*git.PRComment
 }
 
 type PRReviewCancelMsg struct{}
