@@ -27,6 +27,9 @@ type PRComment struct {
 	IsOutdated         bool      `json:"is_outdated"`
 	IsResolved         bool      `json:"is_resolved"`
 	Accepted           bool      `json:"-"`
+	// Cached rendered content
+	RenderedBody       string    `json:"-"`
+	PlainBody          string    `json:"-"`
 }
 
 type PRReview struct {
