@@ -36,6 +36,12 @@ const (
 	KeyBookmark       // Key for creating a bookmark commit
 	KeyTest           // Key for running Jest tests
 	KeyExternalDiff   // Key for opening in external diff tool
+	
+	// Jest keybindings
+	KeyJestNextFailure     // Key for navigating to next Jest failure
+	KeyJestPreviousFailure // Key for navigating to previous Jest failure
+	KeyJestOpenInIDE       // Key for opening Jest test failure in IDE
+	KeyJestRerun           // Key for rerunning Jest tests
 
 	// Diff keybindings
 	KeyShiftUp
@@ -105,6 +111,10 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"x":          KeyExternalDiff,
 	"g":          KeyGitStatus,
 	"G":          KeyGitStatusBookmark,
+	
+	// Jest navigation - these are only active in Jest tab
+	// "n" and "p" are already taken globally, so we'll handle them contextually
+	// "enter" and "r" will also be handled contextually in Jest tab
 }
 
 // GlobalkeyBindings is a global, immutable map of KeyName tot keybinding.
