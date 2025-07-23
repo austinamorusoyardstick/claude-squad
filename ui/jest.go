@@ -215,53 +215,188 @@ func (j *JestPane) formatContent() string {
 }
 
 func (j *JestPane) RunTests(instance *session.Instance) error {
+	state := j.getOrCreateState(instance)
+	if state == nil {
+		return fmt.Errorf("no instance provided")
+	}
+	
+	// Stop any existing test run for this instance
+	j.stopTests(instance)
+	
+	// Reset state
 	j.mu.Lock()
-	j.running = true
-	j.testResults = []TestResult{}
-	j.failedFiles = []string{}
-	j.currentIndex = -1
+	state.running = true
+	state.testResults = []TestResult{}
+	state.failedFiles = []string{}
+	state.currentIndex = -1
+	state.liveOutput = ""
 	j.mu.Unlock()
 	
 	// Find Jest working directory
 	workDir, err := j.findJestWorkingDir(instance.Path)
 	if err != nil {
 		j.mu.Lock()
-		j.running = false
-		j.content = errorStyle.Render(fmt.Sprintf("Error finding Jest: %v", err))
-		j.viewport.SetContent(j.content)
+		state.running = false
+		state.liveOutput = errorStyle.Render(fmt.Sprintf("Error finding Jest: %v", err))
 		j.mu.Unlock()
+		j.viewport.SetContent(j.formatContent())
 		return err
 	}
 	
-	j.workingDir = workDir
+	state.workingDir = workDir
 	
-	// Run Jest with JSON reporter
-	cmd := exec.Command("npx", "jest", "--json", "--outputFile=/tmp/jest-results.json")
+	// Create output channel for live updates
+	outputChan := make(chan string, 100)
+	state.outputChan = outputChan
+	
+	// Start goroutine to update live output
+	go func() {
+		for line := range outputChan {
+			j.mu.Lock()
+			state.liveOutput += line + "\n"
+			// Keep only last 100 lines for performance
+			lines := strings.Split(state.liveOutput, "\n")
+			if len(lines) > 100 {
+				state.liveOutput = strings.Join(lines[len(lines)-100:], "\n")
+			}
+			j.mu.Unlock()
+			j.viewport.SetContent(j.formatContent())
+		}
+	}()
+	
+	// Run Jest with streaming output
+	go j.runJestWithStream(instance, state, workDir, outputChan)
+	
+	return nil
+}
+
+func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInstanceState, workDir string, outputChan chan<- string) {
+	defer close(outputChan)
+	
+	// Run Jest without JSON for live output
+	cmd := exec.Command("npx", "jest", "--verbose", "--no-coverage")
 	cmd.Dir = workDir
 	
-	// Capture both stdout and stderr
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	// Store cmd in state so we can kill it if needed
+	j.mu.Lock()
+	state.cmd = cmd
+	j.mu.Unlock()
 	
-	// Run the command
-	_ = cmd.Run() // Jest returns non-zero on test failures, which is expected
-	
-	// Parse the JSON results
-	jsonData, err := os.ReadFile("/tmp/jest-results.json")
+	// Create pipes for stdout and stderr
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		// Fallback to parsing stdout if JSON file not created
-		j.parseJestOutput(stdout.String(), stderr.String())
-	} else {
-		j.parseJestJSON(jsonData)
+		outputChan <- fmt.Sprintf("Error creating stdout pipe: %v", err)
+		return
+	}
+	
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		outputChan <- fmt.Sprintf("Error creating stderr pipe: %v", err)
+		return
+	}
+	
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		outputChan <- fmt.Sprintf("Error starting Jest: %v", err)
+		j.mu.Lock()
+		state.running = false
+		j.mu.Unlock()
+		return
+	}
+	
+	// Collect all output for parsing
+	var allOutput strings.Builder
+	failedFiles := []string{}
+	
+	// Read stdout
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		outputChan <- line
+		allOutput.WriteString(line + "\n")
+		
+		// Look for test failures in real-time
+		if strings.Contains(line, "FAIL") {
+			// Extract file path from FAIL line
+			parts := strings.Fields(line)
+			for _, part := range parts {
+				if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") || 
+				   strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
+					absPath := part
+					if !filepath.IsAbs(part) {
+						absPath = filepath.Join(workDir, part)
+					}
+					failedFiles = append(failedFiles, absPath)
+					break
+				}
+			}
+		}
+	}
+	
+	// Read stderr
+	stderrScanner := bufio.NewScanner(stderr)
+	go func() {
+		for stderrScanner.Scan() {
+			line := stderrScanner.Text()
+			outputChan <- line
+			allOutput.WriteString(line + "\n")
+		}
+	}()
+	
+	// Wait for command to finish
+	cmd.Wait()
+	
+	// Parse the complete output
+	j.parseJestOutput(state, allOutput.String())
+	
+	// Auto-open failed files in IDE
+	if len(failedFiles) > 0 {
+		j.autoOpenFailedTests(failedFiles)
 	}
 	
 	j.mu.Lock()
-	j.running = false
-	j.viewport.SetContent(j.formatContent())
+	state.running = false
+	state.cmd = nil
 	j.mu.Unlock()
+	j.viewport.SetContent(j.formatContent())
+}
+
+func (j *JestPane) stopTests(instance *session.Instance) {
+	state := j.getCurrentState()
+	if state == nil || state.cmd == nil {
+		return
+	}
 	
-	return nil
+	j.mu.Lock()
+	if state.cmd.Process != nil {
+		state.cmd.Process.Kill()
+	}
+	if state.outputChan != nil {
+		close(state.outputChan)
+		state.outputChan = nil
+	}
+	state.running = false
+	j.mu.Unlock()
+}
+
+func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
+	ideCmd := getIDECommand()
+	if ideCmd == "" {
+		return
+	}
+	
+	// Open up to 5 failed test files
+	maxFiles := 5
+	if len(failedFiles) < maxFiles {
+		maxFiles = len(failedFiles)
+	}
+	
+	for i := 0; i < maxFiles; i++ {
+		cmd := exec.Command(ideCmd, failedFiles[i])
+		go cmd.Start()
+		// Small delay to avoid overwhelming the IDE
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
