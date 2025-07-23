@@ -53,15 +53,16 @@ type PRReview struct {
 }
 
 type PullRequest struct {
-	Number   int    `json:"number"`
-	Title    string `json:"title"`
-	State    string `json:"state"`
-	HeadRef  string `json:"headRef"`
-	BaseRef  string `json:"baseRef"`
-	URL      string `json:"url"`
-	HeadSHA  string `json:"headSHA"`
-	Comments []PRComment
-	Reviews  []PRReview
+	Number      int    `json:"number"`
+	Title       string `json:"title"`
+	State       string `json:"state"`
+	HeadRef     string `json:"headRef"`
+	BaseRef     string `json:"baseRef"`
+	URL         string `json:"url"`
+	HeadSHA     string `json:"headSHA"`
+	Comments    []PRComment // Filtered comments (default view)
+	AllComments []PRComment // All comments including outdated/resolved
+	Reviews     []PRReview
 }
 
 func GetCurrentPR(workingDir string) (*PullRequest, error) {
