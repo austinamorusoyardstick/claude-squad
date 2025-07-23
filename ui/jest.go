@@ -304,9 +304,14 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		}
 	}
 
+	// Create a wait group for stderr reader
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	// Read stderr
-	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
+		defer wg.Done()
+		stderrScanner := bufio.NewScanner(stderr)
 		for stderrScanner.Scan() {
 			line := stderrScanner.Text()
 			outputChan <- line
@@ -314,8 +319,13 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		}
 	}()
 
+	// Wait for stderr reader to finish
+	wg.Wait()
+
 	// Wait for command to finish
-	cmd.Wait()
+	if err := cmd.Wait(); err != nil {
+		outputChan <- fmt.Sprintf("Command exited with error: %v", err)
+	}
 
 	// Auto-open failed files in IDE
 	if len(failedFiles) > 0 {
