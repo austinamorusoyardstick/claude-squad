@@ -249,37 +249,43 @@ func RenderMarkdownLight(content string) string {
 			if !inTable {
 				inTable = true
 				tableRows = [][]string{}
-			}
-			
-			// Parse table row
-			cells := strings.Split(strings.Trim(line, "|"), "|")
-			for j := range cells {
-				cells[j] = strings.TrimSpace(cells[j])
+				tableHasHeader = false
 			}
 			
 			// Check if this is a separator row
 			isSeparator := tableSepRegex.MatchString(line)
 			
-			// Only add non-separator rows
-			if !isSeparator {
+			if isSeparator {
+				// If we have exactly one row before separator, it's a header
+				if len(tableRows) == 1 {
+					tableHasHeader = true
+				}
+			} else {
+				// Parse table row
+				cells := strings.Split(strings.Trim(line, "|"), "|")
+				for j := range cells {
+					cells[j] = strings.TrimSpace(cells[j])
+				}
 				tableRows = append(tableRows, cells)
 			}
 			
 			// Check if next line is not a table row to end the table
 			if i == len(lines)-1 || (i < len(lines)-1 && !tableRowRegex.MatchString(lines[i+1])) {
 				// Render the table
-				processedLines = append(processedLines, renderSimpleTable(tableRows)...)
+				processedLines = append(processedLines, renderSimpleTable(tableRows, tableHasHeader)...)
 				inTable = false
 				tableRows = nil
+				tableHasHeader = false
 			}
 			continue
 		}
 		
 		// If we were in a table and hit a non-table line, render it
 		if inTable {
-			processedLines = append(processedLines, renderSimpleTable(tableRows)...)
+			processedLines = append(processedLines, renderSimpleTable(tableRows, tableHasHeader)...)
 			inTable = false
 			tableRows = nil
+			tableHasHeader = false
 		}
 		
 		// Handle horizontal rules
