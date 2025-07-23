@@ -244,6 +244,35 @@ func RenderMarkdownLight(content string) string {
 			continue
 		}
 		
+		// Handle tables
+		if tableRowRegex.MatchString(line) {
+			if !inTable {
+				inTable = true
+				tableRows = [][]string{}
+			}
+			
+			// Skip separator rows but use them to detect tables
+			if tableSepRegex.MatchString(line) {
+				continue
+			}
+			
+			// Parse table row
+			cells := strings.Split(strings.Trim(line, "|"), "|")
+			for j := range cells {
+				cells[j] = strings.TrimSpace(cells[j])
+			}
+			tableRows = append(tableRows, cells)
+			
+			// Check if next line is not a table row to end the table
+			if i == len(lines)-1 || (i < len(lines)-1 && !tableRowRegex.MatchString(lines[i+1])) {
+				// Render the table
+				processedLines = append(processedLines, renderSimpleTable(tableRows)...)
+				inTable = false
+				tableRows = nil
+			}
+			continue
+		}
+		
 		// Handle horizontal rules
 		if hrRegex.MatchString(strings.TrimSpace(line)) {
 			processedLines = append(processedLines, hrStyle.Render(strings.Repeat("─", 40)))
