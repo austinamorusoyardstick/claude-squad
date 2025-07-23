@@ -576,17 +576,55 @@ func (comment *PRComment) SplitIntoPieces() {
 		// Check if this paragraph contains bullet points
 		lines := strings.Split(para, "\n")
 		if len(lines) > 1 && looksLikeBulletList(lines) {
-			// Split bullet points into individual pieces
+			// Split bullet points into individual pieces, but preserve non-bullet lines
+			var currentPiece strings.Builder
+			pieceIndex := 0
+			
 			for j, line := range lines {
-				line = strings.TrimSpace(line)
-				if line != "" && (strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "• ") || matchesNumberedList(line)) {
+				trimmedLine := strings.TrimSpace(line)
+				isBullet := trimmedLine != "" && (strings.HasPrefix(trimmedLine, "- ") || 
+					strings.HasPrefix(trimmedLine, "* ") || 
+					strings.HasPrefix(trimmedLine, "• ") || 
+					matchesNumberedList(trimmedLine))
+				
+				if isBullet {
+					// If we have accumulated non-bullet content, save it as a piece
+					if currentPiece.Len() > 0 {
+						pieces = append(pieces, CommentPiece{
+							ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, pieceIndex),
+							Content:  strings.TrimSpace(currentPiece.String()),
+							Accepted: comment.Accepted,
+							Original: strings.TrimSpace(currentPiece.String()),
+						})
+						pieceIndex++
+						currentPiece.Reset()
+					}
+					
+					// Add the bullet as its own piece
 					pieces = append(pieces, CommentPiece{
-						ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, j),
+						ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, pieceIndex),
 						Content:  line,
-						Accepted: comment.Accepted, // Inherit parent's accepted state
+						Accepted: comment.Accepted,
 						Original: line,
 					})
+					pieceIndex++
+				} else if trimmedLine != "" {
+					// Non-bullet line, accumulate it
+					if currentPiece.Len() > 0 {
+						currentPiece.WriteString("\n")
+					}
+					currentPiece.WriteString(line)
 				}
+			}
+			
+			// Don't forget any trailing non-bullet content
+			if currentPiece.Len() > 0 {
+				pieces = append(pieces, CommentPiece{
+					ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, pieceIndex),
+					Content:  strings.TrimSpace(currentPiece.String()),
+					Accepted: comment.Accepted,
+					Original: strings.TrimSpace(currentPiece.String()),
+				})
 			}
 		} else {
 			// Keep paragraph as single piece
