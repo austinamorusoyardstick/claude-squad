@@ -425,8 +425,8 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 	return nil
 }
 
-func (pr *PullRequest) GetAcceptedComments() []PRComment {
-	accepted := []PRComment{}
+func (pr *PullRequest) GetAcceptedComments() []*PRComment {
+	accepted := []*PRComment{}
 	// Check both filtered and all comments since accepted state can be set on either
 	for _, comment := range pr.AllComments {
 		if comment.IsSplit {
