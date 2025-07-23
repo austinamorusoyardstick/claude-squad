@@ -107,14 +107,15 @@ func (j *JestPane) getOrCreateState(instance *session.Instance) *JestInstanceSta
 		return nil
 	}
 	
-	state, exists := j.instanceStates[instance.Title]
+	key := j.getInstanceKey(instance)
+	state, exists := j.instanceStates[key]
 	if !exists {
 		state = &JestInstanceState{
 			testResults:  []TestResult{},
 			failedFiles:  []string{},
 			currentIndex: -1,
 		}
-		j.instanceStates[instance.Title] = state
+		j.instanceStates[key] = state
 	}
 	return state
 }
