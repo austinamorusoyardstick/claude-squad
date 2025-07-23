@@ -379,12 +379,16 @@ func RenderMarkdownLight(content string) string {
 	if inCodeBlock && len(codeBlockLines) > 0 {
 		codeBlockStyle := lipgloss.NewStyle().
 			Background(lipgloss.Color("236")).
-			Foreground(lipgloss.Color("252")).
 			PaddingLeft(1).
 			PaddingRight(1)
 		
-		for _, codeLine := range codeBlockLines {
-			processedLines = append(processedLines, codeBlockStyle.Render(codeLine))
+		// Apply syntax highlighting if we have a language
+		codeContent := strings.Join(codeBlockLines, "\n")
+		highlightedCode := HighlightCode(codeContent, codeBlockLang)
+		highlightedLines := strings.Split(highlightedCode, "\n")
+		
+		for _, highlightedLine := range highlightedLines {
+			processedLines = append(processedLines, codeBlockStyle.Render(highlightedLine))
 		}
 	}
 	
