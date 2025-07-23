@@ -560,33 +560,7 @@ func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
 }
 
 func (j *JestPane) OpenCurrentInIDE() error {
-	state := j.getCurrentState()
-	if state == nil || state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
-		return fmt.Errorf("no test selected")
-	}
-
-	result := state.testResults[state.currentIndex]
-	if result.Status != "failed" {
-		return fmt.Errorf("selected test did not fail")
-	}
-
-	// Open the file in IDE
-	ideCmd := getIDECommand()
-	if ideCmd == "" {
-		return fmt.Errorf("no IDE command configured")
-	}
-
-	// Format: "code file:line" or just "code file"
-	var cmd *exec.Cmd
-	if result.Line > 0 {
-		cmd = exec.Command(ideCmd, fmt.Sprintf("%s:%d", result.FilePath, result.Line))
-	} else {
-		cmd = exec.Command(ideCmd, result.FilePath)
-	}
-
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to open in IDE: %w", err)
-	}
+	// Disabled when showing raw output - files are auto-opened on test failure
 	return nil
 }
 
