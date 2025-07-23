@@ -219,7 +219,6 @@ func RenderMarkdownLight(content string) string {
 		
 		if codeBlockEndRegex.MatchString(line) && inCodeBlock {
 			inCodeBlock = false
-			codeContent := strings.Join(codeBlockLines, "\n")
 			
 			// Add language hint if available
 			if codeBlockLang != "" {
