@@ -11,6 +11,16 @@ import (
 	"claude-squad/ui"
 )
 
+// Define constants for component heights
+const (
+	borderHeight = 2 // Top and bottom border
+	paddingHeight = 2 // Padding
+	headerHeight = 5 // Header (maximum height)
+	helpHeight = 2 // Help section
+	borderAndPaddingWidth = 6 // Border and padding on sides
+	TerminalPadding = 4 // Terminal padding
+)
+
 // CommentDetailOverlay represents a scrollable view for displaying full PR comment content
 type CommentDetailOverlay struct {
 	// Whether the overlay has been dismissed
