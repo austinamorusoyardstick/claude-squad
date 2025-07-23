@@ -63,6 +63,8 @@ const (
 	stateKeybindingEditor
 	// stateGitStatus is the state when displaying the git status overlay.
 	stateGitStatus
+	// stateCommentDetail is the state when displaying full PR comment content.
+	stateCommentDetail
 )
 
 type home struct {
