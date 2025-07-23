@@ -426,9 +426,12 @@ func (m *PRReviewModel) updateViewportContent() {
 			status = "[✓]"
 		}
 		
-		// Add visual indicator if comment was originally resolved but still showing (shouldn't happen)
+		// Add visual indicators for filtered comment types
 		if comment.IsResolved {
 			status += " (resolved)"
+		}
+		if comment.IsGeminiReview {
+			status += " (gemini)"
 		}
 
 		// Build header with better type display
@@ -646,9 +649,12 @@ func (m PRReviewModel) simpleView() string {
 			status = "[✓]"
 		}
 		
-		// Add visual indicator if comment was originally resolved but still showing (shouldn't happen)
+		// Add visual indicators for filtered comment types
 		if comment.IsResolved {
 			status += " (resolved)"
+		}
+		if comment.IsGeminiReview {
+			status += " (gemini)"
 		}
 		
 		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(comments)))
