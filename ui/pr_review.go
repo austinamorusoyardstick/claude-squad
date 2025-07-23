@@ -634,24 +634,7 @@ func (m PRReviewModel) simpleView() string {
 		}
 	} else {
 		// Count stats from all comments
-		var total, reviews, reviewComments, issueComments, outdated, resolved int
-		for _, comment := range m.pr.AllComments {
-			total++
-			if comment.IsOutdated {
-				outdated++
-			}
-			if comment.IsResolved {
-				resolved++
-			}
-			switch comment.Type {
-			case "review":
-				reviews++
-			case "review_comment":
-				reviewComments++
-			case "issue_comment":
-				issueComments++
-			}
-		}
+		total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetStatsForAllComments()
 		
 		b.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%d reviews, %d review comments, %d general)", 
 			total, reviews, reviewComments, issueComments)))
