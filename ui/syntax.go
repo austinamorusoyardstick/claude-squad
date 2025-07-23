@@ -185,9 +185,8 @@ func HighlightCode(code, language string) string {
 	case "suggestion":
 		// GitHub suggestion blocks - try to detect the language
 		if strings.Contains(code, ":=") || strings.Contains(code, "func ") || strings.Contains(code, "package ") {
-			// Looks like Go code, but we don't have a Go highlighter yet
-			// For now, just highlight comments and strings
-			return highlightBasic(code)
+			// Looks like Go code
+			return HighlightGo(code)
 		} else if strings.Contains(code, "const ") || strings.Contains(code, "let ") || strings.Contains(code, "var ") {
 			// Looks like JavaScript
 			return HighlightJavaScript(code)
