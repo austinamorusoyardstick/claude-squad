@@ -75,6 +75,8 @@ func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPan
 
 func (w *TabbedWindow) SetInstance(instance *session.Instance) {
 	w.instance = instance
+	// Update Jest pane with the current instance
+	w.jest.SetInstance(instance)
 }
 
 // AdjustPreviewWidth adjusts the width of the preview pane to be 90% of the provided width.
