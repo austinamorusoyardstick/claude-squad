@@ -163,7 +163,7 @@ func (j *JestPane) formatContent() string {
 	var buf strings.Builder
 	currentFile := ""
 	
-	for i, result := range j.testResults {
+	for i, result := range state.testResults {
 		if result.FilePath != currentFile {
 			if currentFile != "" {
 				buf.WriteString("\n")
