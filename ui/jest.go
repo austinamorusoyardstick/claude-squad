@@ -388,7 +388,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 }
 
 func (j *JestPane) stopTests(instance *session.Instance) {
-	state := j.getCurrentState()
+	state := j.getOrCreateState(instance)
 	if state == nil || state.cmd == nil {
 		return
 	}
@@ -398,7 +398,7 @@ func (j *JestPane) stopTests(instance *session.Instance) {
 		state.cmd.Process.Kill()
 	}
 	if state.outputChan != nil {
-		close(state.outputChan)
+		// Don't close the channel here as the goroutine will close it
 		state.outputChan = nil
 	}
 	state.running = false
