@@ -582,8 +582,8 @@ func (pr *PullRequest) GetAllCommentStats(workingDir string) (total, shown, outd
 }
 
 // GetFilteredComments returns comments that are not outdated or resolved
-func (pr *PullRequest) GetFilteredComments() []PRComment {
-	filtered := []PRComment{}
+func (pr *PullRequest) GetFilteredComments() []*PRComment {
+	filtered := []*PRComment{}
 	for _, comment := range pr.Comments {
 		if !comment.IsOutdated && !comment.IsResolved {
 			filtered = append(filtered, comment)
