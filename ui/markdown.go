@@ -34,6 +34,10 @@ var (
 	// Code blocks
 	codeBlockStartRegex = regexp.MustCompile(`^` + "```" + `(\w*)`)
 	codeBlockEndRegex   = regexp.MustCompile(`^` + "```" + `$`)
+	
+	// Tables
+	tableRowRegex = regexp.MustCompile(`^\|(.+)\|$`)
+	tableSepRegex = regexp.MustCompile(`^\|[\s\-:|]+\|$`)
 )
 
 // RenderMarkdown renders markdown content for terminal display
