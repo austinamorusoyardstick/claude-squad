@@ -413,7 +413,8 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 
 func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	accepted := []PRComment{}
-	for _, comment := range pr.Comments {
+	// Check both filtered and all comments since accepted state can be set on either
+	for _, comment := range pr.AllComments {
 		if comment.Accepted {
 			accepted = append(accepted, comment)
 		}
