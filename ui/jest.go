@@ -23,12 +23,21 @@ type JestPane struct {
 	height       int
 	viewport     viewport.Model
 	content      string
+	// Per-instance state maps
+	instanceStates map[string]*JestInstanceState
+	currentInstance *session.Instance
+	mu           sync.Mutex
+}
+
+type JestInstanceState struct {
 	running      bool
 	testResults  []TestResult
 	failedFiles  []string
 	workingDir   string
 	currentIndex int
-	mu           sync.Mutex
+	liveOutput   string
+	cmd          *exec.Cmd
+	outputChan   chan string
 }
 
 type TestResult struct {
@@ -42,10 +51,8 @@ type TestResult struct {
 func NewJestPane() *JestPane {
 	vp := viewport.New(0, 0)
 	return &JestPane{
-		viewport:     vp,
-		testResults:  []TestResult{},
-		failedFiles:  []string{},
-		currentIndex: -1,
+		viewport:       vp,
+		instanceStates: make(map[string]*JestInstanceState),
 	}
 }
 
