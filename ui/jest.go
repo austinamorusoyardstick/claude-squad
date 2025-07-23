@@ -324,18 +324,39 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 			allOutput.WriteString(line + "\n")
 
 			// Look for test failures in real-time
-			if strings.Contains(line, "FAIL") {
+			if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
 				// Extract file path from FAIL line
-				parts := strings.Fields(line)
-				for _, part := range parts {
-					if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") ||
-						strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
-						absPath := part
-						if !filepath.IsAbs(part) {
-							absPath = filepath.Join(workDir, part)
+				// Format: "FAIL src/pages/individualDashboard/component.test.js"
+				trimmedLine := strings.TrimSpace(line)
+				if len(trimmedLine) > 5 { // "FAIL " is 5 characters
+					filePath := strings.TrimSpace(trimmedLine[5:])
+					// Remove any trailing whitespace or test duration info
+					if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
+						filePath = filePath[:idx]
+					}
+					
+					// Check if it's a valid test file
+					if strings.HasSuffix(filePath, ".js") || strings.HasSuffix(filePath, ".jsx") ||
+						strings.HasSuffix(filePath, ".ts") || strings.HasSuffix(filePath, ".tsx") ||
+						strings.HasSuffix(filePath, ".test.js") || strings.HasSuffix(filePath, ".spec.js") {
+						
+						absPath := filePath
+						if !filepath.IsAbs(filePath) {
+							absPath = filepath.Join(workDir, filePath)
 						}
-						failedFiles = append(failedFiles, absPath)
-						break
+						
+						// Avoid duplicates
+						alreadyAdded := false
+						for _, existing := range failedFiles {
+							if existing == absPath {
+								alreadyAdded = true
+								break
+							}
+						}
+						if !alreadyAdded {
+							failedFiles = append(failedFiles, absPath)
+							outputChan <- fmt.Sprintf("[DEBUG] Found failed test file: %s", absPath)
+						}
 					}
 				}
 			}
