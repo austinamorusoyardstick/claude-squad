@@ -517,11 +517,18 @@ func getCommentStats(comments []*PRComment) (total, reviews, reviewComments, iss
 
 // GetCommentStats returns statistics about the filtered comments
 func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
-	return getCommentStats(pr.Comments)
+	total, reviews, reviewComments, issueComments, outdated, resolved, _ = getCommentStats(pr.Comments)
+	return
 }
 
 // GetStatsForAllComments returns statistics about all comments (including outdated/resolved)
 func (pr *PullRequest) GetStatsForAllComments() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
+	total, reviews, reviewComments, issueComments, outdated, resolved, _ = getCommentStats(pr.AllComments)
+	return
+}
+
+// GetStatsForAllCommentsWithGemini returns statistics about all comments including gemini review count
+func (pr *PullRequest) GetStatsForAllCommentsWithGemini() (total, reviews, reviewComments, issueComments, outdated, resolved, geminiReviews int) {
 	return getCommentStats(pr.AllComments)
 }
 
