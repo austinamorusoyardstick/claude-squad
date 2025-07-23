@@ -74,8 +74,14 @@ func (c *CommentDetailOverlay) updateContent() {
 	// Build the full comment content
 	var content strings.Builder
 	
-	// Add full body text without truncation
-	content.WriteString(c.comment.GetFormattedBody())
+	// Render the markdown content
+	renderedBody, err := ui.RenderMarkdown(c.comment.Body, c.viewport.Width)
+	if err != nil {
+		// Fallback to formatted body if markdown rendering fails
+		renderedBody = c.comment.GetFormattedBody()
+	}
+	
+	content.WriteString(renderedBody)
 	
 	// Add additional metadata if available
 	if c.comment.Path != "" {
