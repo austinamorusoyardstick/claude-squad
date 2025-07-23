@@ -9,6 +9,15 @@ import (
 	"claude-squad/log"
 )
 
+// Pre-compiled regexes for better performance
+var (
+	inlineCodeRegex      = regexp.MustCompile("`([^`]+)`")
+	boldRegex            = regexp.MustCompile(`(\*\*|__)([^*_]+)(\*\*|__)`)
+	singleAsteriskRegex  = regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
+	singleUnderscoreRegex = regexp.MustCompile(`(?:^|\s)_([^_\n]+)_(?:\s|$)`)
+	listItemRegex        = regexp.MustCompile(`^\s*\d+\.`)
+)
+
 // RenderMarkdown renders markdown content for terminal display
 // Returns the rendered string and any error that occurred
 func RenderMarkdown(content string, width int) (string, error) {
