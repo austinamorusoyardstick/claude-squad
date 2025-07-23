@@ -254,6 +254,47 @@ func (w *TabbedWindow) IsInTerminalTab() bool {
 	return w.activeTab == 2
 }
 
+// IsInJestTab returns true if the Jest tab is currently active
+func (w *TabbedWindow) IsInJestTab() bool {
+	return w.activeTab == 3
+}
+
+// UpdateJest updates the Jest pane with test results
+func (w *TabbedWindow) UpdateJest(instance *session.Instance) {
+	if w.activeTab != JestTab {
+		return
+	}
+	w.jest.RunTests(instance)
+}
+
+// JestNextFailure navigates to the next test failure in Jest pane
+func (w *TabbedWindow) JestNextFailure() {
+	if w.activeTab == JestTab {
+		w.jest.NextFailure()
+	}
+}
+
+// JestPreviousFailure navigates to the previous test failure in Jest pane
+func (w *TabbedWindow) JestPreviousFailure() {
+	if w.activeTab == JestTab {
+		w.jest.PreviousFailure()
+	}
+}
+
+// JestOpenInIDE opens the current test failure in IDE
+func (w *TabbedWindow) JestOpenInIDE() {
+	if w.activeTab == JestTab {
+		w.jest.OpenCurrentInIDE()
+	}
+}
+
+// JestRerunTests reruns the Jest tests
+func (w *TabbedWindow) JestRerunTests() {
+	if w.activeTab == JestTab && w.instance != nil {
+		w.jest.RunTests(w.instance)
+	}
+}
+
 // SetDiffModeAll sets the diff view to show all changes
 func (w *TabbedWindow) SetDiffModeAll() {
 	w.diff.SetDiffMode(DiffModeAll)
