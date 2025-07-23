@@ -426,7 +426,8 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 
 func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	accepted := []PRComment{}
-	for _, comment := range pr.Comments {
+	// Check both filtered and all comments since accepted state can be set on either
+	for _, comment := range pr.AllComments {
 		if comment.IsSplit {
 			// For split comments, only include if at least one piece is accepted
 			hasAcceptedPiece := false
@@ -623,14 +624,14 @@ func (comment *PRComment) SplitIntoPieces() {
 			// Split bullet points into individual pieces, but preserve non-bullet lines
 			var currentPiece strings.Builder
 			pieceIndex := 0
-			
+
 			for _, line := range lines {
 				trimmedLine := strings.TrimSpace(line)
-				isBullet := trimmedLine != "" && (strings.HasPrefix(trimmedLine, "- ") || 
-					strings.HasPrefix(trimmedLine, "* ") || 
-					strings.HasPrefix(trimmedLine, "• ") || 
+				isBullet := trimmedLine != "" && (strings.HasPrefix(trimmedLine, "- ") ||
+					strings.HasPrefix(trimmedLine, "* ") ||
+					strings.HasPrefix(trimmedLine, "• ") ||
 					matchesNumberedList(trimmedLine))
-				
+
 				if isBullet {
 					// If we have accumulated non-bullet content, save it as a piece
 					if currentPiece.Len() > 0 {
@@ -643,7 +644,7 @@ func (comment *PRComment) SplitIntoPieces() {
 						pieceIndex++
 						currentPiece.Reset()
 					}
-					
+
 					// Add the bullet as its own piece
 					pieces = append(pieces, CommentPiece{
 						ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, pieceIndex),
@@ -660,7 +661,7 @@ func (comment *PRComment) SplitIntoPieces() {
 					currentPiece.WriteString(line)
 				}
 			}
-			
+
 			// Don't forget any trailing non-bullet content
 			if currentPiece.Len() > 0 {
 				pieces = append(pieces, CommentPiece{
