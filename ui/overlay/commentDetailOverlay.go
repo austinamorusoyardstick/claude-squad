@@ -54,10 +54,12 @@ func (c *CommentDetailOverlay) SetSize(width, height int) {
 	c.width = width
 	c.height = height
 	
+	// Calculate total height of non-viewport components
+	totalNonViewportHeight := borderHeight + paddingHeight + headerHeight + helpHeight
+	
 	// Calculate viewport dimensions
-	// Border: 2 lines (top/bottom), padding: 2 lines, header: 4-5 lines, help: 2 lines
-	viewportHeight := height - 11
-	viewportWidth := width - 6 // Border and padding on sides
+	viewportHeight := height - totalNonViewportHeight
+	viewportWidth := width - borderAndPaddingWidth
 	
 	if viewportHeight < 1 {
 		viewportHeight = 1
