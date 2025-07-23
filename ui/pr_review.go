@@ -199,8 +199,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 
 		case "s":
 			// Enter split mode for current comment
-			if len(m.pr.Comments) > 0 && !m.splitMode {
-				splitModel := NewCommentSplitModel(&m.pr.Comments[m.currentIndex])
+			comments := m.getActiveComments()
+			if len(comments) > 0 && !m.splitMode && m.currentIndex < len(comments) {
+				splitModel := NewCommentSplitModel(comments[m.currentIndex])
 				m.splitModel = &splitModel
 				m.splitMode = true
 				return m, m.splitModel.Init()
