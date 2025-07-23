@@ -550,6 +550,9 @@ func (m *PRReviewModel) ensureCurrentCommentVisible() {
 	
 	// Estimate position based on comment index
 	comments := m.getActiveComments()
+	if len(comments) == 0 {
+		return
+	}
 	estimatedPosition := float64(m.currentIndex) / float64(len(comments))
 	targetLine := int(estimatedPosition * float64(m.viewport.TotalLineCount()))
 	
