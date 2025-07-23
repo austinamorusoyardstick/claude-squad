@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"claude-squad/session/git"
+	"claude-squad/ui"
 )
 
 // CommentDetailOverlay represents a scrollable view for displaying full PR comment content
