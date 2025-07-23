@@ -123,6 +123,8 @@ type home struct {
 	prReviewOverlay *ui.PRReviewModel
 	// historyOverlay displays scrollable history content
 	historyOverlay *overlay.HistoryOverlay
+	// commentDetailOverlay displays full PR comment content
+	commentDetailOverlay *overlay.CommentDetailOverlay
 	// keybindingEditorOverlay displays keybinding editor interface
 	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 	// gitStatusOverlay displays git status information
