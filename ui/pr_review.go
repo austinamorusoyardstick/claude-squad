@@ -27,6 +27,10 @@ type PRReviewCompleteMsg struct {
 
 type PRReviewCancelMsg struct{}
 
+type PRReviewShowCommentMsg struct {
+	Comment *git.PRComment
+}
+
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
 		pr:           pr,
