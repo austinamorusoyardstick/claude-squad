@@ -295,9 +295,9 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Show comment detail overlay
 			showMsg := msg.(ui.PRReviewShowCommentMsg)
 			m.commentDetailOverlay = overlay.NewCommentDetailOverlay(showMsg.Comment)
-			m.commentDetailOverlay.SetSize(m.tabbedWindow.GetWidth(), m.tabbedWindow.GetHeight())
+			// We'll set the size in the next WindowSizeMsg
 			m.state = stateCommentDetail
-			return m, nil
+			return m, tea.WindowSize()
 		}
 
 		return m, cmd
