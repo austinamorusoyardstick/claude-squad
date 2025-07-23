@@ -214,7 +214,8 @@ func (m CommentSplitModel) Update(msg tea.Msg) (CommentSplitModel, tea.Cmd) {
 		case "m":
 			// Merge current piece with next
 			if m.currentIndex < len(m.comment.SplitPieces)-1 {
-				current := m.comment.SplitPieces[m.currentIndex]
+				// Get pointer to modify in place
+				current := &m.comment.SplitPieces[m.currentIndex]
 				next := m.comment.SplitPieces[m.currentIndex+1]
 				
 				// Merge content
