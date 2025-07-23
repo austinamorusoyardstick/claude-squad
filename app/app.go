@@ -442,7 +442,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			globalConfig := m.appConfig
 			fileDir := filepath.Dir(msg.failedFiles[0])
 			ideCommand := config.GetEffectiveIdeCommand(fileDir, globalConfig)
-			
+
 			for _, file := range msg.failedFiles {
 				cmd := exec.Command(ideCommand, file)
 				cmd.Start()
@@ -1208,11 +1208,11 @@ func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 
 		// Open IDE at the worktree path (not the git root)
 		worktreePath := gitWorktree.GetWorktreePath()
-		
+
 		// Get the IDE command from configuration
 		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
-		
+
 		cmd := exec.Command(ideCommand, worktreePath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
@@ -1237,7 +1237,7 @@ func (m *home) openFileInIDE(instance *session.Instance, filePath string) tea.Cm
 		// Get the IDE command from configuration
 		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
-		
+
 		// Open IDE with the specific file
 		cmd := exec.Command(ideCommand, fullPath)
 		if err := cmd.Start(); err != nil {
@@ -1260,7 +1260,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		worktreePath := gitWorktree.GetWorktreePath()
 		globalConfig := m.appConfig
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
-		
+
 		if diffCommand == "" {
 			return fmt.Errorf("no external diff tool configured. Set diff_command in global config or repository CLAUDE.md")
 		}
@@ -1374,9 +1374,9 @@ func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
 		worktreePath := gitWorktree.GetWorktreePath()
 
 		// Run npm test without watch mode
-		cmd := exec.Command("yarn", "test", "--watchAll=false", "--json", "--outputFile=test-results.json")
+		cmd := exec.Command("yarn", "test")
 		cmd.Dir = worktreePath
-		cmd.Env = append(os.Environ(), "CI=true")
+		cmd.Env = append(os.Environ(), "CSA=true")
 		// Capture output
 		output, _ := cmd.CombinedOutput()
 
@@ -1507,7 +1507,7 @@ func (m *home) instanceChanged() tea.Cmd {
 
 	// Update the tabbed window with the current instance
 	m.tabbedWindow.SetInstance(selected)
-	
+
 	m.tabbedWindow.UpdateDiff(selected)
 	m.tabbedWindow.UpdateTerminal(selected)
 	// Update menu with current instance
