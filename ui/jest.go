@@ -13,20 +13,20 @@ import (
 	"sync"
 	"time"
 
+	"claude-squad/session"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
-	"claude-squad/session"
 )
 
 type JestPane struct {
-	width        int
-	height       int
-	viewport     viewport.Model
-	content      string
+	width    int
+	height   int
+	viewport viewport.Model
+	content  string
 	// Per-instance state maps
-	instanceStates map[string]*JestInstanceState
+	instanceStates  map[string]*JestInstanceState
 	currentInstance *session.Instance
-	mu           sync.Mutex
+	mu              sync.Mutex
 }
 
 type JestInstanceState struct {
@@ -80,11 +80,11 @@ func (j *JestPane) getInstanceKey(instance *session.Instance) string {
 func (j *JestPane) getCurrentState() *JestInstanceState {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	
+
 	if j.currentInstance == nil {
 		return nil
 	}
-	
+
 	key := j.getInstanceKey(j.currentInstance)
 	state, exists := j.instanceStates[key]
 	if !exists {
@@ -102,11 +102,11 @@ func (j *JestPane) getCurrentState() *JestInstanceState {
 func (j *JestPane) getOrCreateState(instance *session.Instance) *JestInstanceState {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	
+
 	if instance == nil {
 		return nil
 	}
-	
+
 	key := j.getInstanceKey(instance)
 	state, exists := j.instanceStates[key]
 	if !exists {
@@ -133,15 +133,15 @@ func (j *JestPane) String() string {
 	}
 
 	header := titleStyle.Render("Jest Test Runner")
-	
+
 	var status string
 	var instanceInfo string
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	
+
 	if j.currentInstance != nil {
 		instanceInfo = fmt.Sprintf(" - %s", j.currentInstance.Title)
 	}
-	
+
 	state := j.getCurrentState()
 	if j.currentInstance == nil {
 		status = statusStyle.Render("No instance selected")
@@ -156,13 +156,13 @@ func (j *JestPane) String() string {
 	}
 
 	content := j.viewport.View()
-	
+
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	help := helpStyle.Render("↑/↓: scroll • n/p: next/prev failure • Enter: open in IDE • r: rerun • ESC: exit scroll mode")
-	
+
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		header + instanceInfo,
+		header+instanceInfo,
 		status,
 		content,
 		help,
@@ -175,69 +175,15 @@ func (j *JestPane) formatContent() string {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		return dimStyle.Render("No instance selected")
 	}
-	
-	// If running, show live output
-	if state.running && state.liveOutput != "" {
+
+	// Always show raw output if available (whether running or not)
+	if state.liveOutput != "" {
 		return state.liveOutput
 	}
-	
-	if len(state.testResults) == 0 {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-		return dimStyle.Render("No test results to display.\nPress 'r' to run tests.")
-	}
 
-	var buf strings.Builder
-	currentFile := ""
-	
-	for i, result := range state.testResults {
-		if result.FilePath != currentFile {
-			if currentFile != "" {
-				buf.WriteString("\n")
-			}
-			currentFile = result.FilePath
-			relPath, _ := filepath.Rel(state.workingDir, result.FilePath)
-			if relPath == "" {
-				relPath = result.FilePath
-			}
-			buf.WriteString(fileHeaderStyle.Render(relPath))
-			buf.WriteString("\n")
-		}
-		
-		var statusSymbol, statusColor string
-		switch result.Status {
-		case "passed":
-			statusSymbol = "✓"
-			statusColor = "green"
-		case "failed":
-			statusSymbol = "✗"
-			statusColor = "red"
-		case "skipped":
-			statusSymbol = "○"
-			statusColor = "yellow"
-		}
-		
-		testLine := fmt.Sprintf("  %s %s", statusSymbol, result.TestName)
-		if result.Status == "failed" && i == state.currentIndex {
-			testLine = selectedStyle.Render(testLine)
-		} else {
-			style := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor))
-			testLine = style.Render(testLine)
-		}
-		buf.WriteString(testLine)
-		buf.WriteString("\n")
-		
-		if result.Status == "failed" && result.ErrorOutput != "" {
-			errorLines := strings.Split(result.ErrorOutput, "\n")
-			for _, line := range errorLines {
-				if strings.TrimSpace(line) != "" {
-					buf.WriteString(errorStyle.Render("    " + line))
-					buf.WriteString("\n")
-				}
-			}
-		}
-	}
-	
-	return buf.String()
+	// If no output yet
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	return dimStyle.Render("No test results to display.\nPress 'r' to run tests.")
 }
 
 func (j *JestPane) RunTests(instance *session.Instance) error {
@@ -245,10 +191,10 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	if state == nil {
 		return fmt.Errorf("no instance provided")
 	}
-	
+
 	// Stop any existing test run for this instance
 	j.stopTests(instance)
-	
+
 	// Reset state
 	j.mu.Lock()
 	state.running = true
@@ -257,7 +203,7 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	state.currentIndex = -1
 	state.liveOutput = ""
 	j.mu.Unlock()
-	
+
 	// Find Jest working directory
 	workDir, err := j.findJestWorkingDir(instance.Path)
 	if err != nil {
@@ -268,13 +214,13 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 		j.viewport.SetContent(j.formatContent())
 		return err
 	}
-	
+
 	state.workingDir = workDir
-	
+
 	// Create output channel for live updates
 	outputChan := make(chan string, 100)
 	state.outputChan = outputChan
-	
+
 	// Start goroutine to update live output
 	go func() {
 		for line := range outputChan {
@@ -289,38 +235,38 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 			j.viewport.SetContent(j.formatContent())
 		}
 	}()
-	
+
 	// Run Jest with streaming output
 	go j.runJestWithStream(instance, state, workDir, outputChan)
-	
+
 	return nil
 }
 
 func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInstanceState, workDir string, outputChan chan<- string) {
 	defer close(outputChan)
-	
+
 	// Run Jest without JSON for live output
-	cmd := exec.Command("npx", "jest", "--verbose", "--no-coverage")
+	cmd := exec.Command("yarn", "tester")
 	cmd.Dir = workDir
-	
+
 	// Store cmd in state so we can kill it if needed
 	j.mu.Lock()
 	state.cmd = cmd
 	j.mu.Unlock()
-	
+
 	// Create pipes for stdout and stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		outputChan <- fmt.Sprintf("Error creating stdout pipe: %v", err)
 		return
 	}
-	
+
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		outputChan <- fmt.Sprintf("Error creating stderr pipe: %v", err)
 		return
 	}
-	
+
 	// Start the command
 	if err := cmd.Start(); err != nil {
 		outputChan <- fmt.Sprintf("Error starting Jest: %v", err)
@@ -329,25 +275,25 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		j.mu.Unlock()
 		return
 	}
-	
+
 	// Collect all output for parsing
 	var allOutput strings.Builder
 	failedFiles := []string{}
-	
+
 	// Read stdout
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
 		outputChan <- line
 		allOutput.WriteString(line + "\n")
-		
+
 		// Look for test failures in real-time
 		if strings.Contains(line, "FAIL") {
 			// Extract file path from FAIL line
 			parts := strings.Fields(line)
 			for _, part := range parts {
-				if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") || 
-				   strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
+				if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") ||
+					strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
 					absPath := part
 					if !filepath.IsAbs(part) {
 						absPath = filepath.Join(workDir, part)
@@ -358,7 +304,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 			}
 		}
 	}
-	
+
 	// Read stderr
 	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
@@ -368,18 +314,18 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 			allOutput.WriteString(line + "\n")
 		}
 	}()
-	
+
 	// Wait for command to finish
 	cmd.Wait()
-	
+
 	// Parse the complete output
 	j.parseJestOutput(state, allOutput.String())
-	
+
 	// Auto-open failed files in IDE
 	if len(failedFiles) > 0 {
 		j.autoOpenFailedTests(failedFiles)
 	}
-	
+
 	j.mu.Lock()
 	state.running = false
 	state.cmd = nil
@@ -392,7 +338,7 @@ func (j *JestPane) stopTests(instance *session.Instance) {
 	if state == nil || state.cmd == nil {
 		return
 	}
-	
+
 	j.mu.Lock()
 	if state.cmd.Process != nil {
 		state.cmd.Process.Kill()
@@ -410,13 +356,13 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 	if ideCmd == "" {
 		return
 	}
-	
+
 	// Open up to 5 failed test files
 	maxFiles := 5
 	if len(failedFiles) < maxFiles {
 		maxFiles = len(failedFiles)
 	}
-	
+
 	for i := 0; i < maxFiles; i++ {
 		cmd := exec.Command(ideCmd, failedFiles[i])
 		go cmd.Start()
@@ -431,14 +377,14 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	var searchDir string
 	if info.IsDir() {
 		searchDir = startPath
 	} else {
 		searchDir = filepath.Dir(startPath)
 	}
-	
+
 	// Search upward for package.json with Jest
 	currentDir := searchDir
 	for {
@@ -467,7 +413,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 				}
 			}
 		}
-		
+
 		// Move up one directory
 		parentDir := filepath.Dir(currentDir)
 		if parentDir == currentDir || currentDir == "/" {
@@ -475,7 +421,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 		}
 		currentDir = parentDir
 	}
-	
+
 	// If not found upward, search downward from original directory
 	if info.IsDir() {
 		var foundDir string
@@ -510,39 +456,39 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 			}
 			return nil
 		})
-		
+
 		if foundDir != "" {
 			return foundDir, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("no Jest configuration found")
 }
 
 func (j *JestPane) parseJestJSON(state *JestInstanceState, data []byte) {
 	var result struct {
 		TestResults []struct {
-			Name           string `json:"name"`
-			Status         string `json:"status"`
+			Name             string `json:"name"`
+			Status           string `json:"status"`
 			AssertionResults []struct {
-				Title    string   `json:"title"`
-				Status   string   `json:"status"`
+				Title           string   `json:"title"`
+				Status          string   `json:"status"`
 				FailureMessages []string `json:"failureMessages"`
-				Location struct {
+				Location        struct {
 					Line int `json:"line"`
 				} `json:"location"`
 			} `json:"assertionResults"`
 		} `json:"testResults"`
 	}
-	
+
 	if err := json.Unmarshal(data, &result); err != nil {
 		return
 	}
-	
+
 	state.testResults = []TestResult{}
 	state.failedFiles = []string{}
 	failedSet := make(map[string]bool)
-	
+
 	for _, testFile := range result.TestResults {
 		for _, assertion := range testFile.AssertionResults {
 			tr := TestResult{
@@ -551,7 +497,7 @@ func (j *JestPane) parseJestJSON(state *JestInstanceState, data []byte) {
 				Status:   assertion.Status,
 				Line:     assertion.Location.Line,
 			}
-			
+
 			if assertion.Status == "failed" && len(assertion.FailureMessages) > 0 {
 				tr.ErrorOutput = strings.Join(assertion.FailureMessages, "\n")
 				if !failedSet[testFile.Name] {
@@ -559,11 +505,11 @@ func (j *JestPane) parseJestJSON(state *JestInstanceState, data []byte) {
 					failedSet[testFile.Name] = true
 				}
 			}
-			
+
 			state.testResults = append(state.testResults, tr)
 		}
 	}
-	
+
 	if len(state.failedFiles) > 0 && state.currentIndex == -1 {
 		state.currentIndex = j.findFirstFailureIndex(state)
 	}
@@ -575,11 +521,11 @@ func (j *JestPane) parseJestOutput(state *JestInstanceState, output string) {
 	currentFile := ""
 	fileRegex := regexp.MustCompile(`(?:PASS|FAIL)\s+(.+\.(?:js|jsx|ts|tsx))`)
 	testRegex := regexp.MustCompile(`\s*([✓✗])\s+(.+)`)
-	
+
 	state.testResults = []TestResult{}
 	state.failedFiles = []string{}
 	failedSet := make(map[string]bool)
-	
+
 	for _, line := range lines {
 		if matches := fileRegex.FindStringSubmatch(line); matches != nil {
 			currentFile = matches[1]
@@ -592,7 +538,7 @@ func (j *JestPane) parseJestOutput(state *JestInstanceState, output string) {
 					failedSet[currentFile] = true
 				}
 			}
-			
+
 			state.testResults = append(state.testResults, TestResult{
 				FilePath: currentFile,
 				TestName: matches[2],
@@ -600,7 +546,7 @@ func (j *JestPane) parseJestOutput(state *JestInstanceState, output string) {
 			})
 		}
 	}
-	
+
 	if len(state.failedFiles) > 0 && state.currentIndex == -1 {
 		state.currentIndex = j.findFirstFailureIndex(state)
 	}
@@ -628,7 +574,7 @@ func (j *JestPane) NextFailure() {
 	if state == nil || len(state.failedFiles) == 0 {
 		return
 	}
-	
+
 	startIdx := state.currentIndex + 1
 	for i := startIdx; i < len(state.testResults); i++ {
 		if state.testResults[i].Status == "failed" {
@@ -638,7 +584,7 @@ func (j *JestPane) NextFailure() {
 			return
 		}
 	}
-	
+
 	// Wrap around to beginning
 	for i := 0; i < startIdx && i < len(state.testResults); i++ {
 		if state.testResults[i].Status == "failed" {
@@ -655,7 +601,7 @@ func (j *JestPane) PreviousFailure() {
 	if state == nil || len(state.failedFiles) == 0 {
 		return
 	}
-	
+
 	startIdx := state.currentIndex - 1
 	for i := startIdx; i >= 0; i-- {
 		if state.testResults[i].Status == "failed" {
@@ -665,7 +611,7 @@ func (j *JestPane) PreviousFailure() {
 			return
 		}
 	}
-	
+
 	// Wrap around to end
 	for i := len(state.testResults) - 1; i > startIdx && i >= 0; i-- {
 		if state.testResults[i].Status == "failed" {
@@ -681,7 +627,7 @@ func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
 	if state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
 		return
 	}
-	
+
 	// Calculate approximate line number for the current test
 	lineCount := 0
 	for i := 0; i <= state.currentIndex; i++ {
@@ -693,7 +639,7 @@ func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
 			lineCount += strings.Count(state.testResults[i].ErrorOutput, "\n") + 1
 		}
 	}
-	
+
 	// Scroll to make the line visible
 	j.viewport.SetYOffset(lineCount - j.viewport.Height/2)
 }
@@ -703,18 +649,18 @@ func (j *JestPane) OpenCurrentInIDE() error {
 	if state == nil || state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
 		return fmt.Errorf("no test selected")
 	}
-	
+
 	result := state.testResults[state.currentIndex]
 	if result.Status != "failed" {
 		return fmt.Errorf("selected test did not fail")
 	}
-	
+
 	// Open the file in IDE
 	ideCmd := getIDECommand()
 	if ideCmd == "" {
 		return fmt.Errorf("no IDE command configured")
 	}
-	
+
 	// Format: "code file:line" or just "code file"
 	var cmd *exec.Cmd
 	if result.Line > 0 {
@@ -722,7 +668,7 @@ func (j *JestPane) OpenCurrentInIDE() error {
 	} else {
 		cmd = exec.Command(ideCmd, result.FilePath)
 	}
-	
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to open in IDE: %w", err)
 	}
@@ -753,7 +699,7 @@ func getIDECommand() string {
 			}
 		}
 	}
-	
+
 	// Check .claude-squad/config.json
 	if data, err := os.ReadFile(".claude-squad/config.json"); err == nil {
 		var config map[string]string
@@ -763,7 +709,7 @@ func getIDECommand() string {
 			}
 		}
 	}
-	
+
 	// Check global config
 	homeDir, _ := os.UserHomeDir()
 	globalConfigPath := filepath.Join(homeDir, ".claude-squad", "config.json")
@@ -775,7 +721,7 @@ func getIDECommand() string {
 			}
 		}
 	}
-	
+
 	// Default to code
 	return "code"
 }
@@ -783,21 +729,21 @@ func getIDECommand() string {
 // Add styles used by Jest pane
 var (
 	fileHeaderStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("cyan")).
-		MarginTop(1)
-	
+			Bold(true).
+			Foreground(lipgloss.Color("cyan")).
+			MarginTop(1)
+
 	selectedStyle = lipgloss.NewStyle().
-		Background(lipgloss.Color("237")).
-		Foreground(lipgloss.Color("white"))
-	
+			Background(lipgloss.Color("237")).
+			Foreground(lipgloss.Color("white"))
+
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("red"))
-	
+			Foreground(lipgloss.Color("red"))
+
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("green"))
-	
+			Foreground(lipgloss.Color("green"))
+
 	failureStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("red")).
-		Bold(true)
+			Foreground(lipgloss.Color("red")).
+			Bold(true)
 )
