@@ -31,6 +31,15 @@ type PRComment struct {
 	// Cached rendered content
 	RenderedBody       string    `json:"-"`
 	PlainBody          string    `json:"-"`
+	SplitPieces        []CommentPiece `json:"-"`
+	IsSplit            bool      `json:"-"`
+}
+
+type CommentPiece struct {
+	ID       string `json:"id"`
+	Content  string `json:"content"`
+	Accepted bool   `json:"accepted"`
+	Original string `json:"original"`
 }
 
 type PRReview struct {
@@ -415,7 +424,19 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	accepted := []PRComment{}
 	for _, comment := range pr.Comments {
-		if comment.Accepted {
+		if comment.IsSplit {
+			// For split comments, only include if at least one piece is accepted
+			hasAcceptedPiece := false
+			for _, piece := range comment.SplitPieces {
+				if piece.Accepted {
+					hasAcceptedPiece = true
+					break
+				}
+			}
+			if hasAcceptedPiece {
+				accepted = append(accepted, comment)
+			}
+		} else if comment.Accepted {
 			accepted = append(accepted, comment)
 		}
 	}
@@ -436,26 +457,26 @@ func (pr *PullRequest) PreprocessComments() {
 func stripMarkdownSimple(content string) string {
 	// Remove code blocks
 	content = regexp.MustCompile("```[\\s\\S]*?```").ReplaceAllString(content, "")
-	
+
 	// Remove inline code
 	content = strings.ReplaceAll(content, "`", "")
-	
+
 	// Remove bold and italic markers
 	content = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(content, "$1")
 	content = regexp.MustCompile(`__([^_]+)__`).ReplaceAllString(content, "$1")
 	content = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(content, "$1")
 	content = regexp.MustCompile(`_([^_]+)_`).ReplaceAllString(content, "$1")
-	
+
 	// Remove headers
 	content = regexp.MustCompile(`(?m)^#{1,6}\s+`).ReplaceAllString(content, "")
-	
+
 	// Remove links but keep text
 	content = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`).ReplaceAllString(content, "$1")
-	
+
 	// Clean up extra whitespace
 	content = regexp.MustCompile(`\n{3,}`).ReplaceAllString(content, "\n\n")
 	content = strings.TrimSpace(content)
-	
+
 	return content
 }
 
@@ -573,4 +594,122 @@ func (comment *PRComment) GetFormattedBody() string {
 		}
 	}
 	return strings.Join(formattedLines, "\n")
+}
+
+// SplitIntoPieces splits a comment into logical pieces based on paragraphs and bullet points
+func (comment *PRComment) SplitIntoPieces() {
+	if comment.IsSplit {
+		return // Already split
+	}
+
+	pieces := []CommentPiece{}
+	content := strings.TrimSpace(comment.Body)
+
+	// Split by double newlines first (paragraphs)
+	paragraphs := strings.Split(content, "\n\n")
+
+	for i, para := range paragraphs {
+		para = strings.TrimSpace(para)
+		if para == "" {
+			continue
+		}
+
+		// Check if this paragraph contains bullet points
+		lines := strings.Split(para, "\n")
+		if len(lines) > 1 && looksLikeBulletList(lines) {
+			// Split bullet points into individual pieces
+			for j, line := range lines {
+				line = strings.TrimSpace(line)
+				if line != "" && (strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ") || strings.HasPrefix(line, "• ") || matchesNumberedList(line)) {
+					pieces = append(pieces, CommentPiece{
+						ID:       fmt.Sprintf("%d_%d_%d", comment.ID, i, j),
+						Content:  line,
+						Accepted: comment.Accepted, // Inherit parent's accepted state
+						Original: line,
+					})
+				}
+			}
+		} else {
+			// Keep paragraph as single piece
+			pieces = append(pieces, CommentPiece{
+				ID:       fmt.Sprintf("%d_%d", comment.ID, i),
+				Content:  para,
+				Accepted: comment.Accepted, // Inherit parent's accepted state
+				Original: para,
+			})
+		}
+	}
+
+	// If no pieces were created, treat the whole comment as one piece
+	if len(pieces) == 0 {
+		pieces = append(pieces, CommentPiece{
+			ID:       fmt.Sprintf("%d_0", comment.ID),
+			Content:  content,
+			Accepted: comment.Accepted,
+			Original: content,
+		})
+	}
+
+	comment.SplitPieces = pieces
+	comment.IsSplit = true
+}
+
+// MergePieces merges the split pieces back into the comment body
+func (comment *PRComment) MergePieces() {
+	if !comment.IsSplit || len(comment.SplitPieces) == 0 {
+		return
+	}
+
+	var parts []string
+	for _, piece := range comment.SplitPieces {
+		if piece.Content != "" {
+			parts = append(parts, piece.Content)
+		}
+	}
+
+	comment.Body = strings.Join(parts, "\n\n")
+	comment.IsSplit = false
+	comment.SplitPieces = nil
+}
+
+// GetAcceptedPieces returns only the accepted pieces from a split comment
+func (comment *PRComment) GetAcceptedPieces() []CommentPiece {
+	if !comment.IsSplit {
+		return nil
+	}
+
+	accepted := []CommentPiece{}
+	for _, piece := range comment.SplitPieces {
+		if piece.Accepted {
+			accepted = append(accepted, piece)
+		}
+	}
+	return accepted
+}
+
+// Helper function to check if lines look like a bullet list
+func looksLikeBulletList(lines []string) bool {
+	bulletCount := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") ||
+		   strings.HasPrefix(trimmed, "• ") || matchesNumberedList(trimmed) {
+			bulletCount++
+		}
+	}
+	return bulletCount >= 2 // At least 2 bullet points
+}
+
+// Helper function to check if a line matches numbered list pattern
+func matchesNumberedList(line string) bool {
+	// Match patterns like "1. ", "2) ", etc.
+	if len(line) < 3 {
+		return false
+	}
+	if line[0] >= '0' && line[0] <= '9' {
+		if line[1] == '.' || line[1] == ')' {
+			return line[2] == ' '
+		}
+	}
+	return false
 }
