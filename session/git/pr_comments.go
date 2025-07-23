@@ -412,16 +412,17 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 		}
 		
 		comment := &PRComment{
-			ID:         ic.ID,
-			Body:       ic.Body,
-			Author:     ic.User.Login,
-			CreatedAt:  createdAt,
-			UpdatedAt:  updatedAt,
-			State:      "pending",
-			Type:       "issue_comment",
-			IsOutdated: false, // Issue comments are never outdated
-			IsResolved: false,
-			Accepted:   false,
+			ID:             ic.ID,
+			Body:           ic.Body,
+			Author:         ic.User.Login,
+			CreatedAt:      createdAt,
+			UpdatedAt:      updatedAt,
+			State:          "pending",
+			Type:           "issue_comment",
+			IsOutdated:     false, // Issue comments are never outdated
+			IsResolved:     false,
+			IsGeminiReview: strings.Contains(ic.Body, "/gemini review"),
+			Accepted:       false,
 		}
 		pr.AllComments = append(pr.AllComments, comment)
 	}
