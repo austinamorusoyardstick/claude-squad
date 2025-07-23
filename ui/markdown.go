@@ -545,9 +545,21 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 				}
 			}
 			sepStr.WriteString("┤")
-			result = append(result, tableStyle.Render(sepStr.String()))
+			result = append(result, borderStyle.Render(sepStr.String()))
 		}
 	}
+	
+	// Add bottom border
+	var bottomBorder strings.Builder
+	bottomBorder.WriteString("└")
+	for j := 0; j < maxCols; j++ {
+		bottomBorder.WriteString(strings.Repeat("─", colWidths[j]+2))
+		if j < maxCols-1 {
+			bottomBorder.WriteString("┴")
+		}
+	}
+	bottomBorder.WriteString("┘")
+	result = append(result, borderStyle.Render(bottomBorder.String()))
 	
 	return result
 }
