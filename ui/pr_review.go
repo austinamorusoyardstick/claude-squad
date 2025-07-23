@@ -189,9 +189,10 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 
 		case "e":
-			if len(m.pr.Comments) > 0 && m.currentIndex < len(m.pr.Comments) {
+			comments := m.getActiveComments()
+			if len(comments) > 0 && m.currentIndex < len(comments) {
 				return m, func() tea.Msg {
-					return PRReviewShowCommentMsg{Comment: &m.pr.Comments[m.currentIndex]}
+					return PRReviewShowCommentMsg{Comment: comments[m.currentIndex]}
 				}
 			}
 			return m, nil
