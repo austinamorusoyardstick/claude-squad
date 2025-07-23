@@ -299,9 +299,34 @@ func (m PRReviewModel) View() string {
 	// Debug: show viewport dimensions
 	// scrollInfo += fmt.Sprintf(" | H:%d/%d", m.viewport.Height, m.height)
 	
-	total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
-	header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
-		total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(m.pr.Comments), scrollInfo)))
+	comments := m.getActiveComments()
+	if m.filterEnabled {
+		total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
+		header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
+			total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(comments), scrollInfo)))
+	} else {
+		// Count stats from all comments
+		var total, reviews, reviewComments, issueComments, outdated, resolved int
+		for _, comment := range m.pr.AllComments {
+			total++
+			if comment.IsOutdated {
+				outdated++
+			}
+			if comment.IsResolved {
+				resolved++
+			}
+			switch comment.Type {
+			case "review":
+				reviews++
+			case "review_comment":
+				reviewComments++
+			case "issue_comment":
+				issueComments++
+			}
+		}
+		header.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%dR %dRC %dG, %d outdated, %d resolved), %d accepted | %d/%d%s", 
+			total, reviews, reviewComments, issueComments, outdated, resolved, acceptedCount, m.currentIndex+1, len(comments), scrollInfo)))
+	}
 	header.WriteString("\n") // Single newline after status
 
 	// Build the footer (help text)
