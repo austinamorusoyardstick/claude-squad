@@ -507,7 +507,7 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			cell = " " + cell + strings.Repeat(" ", padding) + " "
 			
 			// Apply style
-			if i == 0 {
+			if i == 0 && hasHeader {
 				rowStr.WriteString(headerStyle.Render(cell))
 			} else {
 				rowStr.WriteString(tableStyle.Render(cell))
@@ -522,7 +522,7 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 		result = append(result, rowStr.String())
 		
 		// Add separator after header
-		if i == 0 {
+		if i == 0 && hasHeader {
 			var sepStr strings.Builder
 			sepStr.WriteString("├")
 			for j := 0; j < maxCols; j++ {
