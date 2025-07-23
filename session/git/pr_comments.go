@@ -407,7 +407,7 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 			return fmt.Errorf("failed to parse updatedAt for issue comment ID %d: %w", ic.ID, err)
 		}
 		
-		comment := PRComment{
+		comment := &PRComment{
 			ID:         ic.ID,
 			Body:       ic.Body,
 			Author:     ic.User.Login,
