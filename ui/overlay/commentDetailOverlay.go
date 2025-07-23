@@ -155,7 +155,6 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 	// Author style
 	authorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214"))
-		
 	
 	// Help text style
 	helpStyle := lipgloss.NewStyle().
