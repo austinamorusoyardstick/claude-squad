@@ -580,8 +580,8 @@ func (j *JestPane) parseJestOutput(state *JestInstanceState, output string) {
 	}
 }
 
-func (j *JestPane) findFirstFailureIndex() int {
-	for i, result := range j.testResults {
+func (j *JestPane) findFirstFailureIndex(state *JestInstanceState) int {
+	for i, result := range state.testResults {
 		if result.Status == "failed" {
 			return i
 		}
@@ -598,71 +598,73 @@ func (j *JestPane) ScrollDown() {
 }
 
 func (j *JestPane) NextFailure() {
-	if len(j.failedFiles) == 0 {
+	state := j.getCurrentState()
+	if state == nil || len(state.failedFiles) == 0 {
 		return
 	}
 	
-	startIdx := j.currentIndex + 1
-	for i := startIdx; i < len(j.testResults); i++ {
-		if j.testResults[i].Status == "failed" {
-			j.currentIndex = i
+	startIdx := state.currentIndex + 1
+	for i := startIdx; i < len(state.testResults); i++ {
+		if state.testResults[i].Status == "failed" {
+			state.currentIndex = i
 			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex()
+			j.scrollToCurrentIndex(state)
 			return
 		}
 	}
 	
 	// Wrap around to beginning
-	for i := 0; i < startIdx && i < len(j.testResults); i++ {
-		if j.testResults[i].Status == "failed" {
-			j.currentIndex = i
+	for i := 0; i < startIdx && i < len(state.testResults); i++ {
+		if state.testResults[i].Status == "failed" {
+			state.currentIndex = i
 			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex()
+			j.scrollToCurrentIndex(state)
 			return
 		}
 	}
 }
 
 func (j *JestPane) PreviousFailure() {
-	if len(j.failedFiles) == 0 {
+	state := j.getCurrentState()
+	if state == nil || len(state.failedFiles) == 0 {
 		return
 	}
 	
-	startIdx := j.currentIndex - 1
+	startIdx := state.currentIndex - 1
 	for i := startIdx; i >= 0; i-- {
-		if j.testResults[i].Status == "failed" {
-			j.currentIndex = i
+		if state.testResults[i].Status == "failed" {
+			state.currentIndex = i
 			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex()
+			j.scrollToCurrentIndex(state)
 			return
 		}
 	}
 	
 	// Wrap around to end
-	for i := len(j.testResults) - 1; i > startIdx && i >= 0; i-- {
-		if j.testResults[i].Status == "failed" {
-			j.currentIndex = i
+	for i := len(state.testResults) - 1; i > startIdx && i >= 0; i-- {
+		if state.testResults[i].Status == "failed" {
+			state.currentIndex = i
 			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex()
+			j.scrollToCurrentIndex(state)
 			return
 		}
 	}
 }
 
-func (j *JestPane) scrollToCurrentIndex() {
-	if j.currentIndex < 0 || j.currentIndex >= len(j.testResults) {
+func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
+	if state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
 		return
 	}
 	
 	// Calculate approximate line number for the current test
 	lineCount := 0
-	for i := 0; i <= j.currentIndex; i++ {
-		if i == 0 || j.testResults[i].FilePath != j.testResults[i-1].FilePath {
+	for i := 0; i <= state.currentIndex; i++ {
+		if i == 0 || state.testResults[i].FilePath != state.testResults[i-1].FilePath {
 			lineCount += 2 // File header + blank line
 		}
 		lineCount++ // Test line
-		if j.testResults[i].Status == "failed" && j.testResults[i].ErrorOutput != "" {
-			lineCount += strings.Count(j.testResults[i].ErrorOutput, "\n") + 1
+		if state.testResults[i].Status == "failed" && state.testResults[i].ErrorOutput != "" {
+			lineCount += strings.Count(state.testResults[i].ErrorOutput, "\n") + 1
 		}
 	}
 	
@@ -671,11 +673,12 @@ func (j *JestPane) scrollToCurrentIndex() {
 }
 
 func (j *JestPane) OpenCurrentInIDE() error {
-	if j.currentIndex < 0 || j.currentIndex >= len(j.testResults) {
+	state := j.getCurrentState()
+	if state == nil || state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
 		return fmt.Errorf("no test selected")
 	}
 	
-	result := j.testResults[j.currentIndex]
+	result := state.testResults[state.currentIndex]
 	if result.Status != "failed" {
 		return fmt.Errorf("selected test did not fail")
 	}
