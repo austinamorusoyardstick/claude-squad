@@ -372,24 +372,7 @@ func (m PRReviewModel) View() string {
 			total, reviews, reviewComments, issueComments, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	} else {
 		// Count stats from all comments
-		var total, reviews, reviewComments, issueComments, outdated, resolved int
-		for _, comment := range m.pr.AllComments {
-			total++
-			if comment.IsOutdated {
-				outdated++
-			}
-			if comment.IsResolved {
-				resolved++
-			}
-			switch comment.Type {
-			case "review":
-				reviews++
-			case "review_comment":
-				reviewComments++
-			case "issue_comment":
-				issueComments++
-			}
-		}
+		total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetStatsForAllComments()
 		header.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%dR %dRC %dG, %d outdated, %d resolved), %d accepted | %d/%d%s", 
 			total, reviews, reviewComments, issueComments, outdated, resolved, acceptedCount, m.currentIndex+1, len(activeComments), scrollInfo)))
 	}
