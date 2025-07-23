@@ -416,7 +416,8 @@ func (m PRReviewModel) View() string {
 func (m *PRReviewModel) updateViewportContent() {
 	var content strings.Builder
 	
-	for i, comment := range m.pr.Comments {
+	comments := m.getActiveComments()
+	for i, comment := range comments {
 		if i > 0 {
 			content.WriteString("\n\n") // Add consistent spacing between comments
 		}
