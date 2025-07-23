@@ -160,6 +160,14 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			}
 			return m, nil
 		
+		case "e":
+			if len(m.pr.Comments) > 0 && m.currentIndex < len(m.pr.Comments) {
+				return m, func() tea.Msg { 
+					return PRReviewShowCommentMsg{Comment: &m.pr.Comments[m.currentIndex]} 
+				}
+			}
+			return m, nil
+		
 		case "enter":
 			acceptedComments := m.pr.GetAcceptedComments()
 			return m, func() tea.Msg { return PRReviewCompleteMsg{AcceptedComments: acceptedComments} }
