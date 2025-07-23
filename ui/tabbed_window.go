@@ -34,6 +34,7 @@ const (
 	AITab = iota
 	DiffTab
 	TerminalTab
+	JestTab
 )
 
 type Tab struct {
@@ -54,18 +55,21 @@ type TabbedWindow struct {
 	diff     *DiffPane
 	instance *session.Instance
 	terminal *TerminalPane
+	jest     *JestPane
 }
 
-func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPane) *TabbedWindow {
+func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPane, jest *JestPane) *TabbedWindow {
 	return &TabbedWindow{
 		tabs: []string{
 			"AI",
 			"Diff",
 			"Terminal",
+			"Jest",
 		},
 		preview:  preview,
 		diff:     diff,
 		terminal: terminal,
+		jest:     jest,
 	}
 }
 
@@ -93,6 +97,7 @@ func (w *TabbedWindow) SetSize(width, height int) {
 	w.preview.SetSize(contentWidth, contentHeight)
 	w.diff.SetSize(contentWidth, contentHeight)
 	w.terminal.SetSize(contentWidth, contentHeight)
+	w.jest.SetSize(contentWidth, contentHeight)
 }
 
 func (w *TabbedWindow) GetPreviewSize() (width, height int) {
@@ -164,6 +169,8 @@ func (w *TabbedWindow) ScrollUp() {
 		if err != nil {
 			log.InfoLog.Printf("terminal pane failed to scroll up: %v", err)
 		}
+	case JestTab:
+		w.jest.ScrollUp()
 	}
 }
 
@@ -181,6 +188,8 @@ func (w *TabbedWindow) ScrollDown() {
 		if err != nil {
 			log.InfoLog.Printf("terminal pane failed to scroll down: %v", err)
 		}
+	case JestTab:
+		w.jest.ScrollDown()
 	}
 }
 
@@ -325,6 +334,8 @@ func (w *TabbedWindow) String() string {
 		content = w.diff.String()
 	case 2:
 		content = w.terminal.String()
+	case 3:
+		content = w.jest.String()
 	}
 	window := windowStyle.Render(
 		lipgloss.Place(
