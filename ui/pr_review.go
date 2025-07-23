@@ -355,7 +355,7 @@ func (m PRReviewModel) View() string {
 	// Debug: show viewport dimensions
 	// scrollInfo += fmt.Sprintf(" | H:%d/%d", m.viewport.Height, m.height)
 	
-	comments := m.getActiveComments()
+	activeComments := m.getActiveComments()
 	if m.filterEnabled {
 		total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
 		header.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%dR %dRC %dG), %d accepted | %d/%d%s", 
