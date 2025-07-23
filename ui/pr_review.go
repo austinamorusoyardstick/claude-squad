@@ -134,8 +134,22 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "a":
 			comments := m.getActiveComments()
-			if len(comments) > 0 {
-				comments[m.currentIndex].Accepted = true
+			if len(comments) > 0 && m.currentIndex < len(comments) {
+				// Find and update the comment in AllComments
+				targetID := comments[m.currentIndex].ID
+				for i := range m.pr.AllComments {
+					if m.pr.AllComments[i].ID == targetID {
+						m.pr.AllComments[i].Accepted = true
+						break
+					}
+				}
+				// Also update in filtered comments if applicable
+				for i := range m.pr.Comments {
+					if m.pr.Comments[i].ID == targetID {
+						m.pr.Comments[i].Accepted = true
+						break
+					}
+				}
 				if m.ready {
 					m.updateViewportContent()
 				}
@@ -144,8 +158,22 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "d":
 			comments := m.getActiveComments()
-			if len(comments) > 0 {
-				comments[m.currentIndex].Accepted = false
+			if len(comments) > 0 && m.currentIndex < len(comments) {
+				// Find and update the comment in AllComments
+				targetID := comments[m.currentIndex].ID
+				for i := range m.pr.AllComments {
+					if m.pr.AllComments[i].ID == targetID {
+						m.pr.AllComments[i].Accepted = false
+						break
+					}
+				}
+				// Also update in filtered comments if applicable
+				for i := range m.pr.Comments {
+					if m.pr.Comments[i].ID == targetID {
+						m.pr.Comments[i].Accepted = false
+						break
+					}
+				}
 				if m.ready {
 					m.updateViewportContent()
 				}
