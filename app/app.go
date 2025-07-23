@@ -291,6 +291,13 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state = stateDefault
 			m.prReviewOverlay = nil
 			return m, nil
+		case ui.PRReviewShowCommentMsg:
+			// Show comment detail overlay
+			showMsg := msg.(ui.PRReviewShowCommentMsg)
+			m.commentDetailOverlay = overlay.NewCommentDetailOverlay(showMsg.Comment)
+			m.commentDetailOverlay.SetSize(m.tabbedWindow.GetWidth(), m.tabbedWindow.GetHeight())
+			m.state = stateCommentDetail
+			return m, nil
 		}
 
 		return m, cmd
