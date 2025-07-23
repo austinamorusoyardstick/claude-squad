@@ -350,7 +350,6 @@ func (m PRReviewModel) View() string {
 		return m.splitModel.View()
 	}
 
-	if len(m.pr.Comments) == 0 {
 	comments := m.getActiveComments()
 	if len(comments) == 0 {
 		if m.filterEnabled && len(m.pr.AllComments) > 0 {
