@@ -26,7 +26,7 @@ type commentProcessedMsg struct {
 
 type allCommentsProcessedMsg struct{}
 
-func (m *home) processAcceptedComments(comments []git.PRComment) tea.Cmd {
+func (m *home) processAcceptedComments(comments []*git.PRComment) tea.Cmd {
 	// First show the processing overlay
 	progressText := fmt.Sprintf("Processing %d PR comments...\n\n", len(comments))
 	for i, comment := range comments {
