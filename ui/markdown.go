@@ -196,14 +196,12 @@ func RenderMarkdownLight(content string) string {
 		processedLine := line
 		
 		// Handle inline code (must be done before bold/italic to avoid conflicts)
-		inlineCodeRegex := regexp.MustCompile("`([^`]+)`")
 		processedLine = inlineCodeRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
 			code := strings.Trim(match, "`")
 			return codeStyle.Render(code)
 		})
 		
 		// Handle bold (**text** or __text__)
-		boldRegex := regexp.MustCompile(`(\*\*|__)([^*_]+)(\*\*|__)`)
 		processedLine = boldRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
 			text := boldRegex.FindStringSubmatch(match)[2]
 			return boldStyle.Render(text)
@@ -211,7 +209,6 @@ func RenderMarkdownLight(content string) string {
 		
 		// Handle italic (*text* or _text_) - simpler approach
 		// Handle single asterisks
-		singleAsteriskRegex := regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
 		processedLine = singleAsteriskRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
 			submatch := singleAsteriskRegex.FindStringSubmatch(match)
 			if len(submatch) > 1 {
@@ -231,7 +228,6 @@ func RenderMarkdownLight(content string) string {
 		})
 		
 		// Handle single underscores
-		singleUnderscoreRegex := regexp.MustCompile(`(?:^|\s)_([^_\n]+)_(?:\s|$)`)
 		processedLine = singleUnderscoreRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
 			submatch := singleUnderscoreRegex.FindStringSubmatch(match)
 			if len(submatch) > 1 {
@@ -253,7 +249,7 @@ func RenderMarkdownLight(content string) string {
 		// Handle lists (just add some indentation)
 		if strings.HasPrefix(strings.TrimSpace(line), "- ") ||
 			strings.HasPrefix(strings.TrimSpace(line), "* ") ||
-			regexp.MustCompile(`^\s*\d+\.`).MatchString(line) {
+			listItemRegex.MatchString(line) {
 			processedLine = "  • " + strings.TrimSpace(processedLine[2:])
 		}
 		
