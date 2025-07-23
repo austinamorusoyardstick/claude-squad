@@ -158,7 +158,7 @@ func (j *JestPane) String() string {
 	content := j.viewport.View()
 
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	help := helpStyle.Render("↑/↓: scroll • r: rerun tests • ESC: exit scroll mode")
+	help := helpStyle.Render("↑/↓: scroll • r: rerun tests • ESC: exit scroll mode • Auto-scrolls during test run")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
