@@ -1,24 +1,37 @@
-name: Gemini Review on PR Push
+# Name of the workflow, which will be displayed in the "Actions" tab of your GitHub repository.
+name: Request Gemini Review
 
+# This section defines the trigger for the workflow.
 on:
+  # The workflow runs on events related to a pull request.
   pull_request:
+    # Specifically, it triggers on the 'synchronize' event type.
+    # This event occurs whenever the head branch of a pull request is updated,
+    # for example, when new commits are pushed to the branch.
     types: [synchronize]
 
-permissions:
-  pull-requests: write
-
+# This section defines the jobs to be executed as part of the workflow.
 jobs:
-  comment:
+  # A single job in this workflow, named 'add_review_comment'.
+  add_review_comment:
+    # Specifies that the job will run on a virtual machine with the latest version of Ubuntu.
     runs-on: ubuntu-latest
+
+    # Grants the necessary permissions for the GITHUB_TOKEN used in this job.
+    # We need write access to pull requests to be able to post a comment.
+    permissions:
+      pull-requests: write
+
+    # This section lists the steps that make up the job.
     steps:
-      - name: Post Gemini Review Comment
-        uses: actions/github-script@v7
+      # This step uses a pre-built action from the GitHub Marketplace to add a comment to the PR.
+      - name: Add /gemini review comment
+        uses: thollander/actions-comment-pull-request@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: '/gemini review'
-            });
+          # The exact message that will be posted as a comment.
+          message: /gemini review
+          
+          # The GITHUB_TOKEN is a special access token that GitHub automatically creates
+          # for you to use in your workflow. It's used here to authenticate the action
+          # so it can post the comment on behalf of the workflow.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
