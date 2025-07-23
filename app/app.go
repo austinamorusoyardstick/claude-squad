@@ -1482,6 +1482,9 @@ func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
 
+	// Update the tabbed window with the current instance
+	m.tabbedWindow.SetInstance(selected)
+	
 	m.tabbedWindow.UpdateDiff(selected)
 	m.tabbedWindow.UpdateTerminal(selected)
 	// Update menu with current instance
