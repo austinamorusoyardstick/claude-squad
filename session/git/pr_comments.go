@@ -421,6 +421,43 @@ func (pr *PullRequest) GetAcceptedComments() []PRComment {
 	return accepted
 }
 
+// PreprocessComments pre-renders markdown for all comments
+func (pr *PullRequest) PreprocessComments() {
+	for i := range pr.Comments {
+		// Store plain body for previews
+		pr.Comments[i].PlainBody = stripMarkdownSimple(pr.Comments[i].Body)
+		// Use the formatted body as rendered body (no heavy markdown processing)
+		pr.Comments[i].RenderedBody = pr.Comments[i].Body
+	}
+}
+
+// stripMarkdownSimple provides a fast, simple markdown stripping
+func stripMarkdownSimple(content string) string {
+	// Remove code blocks
+	content = regexp.MustCompile("```[\\s\\S]*?```").ReplaceAllString(content, "")
+	
+	// Remove inline code
+	content = strings.ReplaceAll(content, "`", "")
+	
+	// Remove bold and italic markers
+	content = regexp.MustCompile(`\*\*([^*]+)\*\*`).ReplaceAllString(content, "$1")
+	content = regexp.MustCompile(`__([^_]+)__`).ReplaceAllString(content, "$1")
+	content = regexp.MustCompile(`\*([^*]+)\*`).ReplaceAllString(content, "$1")
+	content = regexp.MustCompile(`_([^_]+)_`).ReplaceAllString(content, "$1")
+	
+	// Remove headers
+	content = regexp.MustCompile(`(?m)^#{1,6}\s+`).ReplaceAllString(content, "")
+	
+	// Remove links but keep text
+	content = regexp.MustCompile(`\[([^\]]+)\]\([^)]+\)`).ReplaceAllString(content, "$1")
+	
+	// Clean up extra whitespace
+	content = regexp.MustCompile(`\n{3,}`).ReplaceAllString(content, "\n\n")
+	content = strings.TrimSpace(content)
+	
+	return content
+}
+
 // GetCommentStats returns statistics about the comments (includes both shown and filtered)
 func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
 	for _, comment := range pr.Comments {
