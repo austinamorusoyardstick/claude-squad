@@ -618,21 +618,21 @@ func getIDECommand() string {
 // Add styles used by Jest pane
 var (
 	fileHeaderStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("cyan")).
-			MarginTop(1)
+		Bold(true).
+		Foreground(lipgloss.Color("cyan")).
+		MarginTop(1)
 
 	selectedStyle = lipgloss.NewStyle().
-			Background(lipgloss.Color("237")).
-			Foreground(lipgloss.Color("white"))
+		Background(lipgloss.Color("237")).
+		Foreground(lipgloss.Color("white"))
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("red"))
+		Foreground(lipgloss.Color("red"))
 
 	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("green"))
+		Foreground(lipgloss.Color("green"))
 
 	failureStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("red")).
-			Bold(true)
+		Foreground(lipgloss.Color("red")).
+		Bold(true)
 )
