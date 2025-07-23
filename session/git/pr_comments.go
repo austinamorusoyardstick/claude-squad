@@ -130,11 +130,13 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	}
 
 	// After fetching all comments, separate filtered from all
+	filteredComments := make([]*PRComment, 0, len(pr.AllComments))
 	for _, comment := range pr.AllComments {
 		if !comment.IsOutdated && !comment.IsResolved {
-			pr.Comments = append(pr.Comments, comment)
+			filteredComments = append(filteredComments, comment)
 		}
 	}
+	pr.Comments = filteredComments
 
 	return nil
 }
