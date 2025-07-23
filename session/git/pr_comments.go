@@ -483,9 +483,31 @@ func stripMarkdownSimple(content string) string {
 	return content
 }
 
-// GetCommentStats returns statistics about the comments (includes both shown and filtered)
+// GetCommentStats returns statistics about the filtered comments
 func (pr *PullRequest) GetCommentStats() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
 	for _, comment := range pr.Comments {
+		total++
+		if comment.IsOutdated {
+			outdated++
+		}
+		if comment.IsResolved {
+			resolved++
+		}
+		switch comment.Type {
+		case "review":
+			reviews++
+		case "review_comment":
+			reviewComments++
+		case "issue_comment":
+			issueComments++
+		}
+	}
+	return
+}
+
+// GetStatsForAllComments returns statistics about all comments (including outdated/resolved)
+func (pr *PullRequest) GetStatsForAllComments() (total, reviews, reviewComments, issueComments, outdated, resolved int) {
+	for _, comment := range pr.AllComments {
 		total++
 		if comment.IsOutdated {
 			outdated++
