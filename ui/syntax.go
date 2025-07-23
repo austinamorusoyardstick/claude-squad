@@ -182,6 +182,8 @@ func HighlightCode(code, language string) string {
 	case "typescript", "ts", "tsx":
 		// TypeScript is similar to JavaScript, so use the same highlighter
 		return HighlightJavaScript(code)
+	case "go", "golang":
+		return HighlightGo(code)
 	case "suggestion":
 		// GitHub suggestion blocks - try to detect the language
 		if strings.Contains(code, ":=") || strings.Contains(code, "func ") || strings.Contains(code, "package ") {
