@@ -147,7 +147,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "j", "down":
-			if m.currentIndex < len(m.pr.Comments)-1 {
+			if m.currentIndex < len(m.getActiveComments())-1 {
 				m.currentIndex++
 				if m.ready {
 					m.updateViewportContent()
@@ -167,8 +167,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "a":
-			if len(m.pr.Comments) > 0 {
-				m.pr.Comments[m.currentIndex].Accepted = true
+			comments := m.getActiveComments()
+			if len(comments) > 0 {
+				comments[m.currentIndex].Accepted = true
 				if m.ready {
 					m.updateViewportContent()
 				}
@@ -176,8 +177,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "d":
-			if len(m.pr.Comments) > 0 {
-				m.pr.Comments[m.currentIndex].Accepted = false
+			comments := m.getActiveComments()
+			if len(comments) > 0 {
+				comments[m.currentIndex].Accepted = false
 				if m.ready {
 					m.updateViewportContent()
 				}
@@ -185,8 +187,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "A":
-			for i := range m.pr.Comments {
-				m.pr.Comments[i].Accepted = true
+			comments := m.getActiveComments()
+			for i := range comments {
+				comments[i].Accepted = true
 			}
 			if m.ready {
 				m.updateViewportContent()
@@ -194,8 +197,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 		
 		case "D":
-			for i := range m.pr.Comments {
-				m.pr.Comments[i].Accepted = false
+			comments := m.getActiveComments()
+			for i := range comments {
+				comments[i].Accepted = false
 			}
 			if m.ready {
 				m.updateViewportContent()
@@ -241,7 +245,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			if m.ready {
 				m.viewport.GotoTop()
 			}
-			if len(m.pr.Comments) > 0 {
+			if len(m.getActiveComments()) > 0 {
 				m.currentIndex = 0
 				if m.ready {
 					m.updateViewportContent()
@@ -253,8 +257,8 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			if m.ready {
 				m.viewport.GotoBottom()
 			}
-			if len(m.pr.Comments) > 0 {
-				m.currentIndex = len(m.pr.Comments) - 1
+			if len(m.getActiveComments()) > 0 {
+				m.currentIndex = len(m.getActiveComments()) - 1
 				if m.ready {
 					m.updateViewportContent()
 				}
@@ -291,6 +295,11 @@ func (m PRReviewModel) View() string {
 	}
 
 	if len(m.pr.Comments) == 0 {
+	comments := m.getActiveComments()
+	if len(comments) == 0 {
+		if m.filterEnabled && len(m.pr.AllComments) > 0 {
+			return "No active comments found on this PR (all are outdated/resolved).\n\nPress 'f' to show all comments\nPress 'q' to go back"
+		}
 		return "No comments found on this PR.\n\nPress 'q' to go back"
 	}
 
