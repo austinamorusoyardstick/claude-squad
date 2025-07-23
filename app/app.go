@@ -535,7 +535,16 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	}
 
 	if m.state == stateCommentDetail {
-		return m.handleCommentDetailState(msg)
+		// Handle key messages
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			return m.handleCommentDetailState(keyMsg)
+		}
+		// Handle other message types (like mouse wheel)
+		if m.commentDetailOverlay != nil {
+			_, cmd := m.commentDetailOverlay.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	}
 
 	if m.state == stateNew {
