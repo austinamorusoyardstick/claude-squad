@@ -200,21 +200,41 @@ func RenderMarkdownLight(content string) string {
 			return boldStyle.Render(text)
 		})
 		
-		// Handle italic (*text* or _text_) - but not if part of bold
-		italicRegex := regexp.MustCompile(`(?:^|[^*_])([*_])([^*_]+)\1(?:[^*_]|$)`)
-		processedLine = italicRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
-			// Extract the text without the markers
-			submatch := italicRegex.FindStringSubmatch(match)
-			if len(submatch) > 2 {
-				text := submatch[2]
-				// Preserve any leading/trailing characters that aren't markers
+		// Handle italic (*text* or _text_) - simpler approach
+		// Handle single asterisks
+		singleAsteriskRegex := regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
+		processedLine = singleAsteriskRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
+			submatch := singleAsteriskRegex.FindStringSubmatch(match)
+			if len(submatch) > 1 {
+				text := submatch[1]
+				// Preserve whitespace
 				prefix := ""
 				suffix := ""
-				if !strings.HasPrefix(match, submatch[1]) {
-					prefix = match[0:1]
+				if strings.HasPrefix(match, " ") {
+					prefix = " "
 				}
-				if !strings.HasSuffix(match, submatch[1]) {
-					suffix = match[len(match)-1:]
+				if strings.HasSuffix(match, " ") {
+					suffix = " "
+				}
+				return prefix + italicStyle.Render(text) + suffix
+			}
+			return match
+		})
+		
+		// Handle single underscores
+		singleUnderscoreRegex := regexp.MustCompile(`(?:^|\s)_([^_\n]+)_(?:\s|$)`)
+		processedLine = singleUnderscoreRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
+			submatch := singleUnderscoreRegex.FindStringSubmatch(match)
+			if len(submatch) > 1 {
+				text := submatch[1]
+				// Preserve whitespace
+				prefix := ""
+				suffix := ""
+				if strings.HasPrefix(match, " ") {
+					prefix = " "
+				}
+				if strings.HasSuffix(match, " ") {
+					suffix = " "
 				}
 				return prefix + italicStyle.Render(text) + suffix
 			}
