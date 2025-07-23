@@ -495,7 +495,10 @@ func (j *JestPane) OpenCurrentInIDE() error {
 		cmd = exec.Command(ideCmd, result.FilePath)
 	}
 	
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to open in IDE: %w", err)
+	}
+	return nil
 }
 
 func (j *JestPane) ResetToNormalMode() {
