@@ -247,6 +247,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	// Debug output
 	outputChan <- fmt.Sprintf("Running command: yarn tester")
 	outputChan <- fmt.Sprintf("Working directory: %s", workDir)
+	outputChan <- "Starting test run...\n"
 
 	// Store cmd in state so we can kill it if needed
 	j.mu.Lock()
@@ -274,6 +275,8 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		j.mu.Unlock()
 		return
 	}
+	
+	outputChan <- "Command started successfully..."
 
 	// Collect all output for parsing
 	var allOutput strings.Builder
