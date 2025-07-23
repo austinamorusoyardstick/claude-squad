@@ -473,7 +473,12 @@ func (j *JestPane) stopTests(instance *session.Instance) {
 }
 
 func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
-	ideCmd := getIDECommand()
+	state := j.getCurrentState()
+	if state == nil {
+		return
+	}
+	
+	ideCmd := getIDECommand(state.workingDir)
 	if ideCmd == "" {
 		return
 	}
