@@ -31,7 +31,8 @@ jobs:
           # The exact message that will be posted as a comment.
           message: /gemini review
           
-          # The GITHUB_TOKEN is a special access token that GitHub automatically creates
-          # for you to use in your workflow. It's used here to authenticate the action
-          # so it can post the comment on behalf of the workflow.
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use a Personal Access Token (PAT) to comment as a specific GitHub user.
+          # You need to create a PAT in your GitHub settings and add it as a repository secret.
+          # Name the secret 'USER_PAT' or adjust the name below to match your secret name.
+          # Without a PAT, comments will appear from 'github-actions[bot]'.
+          GITHUB_TOKEN: ${{ secrets.USER_PAT }}
