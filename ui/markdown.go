@@ -208,6 +208,7 @@ func RenderMarkdownLight(content string) string {
 	codeBlockLines := []string{}
 	inTable := false
 	tableRows := [][]string{}
+	tableHasHeader := false
 	
 	for i, line := range lines {
 		// Handle code blocks
