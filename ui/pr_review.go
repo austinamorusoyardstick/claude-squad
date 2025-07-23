@@ -375,32 +375,24 @@ func (m *PRReviewModel) updateViewportContent() {
 		// Format body
 		var body string
 		if isSelected {
-			// Render markdown for selected comment
-			renderedBody, err := RenderMarkdown(comment.Body, maxWidth-4)
-			if err != nil {
-				// Fallback to formatted body
-				body = comment.GetFormattedBody()
-			} else {
-				body = renderedBody
-			}
+			// Use lightweight markdown rendering for selected comment
+			body = RenderMarkdownLight(comment.Body)
 		} else {
-			// For non-selected items, strip markdown and truncate
-			body = StripMarkdown(comment.Body)
-			// Use simple line wrapping for stripped content
+			// For non-selected items, use cached plain body if available
+			if comment.PlainBody != "" {
+				body = comment.PlainBody
+			} else {
+				body = StripMarkdown(comment.Body)
+			}
+			// Truncate for preview
 			if len(body) > 150 {
 				body = body[:147] + "..."
 			}
 		}
 		
 		// Wrap text to fit within box
-		var wrappedBody string
-		if isSelected {
-			// Markdown is already wrapped by glamour
-			wrappedBody = body
-		} else {
-			lines := m.wrapText(body, maxWidth-4)
-			wrappedBody = strings.Join(lines, "\n")
-		}
+		lines := m.wrapText(body, maxWidth-4)
+		wrappedBody := strings.Join(lines, "\n")
 
 		// Combine header and body
 		commentContent := fmt.Sprintf("%s\n\n%s",
