@@ -137,3 +137,105 @@ func RenderMarkdownInBox(content string, width int, boxStyle lipgloss.Style) str
 
 	return boxStyle.Render(rendered)
 }
+
+// RenderMarkdownLight provides a lightweight markdown rendering that only handles basic formatting
+// This is much faster than full glamour rendering and suitable for real-time updates
+func RenderMarkdownLight(content string) string {
+	// Define styles
+	boldStyle := lipgloss.NewStyle().Bold(true)
+	italicStyle := lipgloss.NewStyle().Italic(true)
+	codeStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("213"))
+	
+	// Process line by line
+	lines := strings.Split(content, "\n")
+	processedLines := make([]string, 0, len(lines))
+	
+	inCodeBlock := false
+	codeBlockLines := []string{}
+	
+	for _, line := range lines {
+		// Handle code blocks
+		if strings.HasPrefix(line, "```") {
+			if inCodeBlock {
+				// End code block
+				inCodeBlock = false
+				codeContent := strings.Join(codeBlockLines, "\n")
+				processedLines = append(processedLines, codeStyle.Render(codeContent))
+				codeBlockLines = nil
+			} else {
+				// Start code block
+				inCodeBlock = true
+			}
+			continue
+		}
+		
+		if inCodeBlock {
+			codeBlockLines = append(codeBlockLines, line)
+			continue
+		}
+		
+		// Handle headers (simple approach - just make them bold)
+		if strings.HasPrefix(line, "#") {
+			headerText := strings.TrimLeft(line, "# ")
+			processedLines = append(processedLines, boldStyle.Render(headerText))
+			continue
+		}
+		
+		// Process inline formatting
+		processedLine := line
+		
+		// Handle inline code (must be done before bold/italic to avoid conflicts)
+		inlineCodeRegex := regexp.MustCompile("`([^`]+)`")
+		processedLine = inlineCodeRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
+			code := strings.Trim(match, "`")
+			return codeStyle.Render(code)
+		})
+		
+		// Handle bold (**text** or __text__)
+		boldRegex := regexp.MustCompile(`(\*\*|__)([^*_]+)(\*\*|__)`)
+		processedLine = boldRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
+			text := boldRegex.FindStringSubmatch(match)[2]
+			return boldStyle.Render(text)
+		})
+		
+		// Handle italic (*text* or _text_) - but not if part of bold
+		italicRegex := regexp.MustCompile(`(?:^|[^*_])([*_])([^*_]+)\1(?:[^*_]|$)`)
+		processedLine = italicRegex.ReplaceAllStringFunc(processedLine, func(match string) string {
+			// Extract the text without the markers
+			submatch := italicRegex.FindStringSubmatch(match)
+			if len(submatch) > 2 {
+				text := submatch[2]
+				// Preserve any leading/trailing characters that aren't markers
+				prefix := ""
+				suffix := ""
+				if !strings.HasPrefix(match, submatch[1]) {
+					prefix = match[0:1]
+				}
+				if !strings.HasSuffix(match, submatch[1]) {
+					suffix = match[len(match)-1:]
+				}
+				return prefix + italicStyle.Render(text) + suffix
+			}
+			return match
+		})
+		
+		// Handle lists (just add some indentation)
+		if strings.HasPrefix(strings.TrimSpace(line), "- ") ||
+			strings.HasPrefix(strings.TrimSpace(line), "* ") ||
+			regexp.MustCompile(`^\s*\d+\.`).MatchString(line) {
+			processedLine = "  • " + strings.TrimSpace(processedLine[2:])
+		}
+		
+		processedLines = append(processedLines, processedLine)
+	}
+	
+	// Handle any unclosed code block
+	if inCodeBlock && len(codeBlockLines) > 0 {
+		codeContent := strings.Join(codeBlockLines, "\n")
+		processedLines = append(processedLines, codeStyle.Render(codeContent))
+	}
+	
+	return strings.Join(processedLines, "\n")
+}
