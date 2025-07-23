@@ -102,8 +102,8 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 
 func (pr *PullRequest) FetchComments(workingDir string) error {
 	// Always clear existing data to ensure fresh fetch
-	pr.Comments = []PRComment{}
-	pr.AllComments = []PRComment{}
+	pr.Comments = []*PRComment{}
+	pr.AllComments = []*PRComment{}
 	pr.Reviews = []PRReview{}
 
 	// First fetch resolved status for review threads
