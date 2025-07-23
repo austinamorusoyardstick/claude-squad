@@ -386,6 +386,8 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	// Keep the liveOutput so it persists after tests complete
 	j.mu.Unlock()
 	j.viewport.SetContent(j.formatContent())
+	// Ensure we're scrolled to bottom to see final results
+	j.viewport.GotoBottom()
 }
 
 func (j *JestPane) stopTests(instance *session.Instance) {
