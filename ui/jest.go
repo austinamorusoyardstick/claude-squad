@@ -346,6 +346,18 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	if cmdErr != nil {
 		outputChan <- fmt.Sprintf("\nCommand exited with error: %v", cmdErr)
 	}
+	
+	// If we didn't get any output, try running with CombinedOutput as fallback
+	if allOutput.Len() == 0 {
+		outputChan <- "\nNo output captured from pipes, trying alternative method..."
+		fallbackCmd := exec.Command("yarn", "tester")
+		fallbackCmd.Dir = workDir
+		fallbackOutput, fallbackErr := fallbackCmd.CombinedOutput()
+		if fallbackErr != nil {
+			outputChan <- fmt.Sprintf("\nFallback command error: %v", fallbackErr)
+		}
+		outputChan <- string(fallbackOutput)
+	}
 
 	// Auto-open failed files in IDE
 	if len(failedFiles) > 0 {
