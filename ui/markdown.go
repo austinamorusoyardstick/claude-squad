@@ -250,17 +250,19 @@ func RenderMarkdownLight(content string) string {
 				tableRows = [][]string{}
 			}
 			
-			// Skip separator rows but use them to detect tables
-			if tableSepRegex.MatchString(line) {
-				continue
-			}
-			
 			// Parse table row
 			cells := strings.Split(strings.Trim(line, "|"), "|")
 			for j := range cells {
 				cells[j] = strings.TrimSpace(cells[j])
 			}
-			tableRows = append(tableRows, cells)
+			
+			// Check if this is a separator row
+			isSeparator := tableSepRegex.MatchString(line)
+			
+			// Only add non-separator rows
+			if !isSeparator {
+				tableRows = append(tableRows, cells)
+			}
 			
 			// Check if next line is not a table row to end the table
 			if i == len(lines)-1 || (i < len(lines)-1 && !tableRowRegex.MatchString(lines[i+1])) {
@@ -270,6 +272,13 @@ func RenderMarkdownLight(content string) string {
 				tableRows = nil
 			}
 			continue
+		}
+		
+		// If we were in a table and hit a non-table line, render it
+		if inTable {
+			processedLines = append(processedLines, renderSimpleTable(tableRows)...)
+			inTable = false
+			tableRows = nil
 		}
 		
 		// Handle horizontal rules
