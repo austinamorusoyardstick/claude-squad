@@ -586,7 +586,17 @@ func (m PRReviewModel) simpleView() string {
 		comment := m.pr.Comments[m.currentIndex]
 		
 		status := "[ ]"
-		if comment.Accepted {
+		if comment.IsSplit {
+			acceptedCount := 0
+			for _, piece := range comment.SplitPieces {
+				if piece.Accepted {
+					acceptedCount++
+				}
+			}
+			if acceptedCount > 0 {
+				status = fmt.Sprintf("[%d/%d]", acceptedCount, len(comment.SplitPieces))
+			}
+		} else if comment.Accepted {
 			status = "[✓]"
 		}
 		
