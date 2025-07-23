@@ -19,6 +19,8 @@ type PRReviewModel struct {
 	err           error
 	viewport      viewport.Model
 	ready         bool
+	splitMode     bool
+	splitModel    *CommentSplitModel
 }
 
 type PRReviewCompleteMsg struct {
@@ -52,6 +54,34 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
+
+	// Handle split mode updates
+	if m.splitMode && m.splitModel != nil {
+		switch msg := msg.(type) {
+		case CommentSplitCompleteMsg:
+			// Exit split mode and update the comment
+			m.splitMode = false
+			m.splitModel = nil
+			if m.ready {
+				m.updateViewportContent()
+			}
+			return m, nil
+
+		case CommentSplitCancelMsg:
+			// Cancel split mode without saving
+			m.splitMode = false
+			m.splitModel = nil
+			if m.ready {
+				m.updateViewportContent()
+			}
+			return m, nil
+
+		default:
+			// Pass other messages to split model
+			*m.splitModel, cmd = m.splitModel.Update(msg)
+			return m, cmd
+		}
+	}
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -159,15 +189,25 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 				m.updateViewportContent()
 			}
 			return m, nil
-		
+
 		case "e":
 			if len(m.pr.Comments) > 0 && m.currentIndex < len(m.pr.Comments) {
-				return m, func() tea.Msg { 
-					return PRReviewShowCommentMsg{Comment: &m.pr.Comments[m.currentIndex]} 
+				return m, func() tea.Msg {
+					return PRReviewShowCommentMsg{Comment: &m.pr.Comments[m.currentIndex]}
 				}
 			}
 			return m, nil
-		
+
+		case "s":
+			// Enter split mode for current comment
+			if len(m.pr.Comments) > 0 && !m.splitMode {
+				splitModel := NewCommentSplitModel(&m.pr.Comments[m.currentIndex])
+				m.splitModel = &splitModel
+				m.splitMode = true
+				return m, m.splitModel.Init()
+			}
+			return m, nil
+
 		case "enter":
 			acceptedComments := m.pr.GetAcceptedComments()
 			return m, func() tea.Msg { return PRReviewCompleteMsg{AcceptedComments: acceptedComments} }
@@ -223,6 +263,11 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 func (m PRReviewModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'q' to go back", m.err)
+	}
+
+	// Show split mode if active
+	if m.splitMode && m.splitModel != nil {
+		return m.splitModel.View()
 	}
 
 	if len(m.pr.Comments) == 0 {
@@ -295,6 +340,7 @@ func (m PRReviewModel) View() string {
 			"a/d:accept/deny",
 			"A/D:all",
 			"e:expand",
+			"s:split",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
@@ -340,7 +386,17 @@ func (m *PRReviewModel) updateViewportContent() {
 
 		// Status indicator
 		status := "[ ]"
-		if comment.Accepted {
+		if comment.IsSplit {
+			acceptedCount := 0
+			for _, piece := range comment.SplitPieces {
+				if piece.Accepted {
+					acceptedCount++
+				}
+			}
+			if acceptedCount > 0 {
+				status = fmt.Sprintf("[%d/%d]", acceptedCount, len(comment.SplitPieces))
+			}
+		} else if comment.Accepted {
 			status = "[✓]"
 		}
 		
@@ -576,7 +632,7 @@ func (m PRReviewModel) simpleView() string {
 		Foreground(lipgloss.Color("241"))
 	
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • Enter:process • q:cancel"))
-	
+	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • Enter:process • q:cancel"))
+
 	return b.String()
 }
