@@ -73,11 +73,15 @@ func (j *JestPane) String() string {
 	
 	var status string
 	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	if j.running {
+	
+	state := j.getCurrentState()
+	if state == nil {
+		status = statusStyle.Render("No instance selected")
+	} else if state.running {
 		status = statusStyle.Render("⏳ Running tests...")
-	} else if len(j.failedFiles) > 0 {
-		status = failureStyle.Render(fmt.Sprintf("❌ %d test(s) failed", len(j.failedFiles)))
-	} else if len(j.testResults) > 0 {
+	} else if len(state.failedFiles) > 0 {
+		status = failureStyle.Render(fmt.Sprintf("❌ %d test(s) failed", len(state.failedFiles)))
+	} else if len(state.testResults) > 0 {
 		status = successStyle.Render("✅ All tests passed")
 	} else {
 		status = statusStyle.Render("No tests run yet")
@@ -98,7 +102,18 @@ func (j *JestPane) String() string {
 }
 
 func (j *JestPane) formatContent() string {
-	if len(j.testResults) == 0 {
+	state := j.getCurrentState()
+	if state == nil {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		return dimStyle.Render("No instance selected")
+	}
+	
+	// If running, show live output
+	if state.running && state.liveOutput != "" {
+		return state.liveOutput
+	}
+	
+	if len(state.testResults) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		return dimStyle.Render("No test results to display.\nPress 'r' to run tests.")
 	}
