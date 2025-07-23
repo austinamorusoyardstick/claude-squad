@@ -608,7 +608,7 @@ func (m PRReviewModel) simpleView() string {
 			status += " (resolved)"
 		}
 		
-		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(m.pr.Comments)))
+		b.WriteString(fmt.Sprintf("Comment %d/%d:\n", m.currentIndex+1, len(comments)))
 		
 		// Format comment type with better descriptions
 		typeDisplay := comment.Type
