@@ -176,8 +176,7 @@ func RenderMarkdownLight(content string) string {
 	boldStyle := lipgloss.NewStyle().Bold(true)
 	italicStyle := lipgloss.NewStyle().Italic(true)
 	codeStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("213"))
+		Foreground(lipgloss.Color("203"))
 	strikethroughStyle := lipgloss.NewStyle().Strikethrough(true)
 	linkStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("39")).
@@ -221,17 +220,24 @@ func RenderMarkdownLight(content string) string {
 		if codeBlockEndRegex.MatchString(line) && inCodeBlock {
 			inCodeBlock = false
 			
+			// Create a code block with better formatting
+			codeBlockStyle := lipgloss.NewStyle().
+				Background(lipgloss.Color("236")).
+				Foreground(lipgloss.Color("252")).
+				PaddingLeft(1).
+				PaddingRight(1)
+			
 			// Add language hint if available
 			if codeBlockLang != "" {
-				langHint := lipgloss.NewStyle().
+				langStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("243")).
-					Render("▎" + codeBlockLang)
-				processedLines = append(processedLines, langHint)
+					Italic(true)
+				processedLines = append(processedLines, langStyle.Render(codeBlockLang))
 			}
 			
-			// Render code block with indentation
+			// Render code block without extra indentation
 			for _, codeLine := range codeBlockLines {
-				processedLines = append(processedLines, "  "+codeStyle.Render(codeLine))
+				processedLines = append(processedLines, codeBlockStyle.Render(codeLine))
 			}
 			
 			codeBlockLines = nil
