@@ -169,7 +169,7 @@ func (j *JestPane) formatContent() string {
 				buf.WriteString("\n")
 			}
 			currentFile = result.FilePath
-			relPath, _ := filepath.Rel(j.workingDir, result.FilePath)
+			relPath, _ := filepath.Rel(state.workingDir, result.FilePath)
 			if relPath == "" {
 				relPath = result.FilePath
 			}
@@ -191,7 +191,7 @@ func (j *JestPane) formatContent() string {
 		}
 		
 		testLine := fmt.Sprintf("  %s %s", statusSymbol, result.TestName)
-		if result.Status == "failed" && i == j.currentIndex {
+		if result.Status == "failed" && i == state.currentIndex {
 			testLine = selectedStyle.Render(testLine)
 		} else {
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor))
