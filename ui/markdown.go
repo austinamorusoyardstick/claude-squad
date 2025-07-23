@@ -443,3 +443,83 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 	
 	return line
 }
+
+// renderSimpleTable renders a simple markdown table
+func renderSimpleTable(rows [][]string) []string {
+	if len(rows) == 0 {
+		return []string{}
+	}
+	
+	// Calculate column widths
+	maxCols := 0
+	for _, row := range rows {
+		if len(row) > maxCols {
+			maxCols = len(row)
+		}
+	}
+	
+	colWidths := make([]int, maxCols)
+	for _, row := range rows {
+		for i, cell := range row {
+			if i < len(colWidths) && len(cell) > colWidths[i] {
+				colWidths[i] = len(cell)
+			}
+		}
+	}
+	
+	// Table styles
+	tableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("251"))
+	
+	result := []string{}
+	
+	// Render rows
+	for i, row := range rows {
+		var rowStr strings.Builder
+		rowStr.WriteString("│")
+		
+		for j := 0; j < maxCols; j++ {
+			cell := ""
+			if j < len(row) {
+				cell = row[j]
+			}
+			
+			// Pad cell
+			padding := colWidths[j] - len(cell)
+			if padding < 0 {
+				padding = 0
+			}
+			cell = " " + cell + strings.Repeat(" ", padding) + " "
+			
+			// Apply style
+			if i == 0 {
+				rowStr.WriteString(headerStyle.Render(cell))
+			} else {
+				rowStr.WriteString(tableStyle.Render(cell))
+			}
+			
+			if j < maxCols-1 {
+				rowStr.WriteString("│")
+			}
+		}
+		rowStr.WriteString("│")
+		
+		result = append(result, rowStr.String())
+		
+		// Add separator after header
+		if i == 0 {
+			var sepStr strings.Builder
+			sepStr.WriteString("├")
+			for j := 0; j < maxCols; j++ {
+				sepStr.WriteString(strings.Repeat("─", colWidths[j]+2))
+				if j < maxCols-1 {
+					sepStr.WriteString("┼")
+				}
+			}
+			sepStr.WriteString("┤")
+			result = append(result, tableStyle.Render(sepStr.String()))
+		}
+	}
+	
+	return result
+}
