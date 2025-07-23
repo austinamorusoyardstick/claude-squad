@@ -91,7 +91,7 @@ This project demonstrates **enhanced markdown** rendering with *various* feature
 
 - **Bold** and *italic* text
 - ~~Strikethrough~~ support
-- `Inline code` blocks
+- ` + "`Inline code`" + ` blocks
 - [Links](https://example.com)
 
 ### Code Example
