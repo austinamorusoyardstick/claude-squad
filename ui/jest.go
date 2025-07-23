@@ -64,6 +64,48 @@ func (j *JestPane) SetSize(width, height int) {
 	j.viewport.SetContent(j.formatContent())
 }
 
+func (j *JestPane) getCurrentState() *JestInstanceState {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	
+	if j.currentInstance == nil {
+		return nil
+	}
+	
+	state, exists := j.instanceStates[j.currentInstance.ID()]
+	if !exists {
+		return nil
+	}
+	return state
+}
+
+func (j *JestPane) getOrCreateState(instance *session.Instance) *JestInstanceState {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	
+	if instance == nil {
+		return nil
+	}
+	
+	state, exists := j.instanceStates[instance.ID()]
+	if !exists {
+		state = &JestInstanceState{
+			testResults:  []TestResult{},
+			failedFiles:  []string{},
+			currentIndex: -1,
+		}
+		j.instanceStates[instance.ID()] = state
+	}
+	return state
+}
+
+func (j *JestPane) SetInstance(instance *session.Instance) {
+	j.mu.Lock()
+	j.currentInstance = instance
+	j.mu.Unlock()
+	j.viewport.SetContent(j.formatContent())
+}
+
 func (j *JestPane) String() string {
 	if j.height < 5 {
 		return ""
