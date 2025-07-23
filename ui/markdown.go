@@ -223,7 +223,6 @@ func RenderMarkdownLight(content string) string {
 			// Create a code block with better formatting
 			codeBlockStyle := lipgloss.NewStyle().
 				Background(lipgloss.Color("236")).
-				Foreground(lipgloss.Color("252")).
 				PaddingLeft(1).
 				PaddingRight(1)
 			
@@ -235,9 +234,15 @@ func RenderMarkdownLight(content string) string {
 				processedLines = append(processedLines, langStyle.Render(codeBlockLang))
 			}
 			
-			// Render code block without extra indentation
-			for _, codeLine := range codeBlockLines {
-				processedLines = append(processedLines, codeBlockStyle.Render(codeLine))
+			// Apply syntax highlighting if supported
+			codeContent := strings.Join(codeBlockLines, "\n")
+			highlightedCode := HighlightCode(codeContent, codeBlockLang)
+			highlightedLines := strings.Split(highlightedCode, "\n")
+			
+			// Render each line with the code block background
+			for _, highlightedLine := range highlightedLines {
+				// Apply background to the entire line
+				processedLines = append(processedLines, codeBlockStyle.Render(highlightedLine))
 			}
 			
 			codeBlockLines = nil
