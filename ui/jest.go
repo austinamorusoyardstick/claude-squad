@@ -74,7 +74,13 @@ func (j *JestPane) getCurrentState() *JestInstanceState {
 	
 	state, exists := j.instanceStates[j.currentInstance.Title]
 	if !exists {
-		return nil
+		// Create a new state for this instance if it doesn't exist
+		state = &JestInstanceState{
+			testResults:  []TestResult{},
+			failedFiles:  []string{},
+			currentIndex: -1,
+		}
+		j.instanceStates[j.currentInstance.Title] = state
 	}
 	return state
 }
