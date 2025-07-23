@@ -281,7 +281,7 @@ func (m PRReviewModel) View() string {
 	comments := m.getActiveComments()
 	if len(comments) == 0 {
 		if m.filterEnabled && len(m.pr.AllComments) > 0 {
-			return "No active comments found on this PR (all are outdated/resolved).\n\nPress 'f' to show all comments\nPress 'q' to go back"
+			return "No active comments found on this PR (all are outdated/resolved/gemini).\n\nPress 'f' to show all comments\nPress 'q' to go back"
 		}
 		return "No comments found on this PR.\n\nPress 'q' to go back"
 	}
