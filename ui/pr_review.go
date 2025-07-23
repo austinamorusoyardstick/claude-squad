@@ -181,20 +181,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			isAcceptAll := msg.String() == "A"
 			comments := m.getActiveComments()
 			for _, comment := range comments {
-				// Update in AllComments
-				for i := range m.pr.AllComments {
-					if m.pr.AllComments[i].ID == comment.ID {
-						m.pr.AllComments[i].Accepted = isAcceptAll
-						break
-					}
-				}
-				// Update in filtered comments if applicable
-				for i := range m.pr.Comments {
-					if m.pr.Comments[i].ID == comment.ID {
-						m.pr.Comments[i].Accepted = isAcceptAll
-						break
-					}
-				}
+				comment.Accepted = isAcceptAll
 			}
 			if m.ready {
 				m.updateViewportContent()
