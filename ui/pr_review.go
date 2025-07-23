@@ -539,35 +539,64 @@ func (m PRReviewModel) simpleView() string {
 	b.WriteString("\n\n")
 	
 	acceptedCount := len(m.pr.GetAcceptedComments())
-	total, reviews, reviewComments, issueComments, outdated, resolved := m.pr.GetCommentStats()
 	
 	statusStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 	
-	// Show comment breakdown
-	b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d total (%d reviews, %d review comments, %d general)", 
-		total, reviews, reviewComments, issueComments)))
-	b.WriteString("\n")
+	comments := m.getActiveComments()
 	
-	if outdated > 0 || resolved > 0 {
-		filteredText := ""
-		if outdated > 0 && resolved > 0 {
-			filteredText = fmt.Sprintf("Filtered out: %d outdated, %d resolved", outdated, resolved)
-		} else if outdated > 0 {
-			filteredText = fmt.Sprintf("Filtered out: %d outdated", outdated)
-		} else if resolved > 0 {
-			filteredText = fmt.Sprintf("Filtered out: %d resolved", resolved)
-		}
-		b.WriteString(statusStyle.Render(filteredText))
+	if m.filterEnabled {
+		total, reviews, reviewComments, issueComments, _, _ := m.pr.GetCommentStats()
+		
+		// Show comment breakdown
+		b.WriteString(statusStyle.Render(fmt.Sprintf("Comments: %d (%d reviews, %d review comments, %d general)", 
+			total, reviews, reviewComments, issueComments)))
 		b.WriteString("\n")
+		
+		// Count filtered comments
+		allTotal := len(m.pr.AllComments)
+		filtered := allTotal - total
+		if filtered > 0 {
+			b.WriteString(statusStyle.Render(fmt.Sprintf("Filtered out: %d outdated/resolved", filtered)))
+			b.WriteString("\n")
+		}
+	} else {
+		// Count stats from all comments
+		var total, reviews, reviewComments, issueComments, outdated, resolved int
+		for _, comment := range m.pr.AllComments {
+			total++
+			if comment.IsOutdated {
+				outdated++
+			}
+			if comment.IsResolved {
+				resolved++
+			}
+			switch comment.Type {
+			case "review":
+				reviews++
+			case "review_comment":
+				reviewComments++
+			case "issue_comment":
+				issueComments++
+			}
+		}
+		
+		b.WriteString(statusStyle.Render(fmt.Sprintf("All Comments: %d (%d reviews, %d review comments, %d general)", 
+			total, reviews, reviewComments, issueComments)))
+		b.WriteString("\n")
+		
+		if outdated > 0 || resolved > 0 {
+			b.WriteString(statusStyle.Render(fmt.Sprintf("Including: %d outdated, %d resolved", outdated, resolved)))
+			b.WriteString("\n")
+		}
 	}
 	
 	b.WriteString(statusStyle.Render(fmt.Sprintf("Accepted: %d", acceptedCount)))
 	b.WriteString("\n\n")
 	
 	// Show current comment
-	if len(m.pr.Comments) > 0 && m.currentIndex < len(m.pr.Comments) {
-		comment := m.pr.Comments[m.currentIndex]
+	if len(comments) > 0 && m.currentIndex < len(comments) {
+		comment := comments[m.currentIndex]
 		
 		status := "[ ]"
 		if comment.Accepted {
