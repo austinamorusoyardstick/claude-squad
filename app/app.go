@@ -1082,6 +1082,9 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, m.handleError(fmt.Errorf("failed to fetch PR comments: %w", err))
 		}
 
+		// Preprocess comments for better performance
+		pr.PreprocessComments()
+
 		// Show PR review UI
 		m.state = statePRReview
 		prReviewModel := ui.NewPRReviewModel(pr)
