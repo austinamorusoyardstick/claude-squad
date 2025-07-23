@@ -486,8 +486,13 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 	}
 
 	for i := 0; i < maxFiles; i++ {
+		// Log what we're opening
+		log.InfoLog.Printf("Opening failed test file in IDE: %s", failedFiles[i])
+		
 		cmd := exec.Command(ideCmd, failedFiles[i])
-		go cmd.Start()
+		if err := cmd.Start(); err != nil {
+			log.ErrorLog.Printf("Failed to open file in IDE: %s, error: %v", failedFiles[i], err)
+		}
 		// Small delay to avoid overwhelming the IDE
 		time.Sleep(100 * time.Millisecond)
 	}
