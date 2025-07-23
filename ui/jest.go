@@ -244,8 +244,9 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	cmd := exec.Command("yarn", "tester")
 	cmd.Dir = workDir
 	
-	// Debug: Log the command being run
-	outputChan <- fmt.Sprintf("Running: yarn tester in %s\n", workDir)
+	// Debug output
+	outputChan <- fmt.Sprintf("Running command: yarn tester")
+	outputChan <- fmt.Sprintf("Working directory: %s", workDir)
 
 	// Store cmd in state so we can kill it if needed
 	j.mu.Lock()
@@ -278,62 +279,43 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	var allOutput strings.Builder
 	failedFiles := []string{}
 
-	// Create a wait group to ensure both stdout and stderr are read
-	var wg sync.WaitGroup
-	wg.Add(2)
+	// Read stdout
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		outputChan <- line
+		allOutput.WriteString(line + "\n")
 
-	// Read stdout in a goroutine
-	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			line := scanner.Text()
-			outputChan <- line
-			allOutput.WriteString(line + "\n")
-
-			// Look for test failures in real-time
-			if strings.Contains(line, "FAIL") {
-				// Extract file path from FAIL line
-				parts := strings.Fields(line)
-				for _, part := range parts {
-					if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") ||
-						strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
-						absPath := part
-						if !filepath.IsAbs(part) {
-							absPath = filepath.Join(workDir, part)
-						}
-						failedFiles = append(failedFiles, absPath)
-						break
+		// Look for test failures in real-time
+		if strings.Contains(line, "FAIL") {
+			// Extract file path from FAIL line
+			parts := strings.Fields(line)
+			for _, part := range parts {
+				if strings.HasSuffix(part, ".js") || strings.HasSuffix(part, ".jsx") ||
+					strings.HasSuffix(part, ".ts") || strings.HasSuffix(part, ".tsx") {
+					absPath := part
+					if !filepath.IsAbs(part) {
+						absPath = filepath.Join(workDir, part)
 					}
+					failedFiles = append(failedFiles, absPath)
+					break
 				}
 			}
 		}
-		if err := scanner.Err(); err != nil {
-			outputChan <- fmt.Sprintf("Error reading stdout: %v", err)
-		}
-	}()
+	}
 
-	// Read stderr in a goroutine
+	// Read stderr
+	stderrScanner := bufio.NewScanner(stderr)
 	go func() {
-		defer wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			line := scanner.Text()
+		for stderrScanner.Scan() {
+			line := stderrScanner.Text()
 			outputChan <- line
 			allOutput.WriteString(line + "\n")
 		}
-		if err := scanner.Err(); err != nil {
-			outputChan <- fmt.Sprintf("Error reading stderr: %v", err)
-		}
 	}()
 
-	// Wait for both readers to finish
-	wg.Wait()
-
 	// Wait for command to finish
-	if err := cmd.Wait(); err != nil {
-		outputChan <- fmt.Sprintf("\nCommand finished with error: %v", err)
-	}
+	cmd.Wait()
 
 	// Auto-open failed files in IDE
 	if len(failedFiles) > 0 {
