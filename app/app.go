@@ -368,6 +368,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			*m.prReviewOverlay = updatedModel
 		}
 
+		// Also update comment detail overlay if it's active
+		if m.state == stateCommentDetail && m.commentDetailOverlay != nil {
+			m.commentDetailOverlay.SetSize(msg.Width, msg.Height)
+		}
+
 		return m, nil
 	case error:
 		// Handle errors from confirmation actions
