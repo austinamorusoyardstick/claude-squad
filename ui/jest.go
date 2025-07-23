@@ -534,30 +534,8 @@ func (j *JestPane) NextFailure() {
 }
 
 func (j *JestPane) PreviousFailure() {
-	state := j.getCurrentState()
-	if state == nil || len(state.failedFiles) == 0 {
-		return
-	}
-
-	startIdx := state.currentIndex - 1
-	for i := startIdx; i >= 0; i-- {
-		if state.testResults[i].Status == "failed" {
-			state.currentIndex = i
-			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex(state)
-			return
-		}
-	}
-
-	// Wrap around to end
-	for i := len(state.testResults) - 1; i > startIdx && i >= 0; i-- {
-		if state.testResults[i].Status == "failed" {
-			state.currentIndex = i
-			j.viewport.SetContent(j.formatContent())
-			j.scrollToCurrentIndex(state)
-			return
-		}
-	}
+	// Navigation disabled when showing raw output
+	return
 }
 
 func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
