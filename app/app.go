@@ -529,6 +529,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m.handleGitStatusState(msg)
 	}
 
+	if m.state == stateCommentDetail {
+		return m.handleCommentDetailState(msg)
+	}
+
 	if m.state == stateNew {
 		// Handle quit commands first. Don't handle q because the user might want to type that.
 		if msg.String() == "ctrl+c" {
