@@ -126,7 +126,7 @@ func (j *JestPane) SetInstance(instance *session.Instance) {
 	j.currentInstance = instance
 	j.mu.Unlock()
 	j.viewport.SetContent(j.formatContent())
-	
+
 	// If there's content, scroll to bottom
 	state := j.getCurrentState()
 	if state != nil && state.liveOutput != "" {
@@ -221,9 +221,9 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 		j.viewport.SetContent(j.formatContent())
 		return err
 	}
-	
+
 	worktreePath := gitWorktree.GetWorktreePath()
-	
+
 	// Find package.json in the worktree directory
 	workDir, err := j.findJestWorkingDir(worktreePath)
 	if err != nil {
@@ -271,7 +271,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	// Run Jest without JSON for live output
 	cmd := exec.Command("yarn", "tester")
 	cmd.Dir = workDir
-	
+
 	// Debug output
 	outputChan <- fmt.Sprintf("Running command: yarn tester")
 	outputChan <- fmt.Sprintf("Working directory: %s", workDir)
@@ -304,7 +304,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		j.mu.Unlock()
 		return
 	}
-	
+
 	outputChan <- "Command started successfully..."
 
 	// Collect all output for parsing
@@ -335,17 +335,17 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 					if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
 						filePath = filePath[:idx]
 					}
-					
+
 					// Check if it's a valid test file
 					if strings.HasSuffix(filePath, ".js") || strings.HasSuffix(filePath, ".jsx") ||
 						strings.HasSuffix(filePath, ".ts") || strings.HasSuffix(filePath, ".tsx") ||
 						strings.HasSuffix(filePath, ".test.js") || strings.HasSuffix(filePath, ".spec.js") {
-						
+
 						absPath := filePath
 						if !filepath.IsAbs(filePath) {
 							absPath = filepath.Join(workDir, filePath)
 						}
-						
+
 						// Avoid duplicates
 						alreadyAdded := false
 						for _, existing := range failedFiles {
@@ -374,7 +374,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 			line := scanner.Text()
 			outputChan <- line
 			allOutput.WriteString(line + "\n")
-			
+
 			// Also check stderr for FAIL lines (Jest might output to stderr)
 			if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
 				// Extract file path from FAIL line
@@ -386,17 +386,17 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 					if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
 						filePath = filePath[:idx]
 					}
-					
+
 					// Check if it's a valid test file
 					if strings.HasSuffix(filePath, ".js") || strings.HasSuffix(filePath, ".jsx") ||
 						strings.HasSuffix(filePath, ".ts") || strings.HasSuffix(filePath, ".tsx") ||
 						strings.HasSuffix(filePath, ".test.js") || strings.HasSuffix(filePath, ".spec.js") {
-						
+
 						absPath := filePath
 						if !filepath.IsAbs(filePath) {
 							absPath = filepath.Join(workDir, filePath)
 						}
-						
+
 						// Avoid duplicates
 						alreadyAdded := false
 						for _, existing := range failedFiles {
@@ -419,14 +419,14 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 
 	// Wait for command to finish first
 	cmdErr := cmd.Wait()
-	
+
 	// Then wait for readers to finish
 	wg.Wait()
-	
+
 	if cmdErr != nil {
 		outputChan <- fmt.Sprintf("\nCommand exited with error: %v", cmdErr)
 	}
-	
+
 	// If we didn't get any output, try running with CombinedOutput as fallback
 	if allOutput.Len() == 0 {
 		outputChan <- "\nNo output captured from pipes, trying alternative method..."
@@ -477,7 +477,7 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 	if state == nil {
 		return
 	}
-	
+
 	ideCmd := getIDECommand(state.workingDir)
 	if ideCmd == "" {
 		return
@@ -492,7 +492,7 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 	for i := 0; i < maxFiles; i++ {
 		// Log what we're opening
 		log.InfoLog.Printf("Opening failed test file in IDE: %s", failedFiles[i])
-		
+
 		cmd := exec.Command(ideCmd, failedFiles[i])
 		if err := cmd.Start(); err != nil {
 			log.ErrorLog.Printf("Failed to open file in IDE: %s, error: %v", failedFiles[i], err)
