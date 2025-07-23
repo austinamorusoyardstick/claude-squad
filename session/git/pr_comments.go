@@ -621,7 +621,7 @@ func (comment *PRComment) SplitIntoPieces() {
 			var currentPiece strings.Builder
 			pieceIndex := 0
 			
-			for j, line := range lines {
+			for _, line := range lines {
 				trimmedLine := strings.TrimSpace(line)
 				isBullet := trimmedLine != "" && (strings.HasPrefix(trimmedLine, "- ") || 
 					strings.HasPrefix(trimmedLine, "* ") || 
