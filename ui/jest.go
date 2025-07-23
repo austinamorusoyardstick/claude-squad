@@ -313,9 +313,6 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	// Wait for command to finish
 	cmd.Wait()
 
-	// Parse the complete output
-	j.parseJestOutput(state, allOutput.String())
-
 	// Auto-open failed files in IDE
 	if len(failedFiles) > 0 {
 		j.autoOpenFailedTests(failedFiles)
@@ -324,6 +321,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	j.mu.Lock()
 	state.running = false
 	state.cmd = nil
+	// Keep the liveOutput so it persists after tests complete
 	j.mu.Unlock()
 	j.viewport.SetContent(j.formatContent())
 }
