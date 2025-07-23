@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"claude-squad/session"
+	"claude-squad/session/git"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
