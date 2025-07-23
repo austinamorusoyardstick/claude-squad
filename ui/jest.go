@@ -65,6 +65,7 @@ func (j *JestPane) String() string {
 	header := titleStyle.Render("Jest Test Runner")
 	
 	var status string
+	statusStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	if j.running {
 		status = statusStyle.Render("⏳ Running tests...")
 	} else if len(j.failedFiles) > 0 {
@@ -77,6 +78,7 @@ func (j *JestPane) String() string {
 
 	content := j.viewport.View()
 	
+	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	help := helpStyle.Render("↑/↓: scroll • n/p: next/prev failure • Enter: open in IDE • r: rerun • ESC: exit scroll mode")
 	
 	return lipgloss.JoinVertical(
