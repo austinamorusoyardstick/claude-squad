@@ -266,6 +266,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	// Debug output
 	outputChan <- fmt.Sprintf("Running command: yarn tester")
 	outputChan <- fmt.Sprintf("Working directory: %s", workDir)
+	outputChan <- fmt.Sprintf("Instance worktree path: %s", instance.Path)
 	outputChan <- "Starting test run...\n"
 
 	// Store cmd in state so we can kill it if needed
