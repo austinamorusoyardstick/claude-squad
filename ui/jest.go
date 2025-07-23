@@ -226,11 +226,6 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 		for line := range outputChan {
 			j.mu.Lock()
 			state.liveOutput += line + "\n"
-			// Keep only last 100 lines for performance
-			lines := strings.Split(state.liveOutput, "\n")
-			if len(lines) > 100 {
-				state.liveOutput = strings.Join(lines[len(lines)-100:], "\n")
-			}
 			j.mu.Unlock()
 			j.viewport.SetContent(j.formatContent())
 		}
