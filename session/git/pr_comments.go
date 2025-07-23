@@ -327,11 +327,6 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 		// Check if comment is resolved using the resolved map
 		isResolved := resolvedMap[rc.ID]
 
-		// Skip outdated or resolved comments
-		if isOutdated || isResolved {
-			continue
-		}
-
 		line := 0
 		if rc.Line != nil {
 			line = *rc.Line
@@ -357,7 +352,7 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 			IsResolved:         isResolved,
 			Accepted:           false,
 		}
-		pr.Comments = append(pr.Comments, comment)
+		pr.AllComments = append(pr.AllComments, comment)
 	}
 
 	return nil
