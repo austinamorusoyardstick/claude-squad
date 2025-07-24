@@ -51,11 +51,12 @@ type TestResult struct {
 	Line        int
 }
 
-func NewJestPane() *JestPane {
+func NewJestPane(globalConfig *config.Config) *JestPane {
 	vp := viewport.New(0, 0)
 	return &JestPane{
 		viewport:       vp,
 		instanceStates: make(map[string]*JestInstanceState),
+		globalConfig:   globalConfig,
 	}
 }
 
