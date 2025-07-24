@@ -460,7 +460,7 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 		return
 	}
 
-	ideCmd := getIDECommand(state.workingDir)
+	ideCmd := config.GetEffectiveIdeCommand(state.workingDir, j.globalConfig)
 	if ideCmd == "" {
 		return
 	}
