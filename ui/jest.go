@@ -419,6 +419,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 
 	j.mu.Lock()
 	state.running = false
+	state.failedFiles = failedFiles
 	state.cmd = nil
 	// Keep the liveOutput so it persists after tests complete
 	j.mu.Unlock()
