@@ -9,7 +9,6 @@ import (
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -160,7 +159,7 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 		ctx:          ctx,
 		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
 		menu:         ui.NewMenu(),
-		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane()),
+		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
 		errBox:       ui.NewErrBox(),
 		storage:      storage,
 		appConfig:    appConfig,
@@ -442,7 +441,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			globalConfig := m.appConfig
 			fileDir := filepath.Dir(msg.failedFiles[0])
 			ideCommand := config.GetEffectiveIdeCommand(fileDir, globalConfig)
-			
+
 			for _, file := range msg.failedFiles {
 				cmd := exec.Command(ideCommand, file)
 				cmd.Start()
@@ -738,6 +737,15 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	// Handle quit commands first
 	if msg.String() == "ctrl+c" || msg.String() == "q" {
 		return m.handleQuit()
+	}
+
+	// Handle Jest-specific keybindings when in Jest tab
+	if m.tabbedWindow.IsInJestTab() {
+		switch msg.String() {
+		case "r":
+			m.tabbedWindow.JestRerunTests()
+			return m, nil
+		}
 	}
 
 	name, ok := keys.GetKeyName(msg.String())
@@ -1190,11 +1198,11 @@ func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 
 		// Open IDE at the worktree path (not the git root)
 		worktreePath := gitWorktree.GetWorktreePath()
-		
+
 		// Get the IDE command from configuration
 		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
-		
+
 		cmd := exec.Command(ideCommand, worktreePath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
@@ -1219,7 +1227,7 @@ func (m *home) openFileInIDE(instance *session.Instance, filePath string) tea.Cm
 		// Get the IDE command from configuration
 		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
-		
+
 		// Open IDE with the specific file
 		cmd := exec.Command(ideCommand, fullPath)
 		if err := cmd.Start(); err != nil {
@@ -1242,7 +1250,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		worktreePath := gitWorktree.GetWorktreePath()
 		globalConfig := m.appConfig
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
-		
+
 		if diffCommand == "" {
 			return fmt.Errorf("no external diff tool configured. Set diff_command in global config or repository CLAUDE.md")
 		}
@@ -1327,115 +1335,21 @@ func (m *home) createBookmarkCommit(instance *session.Instance, userMessage stri
 
 func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 	return tea.Sequence(
-		// First, send a message that tests have started
+		// First, switch to Jest tab
 		func() tea.Msg {
-			return testStartedMsg{}
+			// Set the active tab to JestTab directly
+			m.tabbedWindow.SetTab(ui.JestTab)
+			m.menu.SetInDiffTab(false)
+			return nil
 		},
-		// Then run the tests with progress tracking
-		m.runJestTestsWithProgress(instance),
+		// Then update the Jest pane with test results
+		func() tea.Msg {
+			m.tabbedWindow.UpdateJest(instance)
+			return nil
+		},
 	)
 }
 
-func (m *home) runJestTestsWithProgress(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		// Get the git worktree to access the worktree path
-		gitWorktree, err := instance.GetGitWorktree()
-		if err != nil {
-			return testResultsMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
-		}
-
-		// Construct the path to the web directory
-		worktreePath := gitWorktree.GetWorktreePath()
-
-		// Run npm test without watch mode
-		cmd := exec.Command("yarn", "test", "--watchAll=false", "--json", "--outputFile=test-results.json")
-		cmd.Dir = worktreePath
-		cmd.Env = append(os.Environ(), "CI=true")
-		// Capture output
-		output, _ := cmd.CombinedOutput()
-
-		// Parse failed test files from output
-		failedFiles := parseFailedTestFiles(string(output), worktreePath)
-		// Also try to read the JSON output file for more reliable parsing
-		jsonPath := filepath.Join(worktreePath, "test-results.json")
-		if jsonData, err := os.ReadFile(jsonPath); err == nil {
-			// Parse JSON for failed files if available
-			if jsonFailedFiles := parseJestJSON(jsonData, worktreePath); len(jsonFailedFiles) > 0 {
-				failedFiles = jsonFailedFiles
-			}
-			// Clean up the JSON file
-			os.Remove(jsonPath)
-		}
-
-		return testResultsMsg{
-			output:      string(output),
-			failedFiles: failedFiles,
-			err:         nil,
-		}
-	}
-}
-
-// parseFailedTestFiles parses Jest output to find failed test file paths
-func parseFailedTestFiles(output string, webPath string) []string {
-	var failedFiles []string
-	lines := strings.Split(output, "\n")
-
-	for _, line := range lines {
-		// Look for FAIL lines which contain the test file path
-		if strings.HasPrefix(strings.TrimSpace(line), "FAIL") {
-			parts := strings.Fields(line)
-			if len(parts) >= 2 {
-				// The file path is usually the second part after FAIL
-				testFile := parts[1]
-				// Convert relative path to absolute
-				if !filepath.IsAbs(testFile) {
-					testFile = filepath.Join(webPath, testFile)
-				}
-				// Check if file exists
-				if _, err := os.Stat(testFile); err == nil {
-					failedFiles = append(failedFiles, testFile)
-				}
-			}
-		}
-	}
-
-	return failedFiles
-}
-
-// parseJestJSON parses Jest JSON output to find failed test files
-func parseJestJSON(jsonData []byte, webPath string) []string {
-	var failedFiles []string
-
-	// Simple JSON parsing for test results
-	// Jest JSON format includes testResults array with status and name fields
-	type TestResult struct {
-		Name   string `json:"name"`
-		Status string `json:"status"`
-	}
-
-	type JestResults struct {
-		TestResults []TestResult `json:"testResults"`
-	}
-
-	var results JestResults
-	if err := json.Unmarshal(jsonData, &results); err == nil {
-		for _, result := range results.TestResults {
-			if result.Status == "failed" {
-				testFile := result.Name
-				// Convert relative path to absolute
-				if !filepath.IsAbs(testFile) {
-					testFile = filepath.Join(webPath, testFile)
-				}
-				// Check if file exists
-				if _, err := os.Stat(testFile); err == nil {
-					failedFiles = append(failedFiles, testFile)
-				}
-			}
-		}
-	}
-
-	return failedFiles
-}
 
 // testStats holds test statistics
 type testStats struct {
@@ -1478,6 +1392,9 @@ func parseJestFinalStats(output string) testStats {
 func (m *home) instanceChanged() tea.Cmd {
 	// selected may be nil
 	selected := m.list.GetSelectedInstance()
+
+	// Update the tabbed window with the current instance
+	m.tabbedWindow.SetInstance(selected)
 
 	m.tabbedWindow.UpdateDiff(selected)
 	m.tabbedWindow.UpdateTerminal(selected)
