@@ -203,44 +203,44 @@ func (w *TabbedWindow) ScrollDown() {
 }
 
 func (w *TabbedWindow) ScrollToTop() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.ScrollToTop()
 	}
 }
 
 func (w *TabbedWindow) ScrollToBottom() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.ScrollToBottom()
 	}
 }
 
 func (w *TabbedWindow) PageUp() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.PageUp()
 	}
 }
 
 func (w *TabbedWindow) PageDown() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.PageDown()
 	}
 }
 
 func (w *TabbedWindow) JumpToNextFile() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.JumpToNextFile()
 	}
 }
 
 func (w *TabbedWindow) JumpToPrevFile() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.JumpToPrevFile()
 	}
 }
 
 // IsInDiffTab returns true if the diff tab is currently active
 func (w *TabbedWindow) IsInDiffTab() bool {
-	return w.activeTab == 1
+	return w.activeTab == DiffTab
 }
 
 // IsPreviewInScrollMode returns true if the preview pane is in scroll mode
@@ -260,7 +260,7 @@ func (w *TabbedWindow) IsInAITab() bool {
 
 // IsInTerminalTab returns true if the terminal tab is currently active
 func (w *TabbedWindow) IsInTerminalTab() bool {
-	return w.activeTab == 2
+	return w.activeTab == TerminalTab
 }
 
 // IsInJestTab returns true if the Jest tab is currently active
@@ -316,21 +316,21 @@ func (w *TabbedWindow) SetDiffModeLastCommit() {
 
 // NavigateToPrevCommit moves to the previous (older) commit in diff view
 func (w *TabbedWindow) NavigateToPrevCommit() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.NavigateToPrevCommit()
 	}
 }
 
 // NavigateToNextCommit moves to the next (newer) commit in diff view
 func (w *TabbedWindow) NavigateToNextCommit() {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		w.diff.NavigateToNextCommit()
 	}
 }
 
 // GetCurrentDiffFile returns the file path currently being viewed in the diff tab
 func (w *TabbedWindow) GetCurrentDiffFile() string {
-	if w.activeTab == 1 { // Diff tab
+	if w.activeTab == DiffTab {
 		return w.diff.GetCurrentFile()
 	}
 	return ""
