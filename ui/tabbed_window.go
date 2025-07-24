@@ -378,11 +378,11 @@ func (w *TabbedWindow) String() string {
 	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
 	var content string
 	switch w.activeTab {
-	case 0:
+	case AITab:
 		content = w.preview.String()
-	case 1:
+	case DiffTab:
 		content = w.diff.String()
-	case 2:
+	case TerminalTab:
 		content = w.terminal.String()
 	case JestTab:
 		content = w.jest.String()
