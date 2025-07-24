@@ -560,26 +560,6 @@ func (j *JestPane) ScrollDown() {
 }
 
 
-func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
-	if state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
-		return
-	}
-
-	// Calculate approximate line number for the current test
-	lineCount := 0
-	for i := 0; i <= state.currentIndex; i++ {
-		if i == 0 || state.testResults[i].FilePath != state.testResults[i-1].FilePath {
-			lineCount += 2 // File header + blank line
-		}
-		lineCount++ // Test line
-		if state.testResults[i].Status == "failed" && state.testResults[i].ErrorOutput != "" {
-			lineCount += strings.Count(state.testResults[i].ErrorOutput, "\n") + 1
-		}
-	}
-
-	// Scroll to make the line visible
-	j.viewport.SetYOffset(lineCount - j.viewport.Height/2)
-}
 
 
 func (j *JestPane) ResetToNormalMode() {
