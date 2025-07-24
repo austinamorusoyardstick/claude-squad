@@ -545,15 +545,26 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 }
 
 
-func (j *JestPane) ScrollUp() {
-	// Update viewport content before scrolling to ensure it has the latest content
+func (j *JestPane) updateViewport() {
+	// Ensure viewport has correct dimensions
+	if j.viewport.Width != j.width {
+		j.viewport.Width = j.width
+	}
+	expectedHeight := j.height - 4
+	if j.viewport.Height != expectedHeight && expectedHeight > 0 {
+		j.viewport.Height = expectedHeight
+	}
+	// Update content
 	j.viewport.SetContent(j.formatContent())
+}
+
+func (j *JestPane) ScrollUp() {
+	j.updateViewport()
 	j.viewport.LineUp(3)
 }
 
 func (j *JestPane) ScrollDown() {
-	// Update viewport content before scrolling to ensure it has the latest content
-	j.viewport.SetContent(j.formatContent())
+	j.updateViewport()
 	j.viewport.LineDown(3)
 }
 
