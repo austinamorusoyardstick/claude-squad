@@ -372,7 +372,7 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 			PullRequestReviewID: rc.PullRequestReviewID,
 			IsOutdated:         isOutdated,
 			IsResolved:         isResolved,
-			IsGeminiReview:     strings.Contains(rc.Body, "/gemini review"),
+			IsGeminiReview:     strings.Contains(rc.Body, GeminiReviewCommand),
 			Accepted:           false,
 		}
 		pr.AllComments = append(pr.AllComments, comment)
