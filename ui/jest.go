@@ -69,13 +69,9 @@ func (j *JestPane) getInstanceKey(instance *session.Instance) string {
 	if instance == nil {
 		return ""
 	}
-	// Use a combination of Path and Branch as a unique key
-	// This handles cases where Title might be empty
-	key := fmt.Sprintf("%s:%s", instance.Path, instance.Branch)
-	if instance.Title != "" {
-		key = instance.Title
-	}
-	return key
+	// Always use a combination of Path and Branch as a stable unique key
+	// This ensures consistency even if Title changes later
+	return fmt.Sprintf("%s:%s", instance.Path, instance.Branch)
 }
 
 func (j *JestPane) getCurrentState() *JestInstanceState {
