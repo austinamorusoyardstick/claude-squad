@@ -589,13 +589,52 @@ func (j *JestPane) updateViewport() {
 }
 
 func (j *JestPane) ScrollUp() {
+	state := j.getCurrentState()
+	// Only allow scrolling when tests are not running
+	if state == nil || state.running {
+		return
+	}
+	
+	// Update viewport for scrolling
 	j.updateViewport()
-	j.viewport.LineUp(3)
+	
+	// Calculate total lines to determine scroll limits
+	content := j.formatContent()
+	totalLines := len(strings.Split(content, "\n"))
+	availableHeight := j.height - 4
+	
+	// Update scroll position
+	if j.viewport.YOffset > 0 {
+		j.viewport.YOffset -= 3
+		if j.viewport.YOffset < 0 {
+			j.viewport.YOffset = 0
+		}
+	}
 }
 
 func (j *JestPane) ScrollDown() {
+	state := j.getCurrentState()
+	// Only allow scrolling when tests are not running
+	if state == nil || state.running {
+		return
+	}
+	
+	// Update viewport for scrolling
 	j.updateViewport()
-	j.viewport.LineDown(3)
+	
+	// Calculate total lines to determine scroll limits
+	content := j.formatContent()
+	totalLines := len(strings.Split(content, "\n"))
+	availableHeight := j.height - 4
+	
+	// Update scroll position
+	maxOffset := totalLines - availableHeight
+	if maxOffset > 0 && j.viewport.YOffset < maxOffset {
+		j.viewport.YOffset += 3
+		if j.viewport.YOffset > maxOffset {
+			j.viewport.YOffset = maxOffset
+		}
+	}
 }
 
 
