@@ -507,8 +507,8 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 		return
 	}
 
-	// Open up to 5 failed test files
-	maxFiles := 5
+	// Open up to maxAutoOpenFailedFiles failed test files
+	maxFiles := maxAutoOpenFailedFiles
 	if len(failedFiles) < maxFiles {
 		maxFiles = len(failedFiles)
 	}
@@ -522,7 +522,7 @@ func (j *JestPane) autoOpenFailedTests(failedFiles []string) {
 			log.ErrorLog.Printf("Failed to open file in IDE: %s, error: %v", failedFiles[i], err)
 		}
 		// Small delay to avoid overwhelming the IDE
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(ideOpenDelay)
 	}
 }
 
