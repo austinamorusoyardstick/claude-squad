@@ -390,39 +390,17 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 			allOutput.WriteString(line + "\n")
 
 			// Also check stderr for FAIL lines (Jest might output to stderr)
-			if strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
-				// Extract file path from FAIL line
-				// Format: "FAIL src/pages/individualDashboard/component.test.js"
-				trimmedLine := strings.TrimSpace(line)
-				if len(trimmedLine) > 5 { // "FAIL " is 5 characters
-					filePath := strings.TrimSpace(trimmedLine[5:])
-					// Remove any trailing whitespace or test duration info
-					if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
-						filePath = filePath[:idx]
+			if failedFile := parseFailedTestFile(line, workDir); failedFile != "" {
+				// Avoid duplicates
+				alreadyAdded := false
+				for _, existing := range failedFiles {
+					if existing == failedFile {
+						alreadyAdded = true
+						break
 					}
-
-					// Check if it's a valid test file
-					if strings.HasSuffix(filePath, ".js") || strings.HasSuffix(filePath, ".jsx") ||
-						strings.HasSuffix(filePath, ".ts") || strings.HasSuffix(filePath, ".tsx") ||
-						strings.HasSuffix(filePath, ".test.js") || strings.HasSuffix(filePath, ".spec.js") {
-
-						absPath := filePath
-						if !filepath.IsAbs(filePath) {
-							absPath = filepath.Join(workDir, filePath)
-						}
-
-						// Avoid duplicates
-						alreadyAdded := false
-						for _, existing := range failedFiles {
-							if existing == absPath {
-								alreadyAdded = true
-								break
-							}
-						}
-						if !alreadyAdded {
-							failedFiles = append(failedFiles, absPath)
-						}
-					}
+				}
+				if !alreadyAdded {
+					failedFiles = append(failedFiles, failedFile)
 				}
 			}
 		}
