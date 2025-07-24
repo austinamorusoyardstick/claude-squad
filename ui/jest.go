@@ -559,15 +559,6 @@ func (j *JestPane) ScrollDown() {
 	j.viewport.LineDown(3)
 }
 
-func (j *JestPane) NextFailure() {
-	// Navigation disabled when showing raw output
-	return
-}
-
-func (j *JestPane) PreviousFailure() {
-	// Navigation disabled when showing raw output
-	return
-}
 
 func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
 	if state.currentIndex < 0 || state.currentIndex >= len(state.testResults) {
