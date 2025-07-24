@@ -9,7 +9,6 @@ import (
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
