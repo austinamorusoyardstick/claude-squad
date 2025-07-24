@@ -421,7 +421,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	state.cmd = nil
 	// Keep the liveOutput so it persists after tests complete
 	j.mu.Unlock()
-	j.viewport.SetContent(j.formatContent())
+	j.updateViewport()
 	// Ensure we're scrolled to bottom to see final results
 	j.viewport.GotoBottom()
 }
