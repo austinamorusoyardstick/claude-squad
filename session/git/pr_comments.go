@@ -289,7 +289,7 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 			PullRequestReviewID: r.ID,
 			IsOutdated:         isOutdated,
 			IsResolved:         r.State == "DISMISSED",
-			IsGeminiReview:     strings.Contains(r.Body, "/gemini review"),
+			IsGeminiReview:     strings.Contains(r.Body, GeminiReviewCommand),
 			Accepted:           false,
 		}
 		pr.AllComments = append(pr.AllComments, reviewComment)
