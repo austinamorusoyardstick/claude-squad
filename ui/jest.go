@@ -18,6 +18,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	// maxAutoOpenFailedFiles is the maximum number of failed test files to open automatically
+	maxAutoOpenFailedFiles = 5
+	// ideOpenDelay is the delay between opening files in the IDE to avoid overwhelming it
+	ideOpenDelay = 100 * time.Millisecond
+)
+
 type JestPane struct {
 	width    int
 	height   int
