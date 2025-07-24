@@ -226,7 +226,7 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 		state.running = false
 		state.liveOutput = errorStyle.Render(fmt.Sprintf("Error finding package.json: %v", err))
 		j.mu.Unlock()
-		j.viewport.SetContent(j.formatContent())
+		j.updateViewport()
 		return err
 	}
 
