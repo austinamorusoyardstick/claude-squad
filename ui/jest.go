@@ -239,6 +239,9 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	state.currentIndex = -1
 	state.liveOutput = ""
 	j.mu.Unlock()
+	
+	// Reset scroll position when starting new test
+	j.viewport.YOffset = 0
 
 	// Get the git worktree path from the instance
 	gitWorktree, err := instance.GetGitWorktree()
