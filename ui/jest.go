@@ -308,11 +308,8 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 	cmd := exec.Command("yarn", "tester")
 	cmd.Dir = workDir
 
-	// Debug output
-	outputChan <- fmt.Sprintf("Running command: yarn tester")
-	outputChan <- fmt.Sprintf("Working directory: %s", workDir)
-	outputChan <- fmt.Sprintf("Instance worktree path: %s", instance.Path)
-	outputChan <- "Starting test run...\n"
+	// Log debug info
+	log.InfoLog.Printf("Running Jest tests - command: yarn tester, workDir: %s, instance path: %s", workDir, instance.Path)
 
 	// Store cmd in state so we can kill it if needed
 	j.mu.Lock()
