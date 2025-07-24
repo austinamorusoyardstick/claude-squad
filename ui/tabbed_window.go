@@ -110,6 +110,13 @@ func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
 
+// SetTab sets the active tab directly by index
+func (w *TabbedWindow) SetTab(tabIndex int) {
+	if tabIndex >= 0 && tabIndex < len(w.tabs) {
+		w.activeTab = tabIndex
+	}
+}
+
 // ToggleWithReset toggles the tab and resets preview pane to normal mode
 func (w *TabbedWindow) ToggleWithReset(instance *session.Instance) error {
 	// Reset preview pane to normal mode before switching
