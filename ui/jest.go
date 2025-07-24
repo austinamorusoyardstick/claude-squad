@@ -544,10 +544,14 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 
 
 func (j *JestPane) ScrollUp() {
+	// Update viewport content before scrolling to ensure it has the latest content
+	j.viewport.SetContent(j.formatContent())
 	j.viewport.LineUp(3)
 }
 
 func (j *JestPane) ScrollDown() {
+	// Update viewport content before scrolling to ensure it has the latest content
+	j.viewport.SetContent(j.formatContent())
 	j.viewport.LineDown(3)
 }
 
