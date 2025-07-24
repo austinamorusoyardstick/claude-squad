@@ -120,7 +120,7 @@ func (j *JestPane) SetInstance(instance *session.Instance) {
 	j.mu.Lock()
 	j.currentInstance = instance
 	j.mu.Unlock()
-	j.viewport.SetContent(j.formatContent())
+	j.updateViewport()
 
 	// If there's content, scroll to bottom
 	state := j.getCurrentState()
