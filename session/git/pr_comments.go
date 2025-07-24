@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+const (
+	// GeminiReviewCommand is the command string used to identify Gemini review comments
+	GeminiReviewCommand = "/gemini review"
+)
+
 type PRComment struct {
 	ID                 int       `json:"id"`
 	Body               string    `json:"body"`
