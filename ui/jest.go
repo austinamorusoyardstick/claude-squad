@@ -601,11 +601,6 @@ func (j *JestPane) ScrollUp() {
 	// Update viewport for scrolling
 	j.updateViewport()
 	
-	// Calculate total lines to determine scroll limits
-	content := j.formatContent()
-	totalLines := len(strings.Split(content, "\n"))
-	availableHeight := j.height - 4
-	
 	// Update scroll position
 	if j.viewport.YOffset > 0 {
 		j.viewport.YOffset -= 3
