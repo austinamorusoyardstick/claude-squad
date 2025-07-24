@@ -242,7 +242,7 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 			j.mu.Lock()
 			state.liveOutput += line + "\n"
 			j.mu.Unlock()
-			j.viewport.SetContent(j.formatContent())
+			j.updateViewport()
 			// Auto-scroll to bottom
 			j.viewport.GotoBottom()
 		}
