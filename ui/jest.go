@@ -525,9 +525,10 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 	// If not found upward, search downward from original directory
 	if info.IsDir() {
 		var foundDir string
-		_ = filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		walkErr := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				return nil // Continue walking
+				log.ErrorLog.Printf("Error walking path %s: %v", path, err)
+				return nil // Continue walking despite error
 			}
 			if info.Name() == "package.json" {
 				foundDir = filepath.Dir(path)
@@ -535,6 +536,11 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 			}
 			return nil
 		})
+		
+		// Check if walk ended with an error other than EOF (which we use to stop early)
+		if walkErr != nil && walkErr != io.EOF {
+			log.ErrorLog.Printf("Error walking directory tree: %v", walkErr)
+		}
 
 		if foundDir != "" {
 			return foundDir, nil
