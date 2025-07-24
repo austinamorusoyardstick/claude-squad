@@ -581,10 +581,6 @@ func (j *JestPane) scrollToCurrentIndex(state *JestInstanceState) {
 	j.viewport.SetYOffset(lineCount - j.viewport.Height/2)
 }
 
-func (j *JestPane) OpenCurrentInIDE() error {
-	// Disabled when showing raw output - files are auto-opened on test failure
-	return nil
-}
 
 func (j *JestPane) ResetToNormalMode() {
 	j.viewport.SetYOffset(0)
