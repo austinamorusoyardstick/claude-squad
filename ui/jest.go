@@ -147,20 +147,54 @@ func (j *JestPane) String() string {
 	state := j.getCurrentState()
 	if j.currentInstance == nil {
 		status = statusStyle.Render("No instance selected")
-	} else if state.running {
+	} else if state != nil && state.running {
 		status = statusStyle.Render("⏳ Running tests...")
-	} else if len(state.failedFiles) > 0 {
+	} else if state != nil && len(state.failedFiles) > 0 {
 		status = failureStyle.Render(fmt.Sprintf("❌ %d test(s) failed", len(state.failedFiles)))
-	} else if len(state.testResults) > 0 {
-		status = successStyle.Render("✅ All tests passed")
+	} else if state != nil && state.liveOutput != "" {
+		status = statusStyle.Render("Test complete")
 	} else {
 		status = statusStyle.Render("No tests run yet")
 	}
 
-	content := j.viewport.View()
+	// When tests are running, use viewport for auto-scrolling
+	// When tests are not running, render as plain text for proper scrolling
+	var content string
+	if state != nil && state.running {
+		content = j.viewport.View()
+	} else {
+		// Render content as plain text when not running
+		rawContent := j.formatContent()
+		// Calculate available height for content
+		availableHeight := j.height - 4 // header + status + help + spacing
+		
+		if availableHeight > 0 {
+			lines := strings.Split(rawContent, "\n")
+			
+			// Apply scrolling offset manually
+			scrollOffset := j.viewport.YOffset
+			if scrollOffset < 0 {
+				scrollOffset = 0
+			}
+			
+			visibleLines := []string{}
+			for i := scrollOffset; i < len(lines) && i < scrollOffset+availableHeight; i++ {
+				visibleLines = append(visibleLines, lines[i])
+			}
+			
+			// Pad with empty lines if needed
+			for len(visibleLines) < availableHeight {
+				visibleLines = append(visibleLines, "")
+			}
+			
+			content = strings.Join(visibleLines, "\n")
+		} else {
+			content = rawContent
+		}
+	}
 
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	help := helpStyle.Render("↑/↓: scroll • r: rerun tests • ESC: exit scroll mode • Auto-scrolls during test run")
+	help := helpStyle.Render("↑/↓: scroll • r: rerun tests • Auto-scrolls during test run")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
