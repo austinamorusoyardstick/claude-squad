@@ -29,6 +29,7 @@ type JestPane struct {
 	instanceStates  map[string]*JestInstanceState
 	currentInstance *session.Instance
 	mu              sync.Mutex
+	globalConfig    *config.Config
 }
 
 type JestInstanceState struct {
