@@ -259,6 +259,42 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	return nil
 }
 
+// parseFailedTestFile extracts the file path from a FAIL line if present
+func parseFailedTestFile(line string, workDir string) string {
+	// Check if line starts with "FAIL "
+	if !strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
+		return ""
+	}
+	
+	// Extract file path from FAIL line
+	// Format: "FAIL src/pages/individualDashboard/component.test.js"
+	trimmedLine := strings.TrimSpace(line)
+	if len(trimmedLine) <= 5 { // "FAIL " is 5 characters
+		return ""
+	}
+	
+	filePath := strings.TrimSpace(trimmedLine[5:])
+	// Remove any trailing whitespace or test duration info
+	if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
+		filePath = filePath[:idx]
+	}
+	
+	// Check if it's a valid test file
+	if !strings.HasSuffix(filePath, ".js") && !strings.HasSuffix(filePath, ".jsx") &&
+		!strings.HasSuffix(filePath, ".ts") && !strings.HasSuffix(filePath, ".tsx") &&
+		!strings.HasSuffix(filePath, ".test.js") && !strings.HasSuffix(filePath, ".spec.js") {
+		return ""
+	}
+	
+	// Convert to absolute path if needed
+	absPath := filePath
+	if !filepath.IsAbs(filePath) {
+		absPath = filepath.Join(workDir, filePath)
+	}
+	
+	return absPath
+}
+
 func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInstanceState, workDir string, outputChan chan<- string) {
 	defer close(outputChan)
 
