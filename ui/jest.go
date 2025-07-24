@@ -444,7 +444,15 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		if fallbackErr != nil {
 			outputChan <- fmt.Sprintf("\nFallback command error: %v", fallbackErr)
 		}
-		outputChan <- string(fallbackOutput)
+		
+		// Parse fallback output for failed files and send to UI
+		lines := strings.Split(string(fallbackOutput), "\n")
+		for _, line := range lines {
+			if failedFile := parseFailedTestFile(line, workDir); failedFile != "" {
+				addFailedFile(failedFile)
+			}
+			outputChan <- line
+		}
 	}
 
 	// Auto-open failed files in IDE
