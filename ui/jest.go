@@ -688,53 +688,6 @@ func (j *JestPane) ResetToNormalMode() {
 	j.viewport.SetYOffset(0)
 }
 
-func getIDECommand(workingDir string) string {
-	// Check CLAUDE.md configuration in the working directory
-	claudeMdPath := filepath.Join(workingDir, "CLAUDE.md")
-	if data, err := os.ReadFile(claudeMdPath); err == nil {
-		scanner := bufio.NewScanner(strings.NewReader(string(data)))
-		inConfig := false
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.TrimSpace(line) == "[claude-squad]" {
-				inConfig = true
-				continue
-			}
-			if inConfig && strings.HasPrefix(line, "ide_command:") {
-				return strings.TrimSpace(strings.TrimPrefix(line, "ide_command:"))
-			}
-			if inConfig && strings.TrimSpace(line) == "" {
-				break
-			}
-		}
-	}
-
-	// Check .claude-squad/config.json in the working directory
-	localConfigPath := filepath.Join(workingDir, ".claude-squad", "config.json")
-	if data, err := os.ReadFile(localConfigPath); err == nil {
-		var config map[string]string
-		if err := json.Unmarshal(data, &config); err == nil {
-			if cmd, ok := config["ide_command"]; ok {
-				return cmd
-			}
-		}
-	}
-
-	// Check global config
-	homeDir, _ := os.UserHomeDir()
-	globalConfigPath := filepath.Join(homeDir, ".claude-squad", "config.json")
-	if data, err := os.ReadFile(globalConfigPath); err == nil {
-		var config map[string]string
-		if err := json.Unmarshal(data, &config); err == nil {
-			if cmd, ok := config["default_ide_command"]; ok {
-				return cmd
-			}
-		}
-	}
-
-	// Default to code
-	return "code"
-}
 
 // Add styles used by Jest pane
 var (
