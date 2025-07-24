@@ -743,15 +743,6 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	// Handle Jest-specific keybindings when in Jest tab
 	if m.tabbedWindow.IsInJestTab() {
 		switch msg.String() {
-		case "n":
-			m.tabbedWindow.JestNextFailure()
-			return m, nil
-		case "p":
-			m.tabbedWindow.JestPreviousFailure()
-			return m, nil
-		case "enter":
-			m.tabbedWindow.JestOpenInIDE()
-			return m, nil
 		case "r":
 			m.tabbedWindow.JestRerunTests()
 			return m, nil
