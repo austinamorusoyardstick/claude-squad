@@ -265,7 +265,7 @@ func (w *TabbedWindow) IsInTerminalTab() bool {
 
 // IsInJestTab returns true if the Jest tab is currently active
 func (w *TabbedWindow) IsInJestTab() bool {
-	return w.activeTab == 3
+	return w.activeTab == JestTab
 }
 
 // UpdateJest updates the Jest pane with test results
