@@ -333,7 +333,6 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		return
 	}
 
-	outputChan <- "Command started successfully..."
 
 	// Collect all output for parsing
 	var allOutput strings.Builder
