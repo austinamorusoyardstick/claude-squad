@@ -384,7 +384,7 @@ func (w *TabbedWindow) String() string {
 		content = w.diff.String()
 	case 2:
 		content = w.terminal.String()
-	case 3:
+	case JestTab:
 		content = w.jest.String()
 	}
 	window := windowStyle.Render(
