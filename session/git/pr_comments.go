@@ -426,7 +426,7 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 			Type:           "issue_comment",
 			IsOutdated:     false, // Issue comments are never outdated
 			IsResolved:     false,
-			IsGeminiReview: strings.Contains(ic.Body, "/gemini review"),
+			IsGeminiReview: strings.Contains(ic.Body, GeminiReviewCommand),
 			Accepted:       false,
 		}
 		pr.AllComments = append(pr.AllComments, comment)
