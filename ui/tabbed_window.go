@@ -276,26 +276,6 @@ func (w *TabbedWindow) UpdateJest(instance *session.Instance) {
 	w.jest.RunTests(instance)
 }
 
-// JestNextFailure navigates to the next test failure in Jest pane
-func (w *TabbedWindow) JestNextFailure() {
-	if w.activeTab == JestTab {
-		w.jest.NextFailure()
-	}
-}
-
-// JestPreviousFailure navigates to the previous test failure in Jest pane
-func (w *TabbedWindow) JestPreviousFailure() {
-	if w.activeTab == JestTab {
-		w.jest.PreviousFailure()
-	}
-}
-
-// JestOpenInIDE opens the current test failure in IDE
-func (w *TabbedWindow) JestOpenInIDE() {
-	if w.activeTab == JestTab {
-		w.jest.OpenCurrentInIDE()
-	}
-}
 
 // JestRerunTests reruns the Jest tests
 func (w *TabbedWindow) JestRerunTests() {
