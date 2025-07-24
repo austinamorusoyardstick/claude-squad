@@ -333,7 +333,20 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 
 	// Collect all output for parsing
 	var allOutput strings.Builder
+	var failedFilesMu sync.Mutex
 	failedFiles := []string{}
+
+	// Helper function to add failed files with thread safety
+	addFailedFile := func(file string) {
+		failedFilesMu.Lock()
+		defer failedFilesMu.Unlock()
+		for _, f := range failedFiles {
+			if f == file {
+				return // Already added
+			}
+		}
+		failedFiles = append(failedFiles, file)
+	}
 
 	// Create wait group for both readers
 	var wg sync.WaitGroup
@@ -350,17 +363,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 
 			// Look for test failures in real-time
 			if failedFile := parseFailedTestFile(line, workDir); failedFile != "" {
-				// Avoid duplicates
-				alreadyAdded := false
-				for _, existing := range failedFiles {
-					if existing == failedFile {
-						alreadyAdded = true
-						break
-					}
-				}
-				if !alreadyAdded {
-					failedFiles = append(failedFiles, failedFile)
-				}
+				addFailedFile(failedFile)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -379,17 +382,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 
 			// Also check stderr for FAIL lines (Jest might output to stderr)
 			if failedFile := parseFailedTestFile(line, workDir); failedFile != "" {
-				// Avoid duplicates
-				alreadyAdded := false
-				for _, existing := range failedFiles {
-					if existing == failedFile {
-						alreadyAdded = true
-						break
-					}
-				}
-				if !alreadyAdded {
-					failedFiles = append(failedFiles, failedFile)
-				}
+				addFailedFile(failedFile)
 			}
 		}
 		if err := scanner.Err(); err != nil {
