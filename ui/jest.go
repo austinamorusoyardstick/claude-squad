@@ -61,11 +61,7 @@ func NewJestPane(globalConfig *config.Config) *JestPane {
 func (j *JestPane) SetSize(width, height int) {
 	j.width = width
 	j.height = height
-	j.viewport.Width = width
-	// Leave room for header, status, and help text
-	// header (1) + instanceInfo (included in header line) + status (1) + help (1) + spacing (1) = 4
-	j.viewport.Height = height - 4
-	j.viewport.SetContent(j.formatContent())
+	j.updateViewport()
 }
 
 func (j *JestPane) getInstanceKey(instance *session.Instance) string {
