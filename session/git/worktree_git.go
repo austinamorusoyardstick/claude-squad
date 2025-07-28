@@ -16,6 +16,7 @@ type RebaseConflictError struct {
 	TempDir    string
 	MainBranch string
 	Message    string
+	Worktree   *GitWorktree
 }
 
 func (e *RebaseConflictError) Error() string {
