@@ -42,6 +42,8 @@ func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 		currentIndex:  0,
 		showHelp:      true,
 		filterEnabled: true,  // Default to filter enabled
+		showComments:  true,  // Default to show comments
+		showReviews:   true,  // Default to show reviews
 		ready:         false,
 		width:         80,   // Default width
 		height:        24,   // Default height
