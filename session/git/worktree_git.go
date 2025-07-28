@@ -380,7 +380,7 @@ func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
 	
 	// Clean up temp directory
 	os.RemoveAll(tempDir)
-	log.InfoLog.Printf("Successfully completed rebase using clone fallback")
+	log.InfoLog.Printf("Successfully completed rebase using clone approach")
 	
 	return nil
 }
