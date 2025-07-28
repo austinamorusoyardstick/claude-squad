@@ -3,6 +3,7 @@ package git
 import (
 	"claude-squad/config"
 	"claude-squad/log"
+	"claude-squad/util"
 	"fmt"
 	"os"
 	"os/exec"
@@ -19,7 +20,7 @@ func (g *GitWorktree) runGitCommand(path string, args ...string) (string, error)
 	}
 
 	baseArgs := []string{"-C", path}
-	cmd := exec.Command("git", append(baseArgs, args...)...)
+	cmd := util.Command("GitWorktree.runGitCommand", "git", append(baseArgs, args...)...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -63,11 +64,11 @@ func (g *GitWorktree) PushChanges(commitMessage string, open bool) error {
 	}
 
 	// First push the branch to remote to ensure it exists
-	pushCmd := exec.Command("gh", "repo", "sync", "--source", "-b", g.branchName)
+	pushCmd := util.Command("GitWorktree.Sync", "gh", "repo", "sync", "--source", "-b", g.branchName)
 	pushCmd.Dir = g.worktreePath
 	if err := pushCmd.Run(); err != nil {
 		// If sync fails, try creating the branch on remote first
-		gitPushCmd := exec.Command("git", "push", "-u", "origin", g.branchName)
+		gitPushCmd := util.Command("GitWorktree.Sync-fallback", "git", "push", "-u", "origin", g.branchName)
 		gitPushCmd.Dir = g.worktreePath
 		if pushOutput, pushErr := gitPushCmd.CombinedOutput(); pushErr != nil {
 			log.ErrorLog.Print(pushErr)
@@ -76,7 +77,7 @@ func (g *GitWorktree) PushChanges(commitMessage string, open bool) error {
 	}
 
 	// Now sync with remote
-	syncCmd := exec.Command("gh", "repo", "sync", "-b", g.branchName)
+	syncCmd := util.Command("GitWorktree.Sync", "gh", "repo", "sync", "-b", g.branchName)
 	syncCmd.Dir = g.worktreePath
 	if output, err := syncCmd.CombinedOutput(); err != nil {
 		log.ErrorLog.Print(err)
@@ -163,7 +164,7 @@ func (g *GitWorktree) OpenBranchURL() error {
 		return err
 	}
 
-	cmd := exec.Command("gh", "browse", "--branch", g.branchName)
+	cmd := util.Command("GitWorktree.OpenBranchURL", "gh", "browse", "--branch", g.branchName)
 	cmd.Dir = g.worktreePath
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to open branch URL: %w", err)
@@ -216,7 +217,7 @@ func (g *GitWorktree) RebaseWithMain() error {
 
 	// Determine the main branch name using git remote show origin
 	mainBranch := "main"
-	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd := util.Command("GitWorktree.CreatePullRequest", "sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
 	cmd.Dir = g.worktreePath
 	output, err := cmd.Output()
 	if err == nil && len(output) > 0 {
@@ -282,7 +283,7 @@ func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 	ideCommand := config.GetEffectiveIdeCommand(g.repoPath, globalConfig)
 	
 	// Open IDE at the worktree path
-	cmd := exec.Command(ideCommand, g.worktreePath)
+	cmd := util.Command("GitWorktree.OpenIDE", ideCommand, g.worktreePath)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
 	}
@@ -421,7 +422,7 @@ type GitFileStatus struct {
 func (g *GitWorktree) GetChangedFilesForBranch() ([]GitFileStatus, error) {
 	// Determine the main branch name
 	mainBranch := "main"
-	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd := util.Command("GitWorktree.createPullRequestInternal", "sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
 	cmd.Dir = g.worktreePath
 	output, err := cmd.Output()
 	if err == nil && len(output) > 0 {
