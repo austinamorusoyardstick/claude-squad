@@ -439,16 +439,22 @@ func (m PRReviewModel) View() string {
 	}
 	
 	// Show comment/review filter status
-	if !m.showComments && !m.showReviews {
+	if m.showOnlyLineComments {
+		filterParts = append(filterParts, "showing only line comments")
+	} else if !m.showComments && !m.showReviews {
 		filterParts = append(filterParts, "hiding all")
+	} else if !m.showComments && m.showReviews {
+		filterParts = append(filterParts, "showing only reviews")
+	} else if m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "showing only comments")
 	} else if !m.showComments {
 		filterParts = append(filterParts, "hiding comments")
 	} else if !m.showReviews {
 		filterParts = append(filterParts, "hiding reviews")
 	}
 	
-	// Show line comments filter status
-	if !m.showLineComments {
+	// Show line comments filter status (only if not in "show only line comments" mode)
+	if !m.showOnlyLineComments && !m.showLineComments {
 		filterParts = append(filterParts, "hiding line comments")
 	}
 	
@@ -741,16 +747,22 @@ func (m PRReviewModel) simpleView() string {
 	}
 	
 	// Show comment/review filter status
-	if !m.showComments && !m.showReviews {
+	if m.showOnlyLineComments {
+		filterParts = append(filterParts, "showing only line comments")
+	} else if !m.showComments && !m.showReviews {
 		filterParts = append(filterParts, "hiding all")
+	} else if !m.showComments && m.showReviews {
+		filterParts = append(filterParts, "showing only reviews")
+	} else if m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "showing only comments")
 	} else if !m.showComments {
 		filterParts = append(filterParts, "hiding comments")
 	} else if !m.showReviews {
 		filterParts = append(filterParts, "hiding reviews")
 	}
 	
-	// Show line comments filter status
-	if !m.showLineComments {
+	// Show line comments filter status (only if not in "show only line comments" mode)
+	if !m.showOnlyLineComments && !m.showLineComments {
 		filterParts = append(filterParts, "hiding line comments")
 	}
 	
