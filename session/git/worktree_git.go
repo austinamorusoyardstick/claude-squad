@@ -426,49 +426,77 @@ func (g *GitWorktree) hasMergeConflictsInPath(path string) bool {
 	return false
 }
 
-// pollRebaseCompletion polls the clone directory to check if rebase is complete
-func (g *GitWorktree) pollRebaseCompletion(tempDir string, mainBranch string) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-	
-	log.InfoLog.Printf("Started monitoring rebase completion in %s", tempDir)
-	
-	for {
-		select {
-		case <-ticker.C:
-			// Check if directory still exists
-			if _, err := os.Stat(tempDir); os.IsNotExist(err) {
-				log.InfoLog.Printf("Temp directory %s no longer exists, stopping rebase monitor", tempDir)
-				return
+// CreateRebasePollingCommand creates a tea.Cmd for polling rebase completion
+func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch string) func() interface{} {
+	return func() interface{} {
+		log.InfoLog.Printf("Checking rebase completion status in %s", tempDir)
+		
+		// Check if directory still exists
+		if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+			log.InfoLog.Printf("Temp directory %s no longer exists", tempDir)
+			return RebasePollingMsg{
+				Status:     "cancelled",
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
 			}
-			
-			// Check if rebase is still in progress
-			if g.isRebaseInProgressAtPath(tempDir) {
-				log.DebugLog.Printf("Rebase still in progress at %s", tempDir)
-				continue
+		}
+		
+		// Check if rebase is still in progress
+		if g.isRebaseInProgressAtPath(tempDir) {
+			log.DebugLog.Printf("Rebase still in progress at %s", tempDir)
+			return RebasePollingMsg{
+				Status:     "in_progress",
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
 			}
-			
-			// Check if there are still conflicts
-			if g.hasMergeConflictsInPath(tempDir) {
-				log.DebugLog.Printf("Conflicts still exist at %s", tempDir)
-				continue
+		}
+		
+		// Check if there are still conflicts
+		if g.hasMergeConflictsInPath(tempDir) {
+			log.DebugLog.Printf("Conflicts still exist at %s", tempDir)
+			return RebasePollingMsg{
+				Status:     "in_progress",
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
 			}
-			
-			// Rebase appears to be complete - sync back to worktree
-			log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
-			
-			if err := g.syncRebaseFromClone(tempDir, mainBranch); err != nil {
-				log.ErrorLog.Printf("Failed to sync rebase from clone: %v", err)
-				// Continue polling in case user wants to retry
-				continue
+		}
+		
+		// Rebase appears to be complete - sync back to worktree
+		log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
+		
+		if err := g.syncRebaseFromClone(tempDir, mainBranch); err != nil {
+			log.ErrorLog.Printf("Failed to sync rebase from clone: %v", err)
+			return RebasePollingMsg{
+				Status:     "sync_failed",
+				Error:      err,
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
 			}
-			
-			// Success - clean up and exit
-			os.RemoveAll(tempDir)
-			log.InfoLog.Printf("Successfully synced rebase from clone and cleaned up temp directory")
-			return
+		}
+		
+		// Success - clean up and exit
+		os.RemoveAll(tempDir)
+		log.InfoLog.Printf("Successfully synced rebase from clone and cleaned up temp directory")
+		return RebasePollingMsg{
+			Status:     "completed",
+			TempDir:    tempDir,
+			MainBranch: mainBranch,
+			Worktree:   g,
 		}
 	}
+}
+
+// RebasePollingMsg represents the status of rebase polling
+type RebasePollingMsg struct {
+	Status     string // "in_progress", "completed", "sync_failed", "cancelled"
+	Error      error
+	TempDir    string
+	MainBranch string
+	Worktree   *GitWorktree
 }
 
 // isRebaseInProgressAtPath checks if a rebase is in progress at a specific path
