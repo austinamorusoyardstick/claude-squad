@@ -329,7 +329,7 @@ func (m PRReviewModel) getActiveComments() []*git.PRComment {
 	}
 	
 	// Apply filters
-	var filtered []*git.PRComment
+	filtered := make([]*git.PRComment, 0, len(comments))
 	for _, comment := range comments {
 		// Filter by type
 		switch comment.Type {
