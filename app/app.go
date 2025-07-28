@@ -1058,48 +1058,17 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 
-		// Create the rebase action as a tea.Cmd
-		rebaseAction := func() tea.Msg {
-			worktree, err := selected.GetGitWorktree()
-			if err != nil {
-				return err
-			}
-
-			// Check if there are uncommitted changes
-			isDirty, err := worktree.IsDirty()
-			if err != nil {
-				return err
-			}
-
-			if isDirty {
-				return fmt.Errorf(cannotRebaseUncommittedChangesError)
-			}
-
-			// Perform the rebase
-			if err := worktree.RebaseWithMain(); err != nil {
-				// Check if this is a rebase conflict error that needs polling
-				if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
-					// Show the conflict error but start polling
-					log.InfoLog.Printf("Starting rebase polling for %s", rebaseErr.TempDir)
-					
-					// Store the polling info for later use
-					m.rebasePollingInfo = &rebasePollingInfo{
-						TempDir:    rebaseErr.TempDir,
-						MainBranch: rebaseErr.MainBranch,
-						Worktree:   rebaseErr.Worktree,
-					}
-					
-					// Return a special message to trigger polling
-					return rebaseConflictDetectedMsg{err: rebaseErr}
-				}
-				return err
-			}
-
-			return instanceChangedMsg{}
-		}
-
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
+		
+		// Store the selected instance for the rebase
+		m.pendingRebaseInstance = selected
+		
+		// Create a simple action that just returns a message to trigger the actual rebase
+		rebaseAction := func() tea.Msg {
+			return startRebaseMsg{}
+		}
+		
 		return m, m.confirmAction(message, rebaseAction)
 	case keys.KeyPRReview:
 		selected := m.list.GetSelectedInstance()
