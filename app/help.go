@@ -101,11 +101,19 @@ func (h helpTypeInstanceStart) toContent() string {
 		keyStyle.Render("↵/o")+descStyle.Render("   - Attach to the session to interact with it directly"),
 		keyStyle.Render("tab")+descStyle.Render("   - Switch between AI, diff, and terminal tabs"),
 		keyStyle.Render("D")+descStyle.Render("     - Kill (delete) the selected session"),
+		keyStyle.Render("w")+descStyle.Render("     - Open in IDE"),
 		"",
-		headerStyle.Render("Handoff:"),
+		headerStyle.Render("Git & Handoff:"),
 		keyStyle.Render("c")+descStyle.Render("     - Checkout this instance's branch"),
-		keyStyle.Render("p")+descStyle.Render("     - Push branch to GitHub to create a PR"),
+		keyStyle.Render("p")+descStyle.Render("     - Push branch to GitHub"),
+		keyStyle.Render("b")+descStyle.Render("     - Rebase with main branch"),
 		keyStyle.Render("B")+descStyle.Render("     - Create bookmark commit"),
+		keyStyle.Render("g")+descStyle.Render("     - Show git status"),
+		"",
+		headerStyle.Render("Tools:"),
+		keyStyle.Render("t")+descStyle.Render("     - Run tests"),
+		keyStyle.Render("l")+descStyle.Render("     - View error log"),
+		keyStyle.Render("?")+descStyle.Render("     - Show help"),
 	)
 	return content
 }
