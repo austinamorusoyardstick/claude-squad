@@ -40,12 +40,12 @@ func (m *home) processAcceptedComments(comments []*git.PRComment) tea.Cmd {
 		progressText += "\n"
 	}
 	progressText += "\nSending to Claude for processing..."
-	
+
 	m.textOverlay = overlay.NewTextOverlay(progressText)
 	m.state = stateHelp
-	
+
 	// No need to switch tabs - SendPromptToAI sends directly to AI pane
-	
+
 	// Return a command that processes comments
 	return m.processCommentsSequentially(comments)
 }
@@ -56,21 +56,21 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 		if selected == nil {
 			return fmt.Errorf("no instance selected")
 		}
-		
+
 		// Check if instance is ready
 		if selected.Status != session.Ready && selected.Status != session.Running {
 			return fmt.Errorf("instance is not ready to receive prompts (status: %v)", selected.Status)
 		}
-		
+
 		// Process each comment
 		for i, comment := range comments {
 			prompt := m.formatCommentAsPrompt(comment)
-			
+
 			// Skip empty prompts (e.g., split comments with no accepted pieces)
 			if prompt == "" {
 				continue
 			}
-			
+
 			// Debug: log the prompt being sent
 			log.WarningLog.Printf("Sending PR comment %d to Claude AI pane", i+1)
 			promptPreview := prompt
@@ -78,7 +78,7 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 				promptPreview = promptPreview[:100] + "..."
 			}
 			log.WarningLog.Printf("Prompt content: %s", promptPreview)
-			
+
 			// First try sending a simple test message
 			testMsg := fmt.Sprintf("Processing PR comment %d from @%s", i+1, comment.Author)
 			if comment.IsSplit {
@@ -89,21 +89,21 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 				log.ErrorLog.Printf("Failed to send test message to Claude: %v", err)
 				return fmt.Errorf("failed to send test message to Claude: %w", err)
 			}
-			
+
 			// Short pause before sending the actual prompt
 			time.Sleep(500 * time.Millisecond)
-			
+
 			if err := selected.SendPromptToAI(prompt); err != nil {
 				log.ErrorLog.Printf("Failed to send comment %d to Claude: %v", i+1, err)
 				return fmt.Errorf("failed to send comment %d to Claude: %w", i+1, err)
 			}
-			
+
 			log.WarningLog.Printf("Successfully sent comment %d to Claude", i+1)
-			
+
 			// Longer delay between comments to give Claude time to process
 			time.Sleep(3 * time.Second)
 		}
-		
+
 		return allCommentsProcessedMsg{}
 	}
 }
@@ -113,17 +113,17 @@ func (m *home) sendCommentToClaude(comment *git.PRComment) error {
 	if selected == nil {
 		return fmt.Errorf("no instance selected")
 	}
-	
+
 	// Format the comment as a prompt for Claude
 	prompt := m.formatCommentAsPrompt(comment)
-	
+
 	// Send prompt to the instance
 	return selected.SendPrompt(prompt)
 }
 
 func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 	var prompt strings.Builder
-	
+
 	// Format header based on comment type
 	switch comment.Type {
 	case "review":
@@ -135,9 +135,9 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 	default:
 		prompt.WriteString("=== PR COMMENT ===\n\n")
 	}
-	
+
 	prompt.WriteString(fmt.Sprintf("Author: @%s\n", comment.Author))
-	
+
 	// Better type descriptions
 	typeDisplay := comment.Type
 	switch comment.Type {
@@ -149,7 +149,7 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 		typeDisplay = "General Comment"
 	}
 	prompt.WriteString(fmt.Sprintf("Type: %s\n", typeDisplay))
-	
+
 	if comment.Path != "" {
 		prompt.WriteString(fmt.Sprintf("File: %s", comment.Path))
 		if comment.Line > 0 {
@@ -157,10 +157,10 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 		}
 		prompt.WriteString("\n")
 	}
-	
+
 	prompt.WriteString("\nComment:\n")
 	prompt.WriteString("---\n")
-	
+
 	// Handle split comments differently
 	if comment.IsSplit {
 		// Only include accepted pieces
@@ -169,7 +169,7 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 			// No accepted pieces, return empty prompt
 			return ""
 		}
-		
+
 		prompt.WriteString("Note: This comment has been split into pieces. Only the following selected pieces are included:\n\n")
 		for i, piece := range acceptedPieces {
 			if i > 0 {
@@ -180,9 +180,9 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 	} else {
 		prompt.WriteString(comment.Body)
 	}
-	
+
 	prompt.WriteString("\n---\n\n")
-	
+
 	// Customize instructions based on comment type
 	switch comment.Type {
 	case "review":
@@ -192,10 +192,10 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 	case "issue_comment":
 		prompt.WriteString("This is a general PR discussion comment. Please respond appropriately. ")
 	}
-	
+
 	prompt.WriteString("If the comment is asking a question, provide a clear answer. ")
 	prompt.WriteString("If it's suggesting a change, implement it. ")
 	prompt.WriteString("If you need clarification, explain what's unclear.")
-	
+
 	return prompt.String()
 }

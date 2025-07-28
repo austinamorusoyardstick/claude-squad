@@ -67,7 +67,7 @@ func (t *TextInputOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 		}
 		return false
 	}
-	
+
 	switch msg.Type {
 	case tea.KeyTab:
 		// Toggle focus between input and enter button.
@@ -168,13 +168,13 @@ func (t *TextInputOverlay) Render() string {
 	} else {
 		enterButton = buttonStyle.Render(enterButton)
 	}
-	
+
 	// Add hint about keyboard shortcuts
 	hintStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Italic(true)
 	hint := hintStyle.Render("Press Enter to submit • Shift+Enter for newline • Esc to cancel")
-	
+
 	content += enterButton + "\n\n" + hint
 
 	return style.Render(content)

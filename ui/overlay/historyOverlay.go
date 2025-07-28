@@ -39,22 +39,22 @@ func NewHistoryOverlay(title string, content string) *HistoryOverlay {
 func (h *HistoryOverlay) SetSize(width, height int) {
 	h.width = width
 	h.height = height
-	
+
 	// Calculate viewport dimensions (account for borders, padding, title, and help text)
 	// Border: 2 lines (top/bottom), padding: 2 lines, title: 2 lines, help: 2 lines
 	viewportHeight := height - 8
 	viewportWidth := width - 4 // Border and padding on sides
-	
+
 	if viewportHeight < 1 {
 		viewportHeight = 1
 	}
 	if viewportWidth < 1 {
 		viewportWidth = 1
 	}
-	
+
 	h.viewport.Width = viewportWidth
 	h.viewport.Height = viewportHeight
-	
+
 	// After setting dimensions, position at bottom to show most recent content
 	h.viewport.GotoBottom()
 }
@@ -92,12 +92,12 @@ func (h *HistoryOverlay) Render(opts ...WhitespaceOption) string {
 		Bold(true).
 		Foreground(lipgloss.Color("62")).
 		MarginBottom(1)
-	
+
 	// Help text style
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		MarginTop(1)
-	
+
 	// Container style
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -105,7 +105,7 @@ func (h *HistoryOverlay) Render(opts ...WhitespaceOption) string {
 		Padding(1).
 		Width(h.width - 2). // Account for terminal padding
 		Height(h.height - 2)
-	
+
 	// Build the content
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
@@ -113,7 +113,7 @@ func (h *HistoryOverlay) Render(opts ...WhitespaceOption) string {
 		h.viewport.View(),
 		helpStyle.Render(h.helpText),
 	)
-	
+
 	return containerStyle.Render(content)
 }
 

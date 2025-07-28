@@ -4,9 +4,9 @@ import (
 	"regexp"
 	"strings"
 
+	"claude-squad/log"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"claude-squad/log"
 )
 
 // Pre-compiled regexes for better performance
@@ -17,24 +17,24 @@ var (
 	singleAsteriskRegex   = regexp.MustCompile(`(?:^|\s)\*([^*\n]+)\*(?:\s|$)`)
 	singleUnderscoreRegex = regexp.MustCompile(`(?:^|\s)_([^_\n]+)_(?:\s|$)`)
 	strikethroughRegex    = regexp.MustCompile(`~~([^~]+)~~`)
-	
+
 	// Lists
 	unorderedListRegex = regexp.MustCompile(`^(\s*)([-*+])\s+(.*)`)
 	orderedListRegex   = regexp.MustCompile(`^(\s*)(\d+)\.\s+(.*)`)
-	
+
 	// Links and images
 	linkRegex  = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 	imageRegex = regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
-	
+
 	// Block elements
 	blockquoteRegex = regexp.MustCompile(`^>\s*(.*)`)
 	hrRegex         = regexp.MustCompile(`^(---|\*\*\*|___)$`)
 	headerRegex     = regexp.MustCompile(`^(#{1,6})\s+(.*)`)
-	
+
 	// Code blocks
 	codeBlockStartRegex = regexp.MustCompile(`^` + "```" + `(\w*)`)
 	codeBlockEndRegex   = regexp.MustCompile(`^` + "```" + `$`)
-	
+
 	// Tables
 	tableRowRegex = regexp.MustCompile(`^\|(.+)\|$`)
 	tableSepRegex = regexp.MustCompile(`^\|[\s\-:|]+\|$`)
@@ -100,19 +100,19 @@ func RenderMarkdownWithStyle(content string, width int, isDark bool) (string, er
 func StripMarkdown(content string) string {
 	// Basic markdown stripping - this is simplified and won't handle all cases
 	// For production, consider using a proper markdown parser
-	
+
 	// Remove code blocks
 	content = strings.ReplaceAll(content, "```", "")
-	
+
 	// Remove inline code
 	content = strings.ReplaceAll(content, "`", "")
-	
+
 	// Remove bold and italic markers
 	content = strings.ReplaceAll(content, "**", "")
 	content = strings.ReplaceAll(content, "__", "")
 	content = strings.ReplaceAll(content, "*", "")
 	content = strings.ReplaceAll(content, "_", "")
-	
+
 	// Remove headers
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
@@ -126,7 +126,7 @@ func StripMarkdown(content string) string {
 		}
 	}
 	content = strings.Join(lines, "\n")
-	
+
 	// Remove links but keep text
 	// [text](url) -> text
 	for strings.Contains(content, "](") {
@@ -144,11 +144,11 @@ func StripMarkdown(content string) string {
 			break
 		}
 		closeIdx += end
-		
+
 		linkText := content[start+1 : end]
 		content = content[:start] + linkText + content[closeIdx+1:]
 	}
-	
+
 	return content
 }
 
@@ -189,7 +189,7 @@ func RenderMarkdownLight(content string) string {
 		Foreground(lipgloss.Color("245"))
 	hrStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240"))
-	
+
 	// Header styles
 	h1Style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
 	h2Style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("213"))
@@ -197,18 +197,18 @@ func RenderMarkdownLight(content string) string {
 	h4Style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
 	h5Style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("237"))
 	h6Style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("245"))
-	
+
 	// Process line by line
 	lines := strings.Split(content, "\n")
 	processedLines := make([]string, 0, len(lines))
-	
+
 	inCodeBlock := false
 	codeBlockLang := ""
 	codeBlockLines := []string{}
 	inTable := false
 	tableRows := [][]string{}
 	tableHasHeader := false
-	
+
 	for i, line := range lines {
 		// Handle code blocks
 		if match := codeBlockStartRegex.FindStringSubmatch(line); match != nil && !inCodeBlock {
@@ -216,16 +216,16 @@ func RenderMarkdownLight(content string) string {
 			codeBlockLang = match[1]
 			continue
 		}
-		
+
 		if codeBlockEndRegex.MatchString(line) && inCodeBlock {
 			inCodeBlock = false
-			
+
 			// Create a code block with better formatting
 			codeBlockStyle := lipgloss.NewStyle().
 				Background(lipgloss.Color("236")).
 				PaddingLeft(1).
 				PaddingRight(1)
-			
+
 			// Add language hint if available
 			if codeBlockLang != "" {
 				langStyle := lipgloss.NewStyle().
@@ -233,28 +233,28 @@ func RenderMarkdownLight(content string) string {
 					Italic(true)
 				processedLines = append(processedLines, langStyle.Render(codeBlockLang))
 			}
-			
+
 			// Apply syntax highlighting if supported
 			codeContent := strings.Join(codeBlockLines, "\n")
 			highlightedCode := HighlightCode(codeContent, codeBlockLang)
 			highlightedLines := strings.Split(highlightedCode, "\n")
-			
+
 			// Render each line with the code block background
 			for _, highlightedLine := range highlightedLines {
 				// Apply background to the entire line
 				processedLines = append(processedLines, codeBlockStyle.Render(highlightedLine))
 			}
-			
+
 			codeBlockLines = nil
 			codeBlockLang = ""
 			continue
 		}
-		
+
 		if inCodeBlock {
 			codeBlockLines = append(codeBlockLines, line)
 			continue
 		}
-		
+
 		// Handle tables
 		if tableRowRegex.MatchString(line) {
 			if !inTable {
@@ -262,10 +262,10 @@ func RenderMarkdownLight(content string) string {
 				tableRows = [][]string{}
 				tableHasHeader = false
 			}
-			
+
 			// Check if this is a separator row
 			isSeparator := tableSepRegex.MatchString(line)
-			
+
 			if isSeparator {
 				// If we have exactly one row before separator, it's a header
 				if len(tableRows) == 1 {
@@ -279,7 +279,7 @@ func RenderMarkdownLight(content string) string {
 				}
 				tableRows = append(tableRows, cells)
 			}
-			
+
 			// Check if next line is not a table row to end the table
 			if i == len(lines)-1 || (i < len(lines)-1 && !tableRowRegex.MatchString(lines[i+1])) {
 				// Render the table
@@ -290,7 +290,7 @@ func RenderMarkdownLight(content string) string {
 			}
 			continue
 		}
-		
+
 		// If we were in a table and hit a non-table line, render it
 		if inTable {
 			processedLines = append(processedLines, renderSimpleTable(tableRows, tableHasHeader)...)
@@ -298,18 +298,18 @@ func RenderMarkdownLight(content string) string {
 			tableRows = nil
 			tableHasHeader = false
 		}
-		
+
 		// Handle horizontal rules
 		if hrRegex.MatchString(strings.TrimSpace(line)) {
 			processedLines = append(processedLines, hrStyle.Render(strings.Repeat("─", 40)))
 			continue
 		}
-		
+
 		// Handle headers with different styles
 		if match := headerRegex.FindStringSubmatch(line); match != nil {
 			level := len(match[1])
 			headerText := match[2]
-			
+
 			var style lipgloss.Style
 			switch level {
 			case 1:
@@ -325,7 +325,7 @@ func RenderMarkdownLight(content string) string {
 			default:
 				style = h6Style
 			}
-			
+
 			processedLines = append(processedLines, style.Render(headerText))
 			// Add spacing after headers
 			if i < len(lines)-1 && lines[i+1] != "" {
@@ -333,7 +333,7 @@ func RenderMarkdownLight(content string) string {
 			}
 			continue
 		}
-		
+
 		// Handle blockquotes
 		if match := blockquoteRegex.FindStringSubmatch(line); match != nil {
 			quotedText := match[1]
@@ -342,56 +342,56 @@ func RenderMarkdownLight(content string) string {
 			processedLines = append(processedLines, blockquoteStyle.Render(quotedText))
 			continue
 		}
-		
+
 		// Handle lists with better formatting
 		if match := unorderedListRegex.FindStringSubmatch(line); match != nil {
 			indent := match[1]
 			content := match[3]
-			
+
 			// Calculate bullet based on indentation level
 			indentLevel := len(indent) / 2
 			bullets := []string{"•", "◦", "▪", "▫"}
 			bullet := bullets[indentLevel%len(bullets)]
-			
+
 			// Process inline formatting in list item
 			content = processInlineFormatting(content, boldStyle, italicStyle, codeStyle, strikethroughStyle, linkStyle)
 			processedLines = append(processedLines, indent+bullet+" "+content)
 			continue
 		}
-		
+
 		if match := orderedListRegex.FindStringSubmatch(line); match != nil {
 			indent := match[1]
 			number := match[2]
 			content := match[3]
-			
+
 			// Process inline formatting in list item
 			content = processInlineFormatting(content, boldStyle, italicStyle, codeStyle, strikethroughStyle, linkStyle)
 			processedLines = append(processedLines, indent+number+". "+content)
 			continue
 		}
-		
+
 		// Process inline formatting for regular lines
 		processedLine := processInlineFormatting(line, boldStyle, italicStyle, codeStyle, strikethroughStyle, linkStyle)
 		processedLines = append(processedLines, processedLine)
 	}
-	
+
 	// Handle any unclosed code block
 	if inCodeBlock && len(codeBlockLines) > 0 {
 		codeBlockStyle := lipgloss.NewStyle().
 			Background(lipgloss.Color("236")).
 			PaddingLeft(1).
 			PaddingRight(1)
-		
+
 		// Apply syntax highlighting if we have a language
 		codeContent := strings.Join(codeBlockLines, "\n")
 		highlightedCode := HighlightCode(codeContent, codeBlockLang)
 		highlightedLines := strings.Split(highlightedCode, "\n")
-		
+
 		for _, highlightedLine := range highlightedLines {
 			processedLines = append(processedLines, codeBlockStyle.Render(highlightedLine))
 		}
 	}
-	
+
 	return strings.Join(processedLines, "\n")
 }
 
@@ -402,7 +402,7 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 		code := strings.Trim(match, "`")
 		return codeStyle.Render(code)
 	})
-	
+
 	// Handle links
 	line = linkRegex.ReplaceAllStringFunc(line, func(match string) string {
 		submatch := linkRegex.FindStringSubmatch(match)
@@ -414,7 +414,7 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 		}
 		return match
 	})
-	
+
 	// Handle images (show as [Image: description])
 	line = imageRegex.ReplaceAllStringFunc(line, func(match string) string {
 		submatch := imageRegex.FindStringSubmatch(match)
@@ -427,19 +427,19 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 		}
 		return match
 	})
-	
+
 	// Handle strikethrough
 	line = strikethroughRegex.ReplaceAllStringFunc(line, func(match string) string {
 		text := strikethroughRegex.FindStringSubmatch(match)[1]
 		return strikethroughStyle.Render(text)
 	})
-	
+
 	// Handle bold
 	line = boldRegex.ReplaceAllStringFunc(line, func(match string) string {
 		text := boldRegex.FindStringSubmatch(match)[2]
 		return boldStyle.Render(text)
 	})
-	
+
 	// Handle italic with asterisks
 	line = singleAsteriskRegex.ReplaceAllStringFunc(line, func(match string) string {
 		submatch := singleAsteriskRegex.FindStringSubmatch(match)
@@ -457,7 +457,7 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 		}
 		return match
 	})
-	
+
 	// Handle italic with underscores
 	line = singleUnderscoreRegex.ReplaceAllStringFunc(line, func(match string) string {
 		submatch := singleUnderscoreRegex.FindStringSubmatch(match)
@@ -475,7 +475,7 @@ func processInlineFormatting(line string, boldStyle, italicStyle, codeStyle, str
 		}
 		return match
 	})
-	
+
 	return line
 }
 
@@ -484,7 +484,7 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 	if len(rows) == 0 {
 		return []string{}
 	}
-	
+
 	// Calculate column widths
 	maxCols := 0
 	for _, row := range rows {
@@ -492,7 +492,7 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			maxCols = len(row)
 		}
 	}
-	
+
 	colWidths := make([]int, maxCols)
 	for _, row := range rows {
 		for i, cell := range row {
@@ -501,35 +501,35 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			}
 		}
 	}
-	
+
 	// Table styles - simpler, cleaner look
 	tableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
 	separatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	
+
 	result := []string{}
-	
+
 	// Render rows
 	for i, row := range rows {
 		var rowStr strings.Builder
-		
+
 		for j := 0; j < maxCols; j++ {
 			cell := ""
 			if j < len(row) {
 				cell = row[j]
 			}
-			
+
 			// Pad cell
 			padding := colWidths[j] - len(cell)
 			if padding < 0 {
 				padding = 0
 			}
-			
+
 			// Add spacing
 			if j > 0 {
 				rowStr.WriteString("  ")
 			}
-			
+
 			// Apply style
 			if i == 0 && hasHeader {
 				rowStr.WriteString(headerStyle.Render(cell + strings.Repeat(" ", padding)))
@@ -537,9 +537,9 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 				rowStr.WriteString(tableStyle.Render(cell + strings.Repeat(" ", padding)))
 			}
 		}
-		
+
 		result = append(result, rowStr.String())
-		
+
 		// Add simple separator after header
 		if i == 0 && hasHeader {
 			var sepStr strings.Builder
@@ -552,6 +552,6 @@ func renderSimpleTable(rows [][]string, hasHeader bool) []string {
 			result = append(result, separatorStyle.Render(sepStr.String()))
 		}
 	}
-	
+
 	return result
 }

@@ -11,12 +11,12 @@ import (
 
 // UpdateChecker manages checking for application updates
 type UpdateChecker struct {
-	mu                  sync.RWMutex
-	updateAvailable     bool
-	lastCheck           time.Time
-	checkInterval       time.Duration
-	currentCommitCount  int
-	remoteCommitCount   int
+	mu                 sync.RWMutex
+	updateAvailable    bool
+	lastCheck          time.Time
+	checkInterval      time.Duration
+	currentCommitCount int
+	remoteCommitCount  int
 }
 
 // NewUpdateChecker creates a new update checker instance
@@ -48,11 +48,11 @@ func (uc *UpdateChecker) StartBackgroundCheck() {
 	go func() {
 		// Do initial check
 		uc.checkForUpdates()
-		
+
 		// Set up periodic checking
 		ticker := time.NewTicker(uc.checkInterval)
 		defer ticker.Stop()
-		
+
 		for range ticker.C {
 			uc.checkForUpdates()
 		}
@@ -68,7 +68,7 @@ func (uc *UpdateChecker) CheckNow() {
 func (uc *UpdateChecker) checkForUpdates() {
 	// Try different methods to find the claude-squad git repository
 	gitRoot := ""
-	
+
 	// Method 1: Check if we're already in a git repository (development mode)
 	if currentRoot := findGitRoot("."); currentRoot != "" {
 		// Verify this is claude-squad by checking for specific files
@@ -76,7 +76,7 @@ func (uc *UpdateChecker) checkForUpdates() {
 			gitRoot = currentRoot
 		}
 	}
-	
+
 	// Method 2: Check common installation locations
 	if gitRoot == "" {
 		commonPaths := []string{
@@ -85,7 +85,7 @@ func (uc *UpdateChecker) checkForUpdates() {
 			"~/src/claude-squad",
 			"~/claude-squad",
 		}
-		
+
 		for _, path := range commonPaths {
 			expandedPath := os.ExpandEnv(strings.Replace(path, "~", "$HOME", 1))
 			if root := findGitRoot(expandedPath); root != "" && isClaudeSquadRepo(root) {
@@ -94,7 +94,7 @@ func (uc *UpdateChecker) checkForUpdates() {
 			}
 		}
 	}
-	
+
 	// Method 3: Try to find via the executable path if csa is in PATH
 	if gitRoot == "" {
 		if execPath, err := exec.LookPath("csa"); err == nil {
@@ -104,14 +104,14 @@ func (uc *UpdateChecker) checkForUpdates() {
 				// Try alternative for macOS
 				resolvedPath, err = exec.Command("realpath", execPath).Output()
 			}
-			
+
 			if err == nil {
 				// Extract the directory containing the executable
 				execDir := strings.TrimSpace(string(resolvedPath))
 				if idx := strings.LastIndex(execDir, "/"); idx != -1 {
 					execDir = execDir[:idx]
 				}
-				
+
 				// Search up from the executable location
 				if root := findGitRoot(execDir); root != "" && isClaudeSquadRepo(root) {
 					gitRoot = root
@@ -119,45 +119,45 @@ func (uc *UpdateChecker) checkForUpdates() {
 			}
 		}
 	}
-	
+
 	if gitRoot == "" {
 		// Silently return - this is normal for binary distributions
 		return
 	}
-	
+
 	// Fetch latest changes from origin
 	cmd := exec.Command("git", "-C", gitRoot, "fetch", "origin", "--quiet")
 	if err := cmd.Run(); err != nil {
 		log.WarningLog.Printf("Failed to fetch from origin: %v", err)
 		return
 	}
-	
+
 	// Get the main branch name
 	mainBranch := getMainBranch(gitRoot)
-	
+
 	// Get current commit count
 	currentCount, err := getCommitCount(gitRoot, "HEAD")
 	if err != nil {
 		log.WarningLog.Printf("Failed to get current commit count: %v", err)
 		return
 	}
-	
+
 	// Get remote commit count
 	remoteCount, err := getCommitCount(gitRoot, "origin/"+mainBranch)
 	if err != nil {
 		log.WarningLog.Printf("Failed to get remote commit count: %v", err)
 		return
 	}
-	
+
 	// Update the state
 	uc.mu.Lock()
 	defer uc.mu.Unlock()
-	
+
 	uc.lastCheck = time.Now()
 	uc.currentCommitCount = currentCount
 	uc.remoteCommitCount = remoteCount
 	uc.updateAvailable = remoteCount > currentCount
-	
+
 	if uc.updateAvailable {
 		log.InfoLog.Printf("Update available: %d commits behind", remoteCount-currentCount)
 	}
@@ -172,7 +172,7 @@ func findGitRoot(startPath string) string {
 		if err == nil {
 			return strings.TrimSpace(string(output))
 		}
-		
+
 		// Go up one directory
 		if idx := strings.LastIndex(current, "/"); idx > 0 {
 			current = current[:idx]
@@ -191,7 +191,7 @@ func getMainBranch(gitRoot string) string {
 	if err == nil && len(output) > 0 {
 		return strings.TrimSpace(string(output))
 	}
-	
+
 	// Fallback to common defaults
 	for _, branch := range []string{"main", "master"} {
 		cmd := exec.Command("git", "-C", gitRoot, "rev-parse", "--verify", "origin/"+branch)
@@ -199,7 +199,7 @@ func getMainBranch(gitRoot string) string {
 			return branch
 		}
 	}
-	
+
 	return "main"
 }
 
@@ -210,7 +210,7 @@ func getCommitCount(gitRoot, ref string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	
+
 	count := 0
 	if _, err := strings.NewReader(strings.TrimSpace(string(output))).Read([]byte{}); err == nil {
 		// Parse the count
@@ -223,7 +223,7 @@ func getCommitCount(gitRoot, ref string) (int, error) {
 			}
 		}
 	}
-	
+
 	return count, nil
 }
 
@@ -235,18 +235,18 @@ func isClaudeSquadRepo(gitRoot string) bool {
 		"go.mod",
 		"app/app.go",
 	}
-	
+
 	for _, file := range requiredFiles {
 		if _, err := os.Stat(gitRoot + "/" + file); os.IsNotExist(err) {
 			return false
 		}
 	}
-	
+
 	// Additionally check if go.mod contains claude-squad
 	goModContent, err := os.ReadFile(gitRoot + "/go.mod")
 	if err != nil {
 		return false
 	}
-	
+
 	return strings.Contains(string(goModContent), "claude-squad")
 }

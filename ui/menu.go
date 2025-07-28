@@ -54,7 +54,7 @@ type Menu struct {
 
 	// keyDown is the key which is pressed. The default is -1.
 	keyDown keys.KeyName
-	
+
 	// updateChecker is used to check if updates are available
 	updateChecker UpdateChecker
 }
@@ -253,7 +253,7 @@ func (m *Menu) String() string {
 	if m.updateChecker != nil && m.updateChecker.IsUpdateAvailable() {
 		s.WriteString(sepStyle.Render(verticalSeparator))
 		updateStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("214")).  // Orange color
+			Foreground(lipgloss.Color("214")). // Orange color
 			Bold(true)
 		commitsBehind := m.updateChecker.GetCommitsBehind()
 		if commitsBehind > 0 {

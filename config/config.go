@@ -53,7 +53,7 @@ type Config struct {
 type RepoConfig struct {
 	// IdeCommand is the IDE command to use for this repository
 	IdeCommand string `json:"ide_command,omitempty"`
-	// DiffCommand is the external diff command to use for this repository  
+	// DiffCommand is the external diff command to use for this repository
 	DiffCommand string `json:"diff_command,omitempty"`
 }
 
@@ -211,7 +211,7 @@ func LoadRepoConfig(repoPath string) *RepoConfig {
 		return config
 	}
 
-	// Try CLAUDE.md second  
+	// Try CLAUDE.md second
 	if config := loadRepoConfigFromCLAUDEMD(repoPath); config != nil {
 		return config
 	}
@@ -245,7 +245,7 @@ func loadRepoConfigFromCLAUDEMD(repoPath string) *RepoConfig {
 	}
 
 	content := string(data)
-	
+
 	// Look for [claude-squad] section
 	matches := claudeSquadSectionRe.FindStringSubmatch(content)
 	if len(matches) < 2 {
@@ -260,7 +260,7 @@ func loadRepoConfigFromCLAUDEMD(repoPath string) *RepoConfig {
 		config.IdeCommand = strings.TrimSpace(ideMatches[1])
 	}
 
-	// Parse diff_command  
+	// Parse diff_command
 	if diffMatches := diffCommandRe.FindStringSubmatch(configSection); len(diffMatches) > 1 {
 		config.DiffCommand = strings.TrimSpace(diffMatches[1])
 	}
@@ -280,7 +280,7 @@ func GetEffectiveIdeCommand(repoPath string, globalConfig *Config) string {
 	return "webstorm" // fallback
 }
 
-// GetEffectiveDiffCommand returns the diff command to use, checking repo config first, then global config  
+// GetEffectiveDiffCommand returns the diff command to use, checking repo config first, then global config
 func GetEffectiveDiffCommand(repoPath string, globalConfig *Config) string {
 	repoConfig := LoadRepoConfig(repoPath)
 	if repoConfig.DiffCommand != "" {

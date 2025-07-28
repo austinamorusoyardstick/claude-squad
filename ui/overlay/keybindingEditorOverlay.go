@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"claude-squad/keys"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"claude-squad/keys"
 )
 
 type keybindingEditorMode int
@@ -120,7 +120,7 @@ func (k *KeybindingEditorOverlay) handleEditMode(msg tea.KeyMsg) bool {
 	if k.captureNextKey {
 		// Capture the key combination
 		keyStr := msg.String()
-		
+
 		// Special handling for certain keys
 		if keyStr == "esc" {
 			// Cancel editing
@@ -128,13 +128,13 @@ func (k *KeybindingEditorOverlay) handleEditMode(msg tea.KeyMsg) bool {
 			k.captureNextKey = false
 			return false
 		}
-		
+
 		// Add the key to the binding
 		k.editingKeys = []string{keyStr}
 		k.captureNextKey = false
 		return false
 	}
-	
+
 	switch msg.String() {
 	case "enter":
 		// Save the binding
@@ -176,7 +176,7 @@ func (k *KeybindingEditorOverlay) handleConfirmMode(msg tea.KeyMsg) bool {
 // Render renders the overlay
 func (k *KeybindingEditorOverlay) Render() string {
 	var content string
-	
+
 	switch k.mode {
 	case modeList:
 		content = k.renderList()
@@ -185,7 +185,7 @@ func (k *KeybindingEditorOverlay) Render() string {
 	case modeConfirmSave:
 		content = k.renderConfirm()
 	}
-	
+
 	// Apply border and center
 	bordered := k.borderStyle.Render(content)
 	return lipgloss.Place(k.width, k.height, lipgloss.Center, lipgloss.Center, bordered)
@@ -193,39 +193,39 @@ func (k *KeybindingEditorOverlay) Render() string {
 
 func (k *KeybindingEditorOverlay) renderList() string {
 	var lines []string
-	
+
 	// Title
 	lines = append(lines, k.titleStyle.Render("Keyboard Configuration"))
 	lines = append(lines, "")
-	
+
 	// Headers
 	headers := fmt.Sprintf("%-20s %-20s %s", "Command", "Keys", "Help")
 	lines = append(lines, lipgloss.NewStyle().Bold(true).Render(headers))
 	lines = append(lines, strings.Repeat("─", 60))
-	
+
 	// Bindings list
 	maxVisible := 20
 	startIdx := 0
 	if k.selectedIndex >= maxVisible {
 		startIdx = k.selectedIndex - maxVisible + 1
 	}
-	
+
 	for i := startIdx; i < len(k.config.Bindings) && i < startIdx+maxVisible; i++ {
 		binding := k.config.Bindings[i]
 		keys := strings.Join(binding.Keys, ", ")
 		line := fmt.Sprintf("%-20s %-20s %s", binding.Command, keys, binding.Help)
-		
+
 		if i == k.selectedIndex {
 			lines = append(lines, k.selectedStyle.Render(line))
 		} else {
 			lines = append(lines, k.itemStyle.Render(line))
 		}
 	}
-	
+
 	// Help text
 	lines = append(lines, "")
 	lines = append(lines, k.helpStyle.Render("↑/k:up  ↓/j:down  enter/e:edit  s:save  r:reset  q:quit"))
-	
+
 	// Check for conflicts
 	conflicts := k.config.ValidateBindings()
 	if len(conflicts) > 0 {
@@ -235,22 +235,22 @@ func (k *KeybindingEditorOverlay) renderList() string {
 			lines = append(lines, fmt.Sprintf("  %s → %s", key, strings.Join(commands, ", ")))
 		}
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 
 func (k *KeybindingEditorOverlay) renderEdit() string {
 	var lines []string
-	
+
 	// Title
 	lines = append(lines, k.titleStyle.Render("Edit Keybinding"))
 	lines = append(lines, "")
-	
+
 	// Current binding info
 	lines = append(lines, fmt.Sprintf("Command: %s", k.editingBinding.Command))
 	lines = append(lines, fmt.Sprintf("Current keys: %s", strings.Join(k.editingBinding.Keys, ", ")))
 	lines = append(lines, "")
-	
+
 	// New keys
 	if k.captureNextKey {
 		lines = append(lines, lipgloss.NewStyle().Foreground(lipgloss.Color("226")).Render("Press the key combination you want to assign..."))
@@ -260,19 +260,19 @@ func (k *KeybindingEditorOverlay) renderEdit() string {
 		lines = append(lines, "")
 		lines = append(lines, k.helpStyle.Render("enter:save  a:add key  d:delete last  esc:cancel"))
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 
 func (k *KeybindingEditorOverlay) renderConfirm() string {
 	var lines []string
-	
+
 	lines = append(lines, k.titleStyle.Render("Save Changes?"))
 	lines = append(lines, "")
 	lines = append(lines, "Save keyboard configuration changes?")
 	lines = append(lines, "")
 	lines = append(lines, k.helpStyle.Render("y:yes  n:no"))
-	
+
 	return strings.Join(lines, "\n")
 }
 
