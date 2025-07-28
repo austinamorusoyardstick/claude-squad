@@ -77,6 +77,11 @@ func NewMenu() *Menu {
 	}
 }
 
+// SetUpdateChecker sets the update checker for the menu
+func (m *Menu) SetUpdateChecker(uc UpdateChecker) {
+	m.updateChecker = uc
+}
+
 func (m *Menu) Keydown(name keys.KeyName) {
 	m.keyDown = name
 }
