@@ -309,12 +309,13 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 }
 
 // resetViewAfterFilterChange resets the view after a filter change
-func (m *PRReviewModel) resetViewAfterFilterChange() {
+func (m PRReviewModel) resetViewAfterFilterChange() PRReviewModel {
 	m.currentIndex = 0
 	if m.ready {
 		m.updateViewportContent()
 		m.viewport.SetYOffset(0) // Reset scroll position
 	}
+	return m
 }
 
 // getActiveComments returns the comments based on filter state
