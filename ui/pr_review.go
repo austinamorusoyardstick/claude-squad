@@ -445,6 +445,8 @@ func (m PRReviewModel) View() string {
 			"e:expand",
 			"s:split",
 			"f:toggle filter",
+			"c:toggle comments",
+			"r:toggle reviews",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
