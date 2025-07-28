@@ -1656,10 +1656,12 @@ func (m *home) handleError(err error) tea.Cmd {
 
 // handleRebasePolling handles rebase polling message updates
 func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd) {
+	log.InfoLog.Printf("Handling rebase polling message with status: %s", msg.Status)
+	
 	switch msg.Status {
 	case "in_progress":
 		// Still in progress, continue polling after a delay
-		log.InfoLog.Printf("Rebase still in progress at %s", msg.TempDir)
+		log.InfoLog.Printf("Rebase still in progress at %s, continuing to poll", msg.TempDir)
 		pollingCmd := func() tea.Msg {
 			time.Sleep(2 * time.Second)
 			return msg.Worktree.CreateRebasePollingCommand(msg.TempDir, msg.MainBranch)()
@@ -1669,6 +1671,9 @@ func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd
 	case "completed":
 		// Rebase completed successfully
 		log.InfoLog.Printf("Rebase completed and synced successfully")
+		
+		// Clear polling info
+		m.rebasePollingInfo = nil
 		
 		// Update the UI to reflect the changes
 		return m, tea.Batch(
@@ -1699,6 +1704,10 @@ func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd
 	case "cancelled":
 		// Directory no longer exists, stop polling
 		log.InfoLog.Printf("Rebase monitoring cancelled for %s", msg.TempDir)
+		
+		// Clear polling info
+		m.rebasePollingInfo = nil
+		
 		return m, nil
 		
 	default:
