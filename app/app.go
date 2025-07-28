@@ -1473,6 +1473,9 @@ type tickUpdateMetadataMessage struct{}
 
 type instanceChangedMsg struct{}
 
+// startRebaseMsg is sent to trigger the actual rebase after confirmation
+type startRebaseMsg struct{}
+
 // rebaseConflictDetectedMsg is sent when a rebase conflict is detected and polling should start
 type rebaseConflictDetectedMsg struct {
 	err *git.RebaseConflictError
