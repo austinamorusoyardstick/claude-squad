@@ -156,6 +156,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "c":
 			m.showComments = !m.showComments
+			m.showOnlyLineComments = false
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
@@ -166,6 +167,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "r":
 			m.showReviews = !m.showReviews
+			m.showOnlyLineComments = false
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
@@ -176,6 +178,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "l":
 			m.showLineComments = !m.showLineComments
+			m.showOnlyLineComments = false
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
