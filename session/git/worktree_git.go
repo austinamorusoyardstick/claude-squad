@@ -354,6 +354,7 @@ func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
 				TempDir:    tempDir,
 				MainBranch: mainBranch,
 				Message:    fmt.Sprintf("merge conflicts detected during rebase. IDE opened at %s. Monitoring for completion...", tempDir),
+				Worktree:   g,
 			}
 		}
 		
