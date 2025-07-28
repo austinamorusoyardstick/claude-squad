@@ -106,7 +106,7 @@ func GetClaudeCommand() (string, error) {
 		shellCmd = "which claude"
 	}
 
-	cmd := exec.Command(shell, "-c", shellCmd)
+	cmd := util.Command("Config.detectCodeEditor", shell, "-c", shellCmd)
 	output, err := cmd.Output()
 	if err == nil && len(output) > 0 {
 		path := strings.TrimSpace(string(output))
