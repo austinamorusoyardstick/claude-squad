@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -13,8 +14,13 @@ type TextOverlay struct {
 	OnDismiss func()
 	// Content to display in the overlay
 	content string
-
-	width int
+	// Viewport for scrollable content
+	viewport viewport.Model
+	// Dimensions
+	width  int
+	height int
+	// Whether scrolling is needed
+	needsScrolling bool
 }
 
 // NewTextOverlay creates a new text screen overlay with the given title and content
