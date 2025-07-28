@@ -410,6 +410,20 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 		return m, m.instanceChanged()
+	case startRebaseMsg:
+		// Handle the actual rebase after confirmation
+		if m.pendingRebaseInstance == nil {
+			return m, nil
+		}
+		
+		// Clear the pending instance
+		instance := m.pendingRebaseInstance
+		m.pendingRebaseInstance = nil
+		
+		// Execute rebase in a command
+		rebaseCmd := m.executeRebase(instance)
+		return m, rebaseCmd
+		
 	case rebaseConflictDetectedMsg:
 		// Handle rebase conflict detection
 		// Display the error
