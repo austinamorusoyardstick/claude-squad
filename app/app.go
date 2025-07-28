@@ -98,7 +98,7 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
-	
+
 	// Window dimensions
 	windowWidth  int
 	windowHeight int
@@ -209,7 +209,7 @@ func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
 	// Store window dimensions
 	m.windowWidth = msg.Width
 	m.windowHeight = msg.Height
-	
+
 	// List takes 30% of width, preview takes 70%
 	listWidth := int(float32(msg.Width) * 0.3)
 	tabsWidth := msg.Width - listWidth
@@ -1316,16 +1316,16 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 const (
 	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
 	maxBookmarkSummaryLen = 100
-	
+
 	// Overlay dimension ratios
 	overlayWidthRatio  = 0.8
 	overlayHeightRatio = 0.9
-	
+
 	// Error messages
 	cannotRebaseUncommittedChangesError = "cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first"
-	instancePausedError                  = "instance '%s' is paused. Press 'r' to resume it first"
-	noPullRequestFoundError              = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
-	noExternalDiffToolConfiguredError    = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
+	instancePausedError                 = "instance '%s' is paused. Press 'r' to resume it first"
+	noPullRequestFoundError             = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
+	noExternalDiffToolConfiguredError   = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
 )
 
 func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
@@ -1395,7 +1395,6 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 		},
 	)
 }
-
 
 // testStats holds test statistics
 type testStats struct {

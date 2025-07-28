@@ -174,26 +174,26 @@ func (j *JestPane) String() string {
 		rawContent := j.formatContent()
 		// Calculate available height for content
 		availableHeight := j.height - 4 // header + status + help + spacing
-		
+
 		if availableHeight > 0 {
 			lines := strings.Split(rawContent, "\n")
-			
+
 			// Apply scrolling offset manually
 			scrollOffset := j.viewport.YOffset
 			if scrollOffset < 0 {
 				scrollOffset = 0
 			}
-			
+
 			visibleLines := []string{}
 			for i := scrollOffset; i < len(lines) && i < scrollOffset+availableHeight; i++ {
 				visibleLines = append(visibleLines, lines[i])
 			}
-			
+
 			// Pad with empty lines if needed
 			for len(visibleLines) < availableHeight {
 				visibleLines = append(visibleLines, "")
 			}
-			
+
 			content = strings.Join(visibleLines, "\n")
 		} else {
 			content = rawContent
@@ -254,7 +254,7 @@ func (j *JestPane) RunTests(instance *session.Instance) error {
 	state.currentIndex = -1
 	state.liveOutput = ""
 	j.mu.Unlock()
-	
+
 	// Reset scroll position when starting new test
 	j.viewport.YOffset = 0
 
@@ -312,39 +312,38 @@ func parseFailedTestFile(line string, workDir string) string {
 	if !strings.HasPrefix(strings.TrimSpace(line), "FAIL ") {
 		return ""
 	}
-	
+
 	// Extract file path from FAIL line
 	// Format: "FAIL src/pages/individualDashboard/component.test.js"
 	trimmedLine := strings.TrimSpace(line)
 	if len(trimmedLine) <= 5 { // "FAIL " is 5 characters
 		return ""
 	}
-	
+
 	filePath := strings.TrimSpace(trimmedLine[5:])
 	// Remove any trailing whitespace or test duration info
 	if idx := strings.IndexAny(filePath, " \t("); idx > 0 {
 		filePath = filePath[:idx]
 	}
-	
+
 	// Check if it's a valid test file
 	if !strings.HasSuffix(filePath, ".js") && !strings.HasSuffix(filePath, ".jsx") &&
 		!strings.HasSuffix(filePath, ".ts") && !strings.HasSuffix(filePath, ".tsx") &&
 		!strings.HasSuffix(filePath, ".test.js") && !strings.HasSuffix(filePath, ".spec.js") {
 		return ""
 	}
-	
+
 	// Convert to absolute path if needed
 	absPath := filePath
 	if !filepath.IsAbs(filePath) {
 		absPath = filepath.Join(workDir, filePath)
 	}
-	
+
 	return absPath
 }
 
 func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInstanceState, workDir string, outputChan chan<- string) {
 	defer close(outputChan)
-
 
 	// Run Jest without JSON for live output
 	cmd := exec.Command("yarn", "tester")
@@ -379,7 +378,6 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		j.mu.Unlock()
 		return
 	}
-
 
 	// Collect all output for parsing
 	var allOutput strings.Builder
@@ -459,7 +457,7 @@ func (j *JestPane) runJestWithStream(instance *session.Instance, state *JestInst
 		if fallbackErr != nil {
 			outputChan <- fmt.Sprintf("\nFallback command error: %v", fallbackErr)
 		}
-		
+
 		// Parse fallback output for failed files and send to UI
 		lines := strings.Split(string(fallbackOutput), "\n")
 		for _, line := range lines {
@@ -586,7 +584,7 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 			}
 			return nil
 		})
-		
+
 		// Check if walk ended with an error other than EOF (which we use to stop early)
 		if walkErr != nil && walkErr != io.EOF {
 			log.ErrorLog.Printf("Error walking directory tree: %v", walkErr)
@@ -599,7 +597,6 @@ func (j *JestPane) findJestWorkingDir(startPath string) (string, error) {
 
 	return "", fmt.Errorf("no package.json found in %s or parent directories", startPath)
 }
-
 
 func (j *JestPane) updateViewport() {
 	// Ensure viewport has correct dimensions
@@ -620,10 +617,10 @@ func (j *JestPane) ScrollUp() {
 	if state == nil || state.running {
 		return
 	}
-	
+
 	// Update viewport for scrolling
 	j.updateViewport()
-	
+
 	// Update scroll position
 	if j.viewport.YOffset > 0 {
 		j.viewport.YOffset -= 3
@@ -639,15 +636,15 @@ func (j *JestPane) ScrollDown() {
 	if state == nil || state.running {
 		return
 	}
-	
+
 	// Update viewport for scrolling
 	j.updateViewport()
-	
+
 	// Calculate total lines to determine scroll limits
 	content := j.formatContent()
 	totalLines := len(strings.Split(content, "\n"))
 	availableHeight := j.height - 4
-	
+
 	// Update scroll position
 	maxOffset := totalLines - availableHeight
 	if maxOffset > 0 && j.viewport.YOffset < maxOffset {
@@ -658,13 +655,9 @@ func (j *JestPane) ScrollDown() {
 	}
 }
 
-
-
-
 func (j *JestPane) ResetToNormalMode() {
 	j.viewport.SetYOffset(0)
 }
-
 
 // Add styles used by Jest pane
 var (

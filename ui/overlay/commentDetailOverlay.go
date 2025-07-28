@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"strings"
 
+	"claude-squad/session/git"
+	"claude-squad/ui"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"claude-squad/session/git"
-	"claude-squad/ui"
 )
 
 // Define constants for component heights
 const (
-	borderHeight = 2 // Top and bottom border
-	paddingHeight = 2 // Padding
-	headerHeight = 5 // Header (maximum height)
-	helpHeight = 2 // Help section
+	borderHeight          = 2 // Top and bottom border
+	paddingHeight         = 2 // Padding
+	headerHeight          = 5 // Header (maximum height)
+	helpHeight            = 2 // Help section
 	borderAndPaddingWidth = 8 // Terminal padding (4) + border (2) + padding (2)
-	TerminalPadding = 4 // Terminal padding
+	TerminalPadding       = 4 // Terminal padding
 )
 
 // CommentDetailOverlay represents a scrollable view for displaying full PR comment content
@@ -53,25 +53,25 @@ func NewCommentDetailOverlay(comment *git.PRComment) *CommentDetailOverlay {
 func (c *CommentDetailOverlay) SetSize(width, height int) {
 	c.width = width
 	c.height = height
-	
+
 	// Calculate total height of non-viewport components
 	totalNonViewportHeight := borderHeight + paddingHeight + headerHeight + helpHeight
-	
+
 	// Calculate viewport dimensions
 	viewportHeight := height - totalNonViewportHeight
 	viewportWidth := width - borderAndPaddingWidth
-	
+
 	if viewportHeight < 1 {
 		viewportHeight = 1
 	}
 	if viewportWidth < 1 {
 		viewportWidth = 1
 	}
-	
+
 	c.viewport.Width = viewportWidth
 	c.viewport.Height = viewportHeight
 	c.ready = true
-	
+
 	// Set the content
 	c.updateContent()
 }
@@ -82,14 +82,14 @@ func (c *CommentDetailOverlay) updateContent() {
 		c.viewport.SetContent("No comment to display")
 		return
 	}
-	
+
 	// Build the full comment content
 	var content strings.Builder
-	
+
 	// Use lightweight markdown rendering for better performance
 	renderedBody := ui.RenderMarkdownLight(c.comment.Body)
 	content.WriteString(renderedBody)
-	
+
 	// Add additional metadata if available
 	if c.comment.Path != "" {
 		content.WriteString(fmt.Sprintf("\n\n── File Context ──\n%s", c.comment.Path))
@@ -97,16 +97,16 @@ func (c *CommentDetailOverlay) updateContent() {
 			content.WriteString(fmt.Sprintf(":%d", c.comment.Line))
 		}
 	}
-	
+
 	if c.comment.CommitID != "" {
 		content.WriteString(fmt.Sprintf("\n\nCommit: %.7s", c.comment.CommitID))
 	}
-	
+
 	content.WriteString(fmt.Sprintf("\n\nCreated: %s", c.comment.CreatedAt.Format("2006-01-02 15:04:05")))
 	if c.comment.UpdatedAt != c.comment.CreatedAt {
 		content.WriteString(fmt.Sprintf("\nUpdated: %s", c.comment.UpdatedAt.Format("2006-01-02 15:04:05")))
 	}
-	
+
 	c.viewport.SetContent(content.String())
 }
 
@@ -141,25 +141,25 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 	if !c.ready {
 		return "Loading..."
 	}
-	
+
 	// Header style
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("86"))
-	
+
 	// Type style
 	typeStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
-	
+
 	// Author style
 	authorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214"))
-	
+
 	// Help text style
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240"))
-	
+
 	// Container style
 	containerStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -167,7 +167,7 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 		Padding(1).
 		Width(c.width - TerminalPadding). // Account for terminal padding
 		Height(c.height - 2)
-	
+
 	// Build header
 	typeDisplay := c.comment.Type
 	switch c.comment.Type {
@@ -178,19 +178,19 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 	case "issue_comment":
 		typeDisplay = "General Comment"
 	}
-	
+
 	status := ""
 	if c.comment.Accepted {
 		status = " [✓ Accepted]"
 	}
-	
+
 	header := lipgloss.JoinVertical(
 		lipgloss.Left,
 		headerStyle.Render("Comment Details"+status),
 		typeStyle.Render(typeDisplay)+" by "+authorStyle.Render("@"+c.comment.Author),
 		"",
 	)
-	
+
 	// Scroll indicator
 	scrollInfo := ""
 	if c.viewport.TotalLineCount() > c.viewport.Height {
@@ -204,7 +204,7 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 			scrollInfo += " ↕"
 		}
 	}
-	
+
 	// Build the content
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -213,7 +213,7 @@ func (c *CommentDetailOverlay) Render(opts ...WhitespaceOption) string {
 		"",
 		helpStyle.Render("↑/↓ to scroll • ESC/e/q to close"+scrollInfo),
 	)
-	
+
 	return containerStyle.Render(content)
 }
 
@@ -228,7 +228,7 @@ func (c *CommentDetailOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return c, nil
 		}
 	}
-	
+
 	var cmd tea.Cmd
 	c.viewport, cmd = c.viewport.Update(msg)
 	return c, cmd

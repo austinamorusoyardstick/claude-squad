@@ -3,7 +3,7 @@ package ui
 import (
 	"regexp"
 	"strings"
-	
+
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -11,22 +11,22 @@ import (
 var (
 	// Keywords
 	jsKeywordRegex = regexp.MustCompile(`\b(async|await|break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|function|if|import|in|instanceof|let|new|of|return|super|switch|this|throw|try|typeof|var|void|while|with|yield)\b`)
-	
+
 	// Literals
-	jsStringRegex   = regexp.MustCompile(`("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|` + "`" + `(?:[^` + "`" + `\\]|\\.)*` + "`" + `)`)
-	jsNumberRegex   = regexp.MustCompile(`\b(\d+\.?\d*([eE][+-]?\d+)?|0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+)\b`)
-	jsBooleanRegex  = regexp.MustCompile(`\b(true|false|null|undefined|NaN|Infinity)\b`)
-	
+	jsStringRegex  = regexp.MustCompile(`("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|` + "`" + `(?:[^` + "`" + `\\]|\\.)*` + "`" + `)`)
+	jsNumberRegex  = regexp.MustCompile(`\b(\d+\.?\d*([eE][+-]?\d+)?|0x[0-9a-fA-F]+|0b[01]+|0o[0-7]+)\b`)
+	jsBooleanRegex = regexp.MustCompile(`\b(true|false|null|undefined|NaN|Infinity)\b`)
+
 	// Comments
 	jsSingleCommentRegex = regexp.MustCompile(`//.*$`)
 	jsMultiCommentRegex  = regexp.MustCompile(`/\*[\s\S]*?\*/`)
-	
+
 	// Functions and methods
 	jsFunctionRegex = regexp.MustCompile(`\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(`)
-	
+
 	// Common objects and methods
 	jsBuiltinRegex = regexp.MustCompile(`\b(console|document|window|Array|Object|String|Number|Boolean|Date|Math|JSON|Promise|Map|Set|Symbol|Error|RegExp)\b`)
-	
+
 	// Operators
 	jsOperatorRegex = regexp.MustCompile(`(===|!==|==|!=|<=|>=|<|>|\+=|-=|\*=|\/=|%=|&&|\|\||!|\+\+|--|=>)`)
 )
@@ -35,38 +35,38 @@ var (
 var (
 	// Keywords
 	goKeywordRegex = regexp.MustCompile(`\b(break|case|chan|const|continue|default|defer|else|fallthrough|for|func|go|goto|if|import|interface|map|package|range|return|select|struct|switch|type|var)\b`)
-	
+
 	// Built-in types and functions
 	goBuiltinRegex = regexp.MustCompile(`\b(bool|byte|complex64|complex128|error|float32|float64|int|int8|int16|int32|int64|rune|string|uint|uint8|uint16|uint32|uint64|uintptr|true|false|nil|append|cap|close|complex|copy|delete|imag|len|make|new|panic|print|println|real|recover)\b`)
-	
+
 	// Common packages
 	goPackageRegex = regexp.MustCompile(`\b(fmt|os|io|strings|strconv|time|errors|log|net|http|json|regexp|sort|sync|bytes|bufio|path|filepath|math|rand|reflect|runtime|testing)\b`)
-	
+
 	// Operators (including :=)
 	goOperatorRegex = regexp.MustCompile(`(:=|==|!=|<=|>=|<|>|\+=|-=|\*=|\/=|%=|&=|\|=|\^=|<<=|>>=|&&|\|\||!|\+\+|--)`)
 )
 
 // Syntax highlighting styles
 var (
-	keywordStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("204")) // Pink
-	stringStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("82"))  // Green
-	numberStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("209")) // Orange
-	commentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("243")) // Gray
-	functionStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))  // Blue
-	builtinStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // Yellow
-	operatorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("203")) // Red
-	defaultStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("252")) // Light gray
+	keywordStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("204")) // Pink
+	stringStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("82"))  // Green
+	numberStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("209")) // Orange
+	commentStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("243")) // Gray
+	functionStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))  // Blue
+	builtinStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // Yellow
+	operatorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("203")) // Red
+	defaultStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("252")) // Light gray
 )
 
 // HighlightJavaScript applies syntax highlighting to JavaScript code
 func HighlightJavaScript(code string) string {
 	lines := strings.Split(code, "\n")
 	highlightedLines := make([]string, len(lines))
-	
+
 	for i, line := range lines {
 		highlightedLines[i] = highlightJSLine(line)
 	}
-	
+
 	return strings.Join(highlightedLines, "\n")
 }
 
@@ -75,15 +75,15 @@ func highlightJSLine(line string) string {
 	if strings.TrimSpace(line) == "" {
 		return line
 	}
-	
+
 	// Create a structure to track replacements
 	type replacement struct {
 		start, end int
 		text       string
 	}
-	
+
 	var replacements []replacement
-	
+
 	// Helper to add a replacement
 	addReplacement := func(start, end int, text string) {
 		// Check for overlaps
@@ -94,7 +94,7 @@ func highlightJSLine(line string) string {
 		}
 		replacements = append(replacements, replacement{start, end, text})
 	}
-	
+
 	// Apply highlighting patterns
 	// 1. Comments (highest priority)
 	for _, match := range jsSingleCommentRegex.FindAllStringIndex(line, -1) {
@@ -103,32 +103,32 @@ func highlightJSLine(line string) string {
 	for _, match := range jsMultiCommentRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], commentStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 2. Strings
 	for _, match := range jsStringRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], stringStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 3. Numbers
 	for _, match := range jsNumberRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], numberStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 4. Booleans and special values
 	for _, match := range jsBooleanRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], numberStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 5. Keywords
 	for _, match := range jsKeywordRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], keywordStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 6. Built-in objects
 	for _, match := range jsBuiltinRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], builtinStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 7. Functions
 	matches := jsFunctionRegex.FindAllStringSubmatchIndex(line, -1)
 	for _, match := range matches {
@@ -137,12 +137,12 @@ func highlightJSLine(line string) string {
 			addReplacement(match[2], match[3], functionStyle.Render(line[match[2]:match[3]]))
 		}
 	}
-	
+
 	// 8. Operators
 	for _, match := range jsOperatorRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], operatorStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// Sort replacements by start position
 	for i := 0; i < len(replacements); i++ {
 		for j := i + 1; j < len(replacements); j++ {
@@ -151,11 +151,11 @@ func highlightJSLine(line string) string {
 			}
 		}
 	}
-	
+
 	// Build the final result
 	var result strings.Builder
 	lastEnd := 0
-	
+
 	for _, r := range replacements {
 		// Add any unhighlighted text before this replacement
 		if r.start > lastEnd {
@@ -165,12 +165,12 @@ func highlightJSLine(line string) string {
 		result.WriteString(r.text)
 		lastEnd = r.end
 	}
-	
+
 	// Add any remaining unhighlighted text
 	if lastEnd < len(line) {
 		result.WriteString(defaultStyle.Render(line[lastEnd:]))
 	}
-	
+
 	return result.String()
 }
 
@@ -205,7 +205,7 @@ func HighlightCode(code, language string) string {
 func highlightBasic(code string) string {
 	lines := strings.Split(code, "\n")
 	highlightedLines := make([]string, len(lines))
-	
+
 	for i, line := range lines {
 		// Highlight single-line comments
 		if idx := strings.Index(line, "//"); idx != -1 {
@@ -214,7 +214,7 @@ func highlightBasic(code string) string {
 			highlightedLines[i] = defaultStyle.Render(line)
 		}
 	}
-	
+
 	return strings.Join(highlightedLines, "\n")
 }
 
@@ -222,11 +222,11 @@ func highlightBasic(code string) string {
 func HighlightGo(code string) string {
 	lines := strings.Split(code, "\n")
 	highlightedLines := make([]string, len(lines))
-	
+
 	for i, line := range lines {
 		highlightedLines[i] = highlightGoLine(line)
 	}
-	
+
 	return strings.Join(highlightedLines, "\n")
 }
 
@@ -235,15 +235,15 @@ func highlightGoLine(line string) string {
 	if strings.TrimSpace(line) == "" {
 		return line
 	}
-	
+
 	// Create a structure to track replacements
 	type replacement struct {
 		start, end int
 		text       string
 	}
-	
+
 	var replacements []replacement
-	
+
 	// Helper to add a replacement
 	addReplacement := func(start, end int, text string) {
 		// Check for overlaps
@@ -254,43 +254,43 @@ func highlightGoLine(line string) string {
 		}
 		replacements = append(replacements, replacement{start, end, text})
 	}
-	
+
 	// Apply highlighting patterns
 	// 1. Comments (highest priority)
 	for _, match := range jsSingleCommentRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], commentStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 2. Strings (reuse JS string regex)
 	for _, match := range jsStringRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], stringStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 3. Numbers (reuse JS number regex)
 	for _, match := range jsNumberRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], numberStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 4. Go keywords
 	for _, match := range goKeywordRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], keywordStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 5. Go built-ins
 	for _, match := range goBuiltinRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], builtinStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 6. Go packages
 	for _, match := range goPackageRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], functionStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// 7. Operators
 	for _, match := range goOperatorRegex.FindAllStringIndex(line, -1) {
 		addReplacement(match[0], match[1], operatorStyle.Render(line[match[0]:match[1]]))
 	}
-	
+
 	// Sort replacements by start position
 	for i := 0; i < len(replacements); i++ {
 		for j := i + 1; j < len(replacements); j++ {
@@ -299,11 +299,11 @@ func highlightGoLine(line string) string {
 			}
 		}
 	}
-	
+
 	// Build the final result
 	var result strings.Builder
 	lastEnd := 0
-	
+
 	for _, r := range replacements {
 		// Add any unhighlighted text before this replacement
 		if r.start > lastEnd {
@@ -313,11 +313,11 @@ func highlightGoLine(line string) string {
 		result.WriteString(r.text)
 		lastEnd = r.end
 	}
-	
+
 	// Add any remaining unhighlighted text
 	if lastEnd < len(line) {
 		result.WriteString(defaultStyle.Render(line[lastEnd:]))
 	}
-	
+
 	return result.String()
 }

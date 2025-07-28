@@ -234,7 +234,7 @@ func (t *TerminalPane) ResetToNormalMode(instance *session.Instance) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// If content is empty, show a welcome message
 		if strings.TrimSpace(content) == "" {
 			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
@@ -242,7 +242,7 @@ func (t *TerminalPane) ResetToNormalMode(instance *session.Instance) error {
 				"  • Press '↵' or 'o' to attach to the session\n" +
 				"  • Use Shift+↑/↓ or 's' for scroll mode\n"
 		}
-		
+
 		t.terminalState.text = content
 	}
 
