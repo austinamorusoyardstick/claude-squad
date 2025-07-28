@@ -367,7 +367,14 @@ func (m PRReviewModel) getActiveComments() []*git.PRComment {
 		}
 		
 		// Check line number filter
-		includeByLine := m.showLineComments || comment.Line == 0
+		includeByLine := true
+		if m.showOnlyLineComments {
+			// When showing only line comments, include only those with line numbers
+			includeByLine = comment.Line > 0
+		} else {
+			// Normal line filter behavior
+			includeByLine = m.showLineComments || comment.Line == 0
+		}
 		
 		// Include comment if it passes all filters
 		if includeByType && includeByLine {
