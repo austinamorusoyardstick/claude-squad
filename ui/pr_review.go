@@ -336,8 +336,8 @@ func (m PRReviewModel) buildFilterStatus() string {
 		filterParts = append(filterParts, "showing only comments")
 	}
 
-	// Show line comments filter status (only if not in "show only line comments" mode)
-	if !m.showOnlyLineComments && !m.showLineComments {
+	// Show line comments filter status (only if relevant - when showing comments that can have line numbers)
+	if !m.showOnlyLineComments && m.showComments && !m.showLineComments {
 		filterParts = append(filterParts, "hiding line comments")
 	}
 
