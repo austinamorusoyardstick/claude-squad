@@ -435,32 +435,30 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if isDirty {
 			return m, m.handleError(fmt.Errorf(cannotRebaseUncommittedChangesError))
 		}
+		
+		// Get current commit SHA before rebase
+		currentSHA, err := worktree.GetCurrentCommitSHA()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get current commit: %w", err))
+		}
 
 		// Perform the rebase
 		if err := worktree.RebaseWithMain(); err != nil {
 			// Check if this is a rebase conflict error that needs polling
 			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
-				log.InfoLog.Printf("Rebase conflict detected, setting up polling for %s", rebaseErr.TempDir)
+				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
 				
-				// Display the error
-				m.handleError(rebaseErr)
+				// Display the error with instructions
+				m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
 				
-				// Store the polling info
-				m.rebasePollingInfo = &rebasePollingInfo{
-					TempDir:    rebaseErr.TempDir,
-					MainBranch: rebaseErr.MainBranch,
-					Worktree:   rebaseErr.Worktree,
-				}
+				// Set rebase in progress state
+				m.rebaseInProgress = true
+				m.rebaseInstance = instance
+				m.rebaseBranchName = worktree.GetBranchName()
+				m.rebaseOriginalSHA = currentSHA
 				
-				// Start polling immediately
-				pollingCmd := func() tea.Msg {
-					log.InfoLog.Printf("Starting initial polling after 2 second delay")
-					time.Sleep(2 * time.Second)
-					return rebaseErr.Worktree.CreateRebasePollingCommand(
-						rebaseErr.TempDir,
-						rebaseErr.MainBranch,
-					)()
-				}
+				// Start polling the remote for changes
+				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
 				
 				return m, pollingCmd
 			}
