@@ -527,7 +527,7 @@ func (g *GitWorktree) isRebaseInProgressAtPath(path string) bool {
 
 // syncRebaseFromClone syncs the completed rebase from clone back to worktree
 func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) error {
-	log.InfoLog.Printf("Starting sync from clone %s to worktree %s", tempDir, g.worktreePath)
+	log.InfoLog.Printf("Starting local sync from clone %s to worktree %s", tempDir, g.worktreePath)
 	
 	// Get the current branch name in the clone to ensure we're on the right branch
 	currentBranch, err := g.runGitCommand(tempDir, "rev-parse", "--abbrev-ref", "HEAD")
@@ -543,43 +543,37 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 		return fmt.Errorf("failed to get new commit SHA: %w", err)
 	}
 	newSHA = strings.TrimSpace(newSHA)
-	log.InfoLog.Printf("New SHA after rebase: %s", newSHA)
+	log.InfoLog.Printf("New SHA after rebase in clone: %s", newSHA)
 	
 	// Get the old SHA in worktree for comparison
 	oldSHA, _ := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
 	oldSHA = strings.TrimSpace(oldSHA)
 	log.InfoLog.Printf("Current worktree SHA: %s", oldSHA)
 	
-	// First push the rebased branch from the clone
-	log.InfoLog.Printf("Pushing rebased branch %s from clone to origin", g.branchName)
-	// Use explicit refs to ensure we're pushing the right thing
-	pushCmd := fmt.Sprintf("refs/heads/%s:refs/heads/%s", g.branchName, g.branchName)
-	pushOutput, err := g.runGitCommand(tempDir, "push", "--force-with-lease", "origin", pushCmd)
-	if err != nil {
-		// Try without --force-with-lease as a fallback
-		log.WarningLog.Printf("Push with --force-with-lease failed, trying --force: %v", err)
-		pushOutput, err = g.runGitCommand(tempDir, "push", "--force", "origin", pushCmd)
-		if err != nil {
-			return fmt.Errorf("failed to push rebased branch from clone: %w", err)
-		}
-	}
-	log.InfoLog.Printf("Push output: %s", strings.TrimSpace(pushOutput))
+	// Add the clone as a temporary remote in the worktree
+	tempRemoteName := fmt.Sprintf("temp-clone-%d", time.Now().Unix())
+	log.InfoLog.Printf("Adding temporary remote '%s' pointing to clone", tempRemoteName)
 	
-	// Fetch all refs from origin to ensure we have the latest
-	log.InfoLog.Printf("Fetching from origin in worktree")
-	fetchOutput, err := g.runGitCommand(g.worktreePath, "fetch", "origin")
+	// Add the clone directory as a remote
+	if _, err := g.runGitCommand(g.worktreePath, "remote", "add", tempRemoteName, tempDir); err != nil {
+		return fmt.Errorf("failed to add clone as remote: %w", err)
+	}
+	
+	// Ensure we remove the temporary remote when done
+	defer func() {
+		log.InfoLog.Printf("Removing temporary remote '%s'", tempRemoteName)
+		if _, err := g.runGitCommand(g.worktreePath, "remote", "remove", tempRemoteName); err != nil {
+			log.WarningLog.Printf("Failed to remove temporary remote: %v", err)
+		}
+	}()
+	
+	// Fetch from the clone
+	log.InfoLog.Printf("Fetching from clone via temporary remote")
+	fetchOutput, err := g.runGitCommand(g.worktreePath, "fetch", tempRemoteName, g.branchName)
 	if err != nil {
-		return fmt.Errorf("failed to fetch from origin: %w", err)
+		return fmt.Errorf("failed to fetch from clone: %w", err)
 	}
 	log.InfoLog.Printf("Fetch output: %s", strings.TrimSpace(fetchOutput))
-	
-	// Get the remote branch SHA to verify push worked
-	remoteSHA, err := g.runGitCommand(g.worktreePath, "rev-parse", fmt.Sprintf("origin/%s", g.branchName))
-	if err != nil {
-		return fmt.Errorf("failed to get remote branch SHA: %w", err)
-	}
-	remoteSHA = strings.TrimSpace(remoteSHA)
-	log.InfoLog.Printf("Remote branch SHA after push: %s", remoteSHA)
 	
 	// Check current branch in worktree
 	worktreeBranch, err := g.runGitCommand(g.worktreePath, "rev-parse", "--abbrev-ref", "HEAD")
@@ -601,9 +595,10 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 		}
 	}
 	
-	// Reset the worktree to the rebased state
-	log.InfoLog.Printf("Resetting worktree to origin/%s", g.branchName)
-	resetOutput, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", g.branchName))
+	// Reset the worktree to the rebased state from the clone
+	resetRef := fmt.Sprintf("%s/%s", tempRemoteName, g.branchName)
+	log.InfoLog.Printf("Resetting worktree to %s", resetRef)
+	resetOutput, err := g.runGitCommand(g.worktreePath, "reset", "--hard", resetRef)
 	if err != nil {
 		return fmt.Errorf("failed to reset worktree to rebased state: %w", err)
 	}
@@ -614,23 +609,15 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 	finalSHA = strings.TrimSpace(finalSHA)
 	log.InfoLog.Printf("Final worktree SHA after reset: %s", finalSHA)
 	
-	if finalSHA != newSHA && finalSHA != remoteSHA {
-		log.WarningLog.Printf("SHA mismatch after sync! Expected: %s or %s, Got: %s", newSHA, remoteSHA, finalSHA)
-		// Try one more pull to ensure we have the latest
-		log.InfoLog.Printf("Attempting final pull to ensure sync")
-		pullOutput, pullErr := g.runGitCommand(g.worktreePath, "pull", "origin", g.branchName)
-		if pullErr != nil {
-			log.ErrorLog.Printf("Final pull failed: %v", pullErr)
-		} else {
-			log.InfoLog.Printf("Pull output: %s", strings.TrimSpace(pullOutput))
-			// Check SHA one more time
-			finalSHA2, _ := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
-			finalSHA2 = strings.TrimSpace(finalSHA2)
-			log.InfoLog.Printf("Final SHA after pull: %s", finalSHA2)
-		}
-	} else {
-		log.InfoLog.Printf("Successfully synced rebase from clone to worktree")
+	if finalSHA != newSHA {
+		log.WarningLog.Printf("SHA mismatch after sync! Expected: %s, Got: %s", newSHA, finalSHA)
+		return fmt.Errorf("failed to sync changes: SHA mismatch after reset")
 	}
+	
+	log.InfoLog.Printf("Successfully synced rebase from clone to worktree locally")
+	
+	// Optionally, push to remote origin if the user wants to
+	log.InfoLog.Printf("Changes synced locally. To push to remote, use 'git push --force-with-lease origin %s'", g.branchName)
 	
 	return nil
 }
