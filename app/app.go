@@ -770,6 +770,9 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		case "u":
 			m.tabbedWindow.ToggleLogDistinct()
 			return m, nil
+		case "s":
+			m.tabbedWindow.ToggleLogSort()
+			return m, nil
 		}
 	}
 
