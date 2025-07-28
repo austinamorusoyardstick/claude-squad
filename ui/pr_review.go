@@ -189,8 +189,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showComments = true
 			m.showReviews = true
 			m.showLineComments = true
-			// Now filter to show only comments with line numbers
-			// We'll handle this by temporarily setting filters
+			m.showOnlyLineComments = true
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
@@ -204,6 +203,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showComments = false
 			m.showReviews = true
 			m.showLineComments = true
+			m.showOnlyLineComments = false
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
@@ -217,6 +217,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showComments = true
 			m.showReviews = false
 			m.showLineComments = true
+			m.showOnlyLineComments = false
 			// Reset current index to ensure it's valid
 			m.currentIndex = 0
 			if m.ready {
