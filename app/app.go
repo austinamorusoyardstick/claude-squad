@@ -1481,6 +1481,18 @@ type tickUpdateMetadataMessage struct{}
 
 type instanceChangedMsg struct{}
 
+// rebaseConflictDetectedMsg is sent when a rebase conflict is detected and polling should start
+type rebaseConflictDetectedMsg struct {
+	err *git.RebaseConflictError
+}
+
+// rebasePollingInfo stores information needed for polling rebase completion
+type rebasePollingInfo struct {
+	TempDir    string
+	MainBranch string
+	Worktree   *git.GitWorktree
+}
+
 // instanceCreatedMsg is sent when an instance has been created successfully
 type instanceCreatedMsg struct {
 	instance *session.Instance
