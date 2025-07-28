@@ -921,7 +921,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			// Get the current file from diff view
 			currentFile := m.tabbedWindow.GetCurrentDiffFile()
 			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
 			}
 			// Open the file in IDE
 			cmd := m.openFileInIDE(selected, currentFile)
@@ -938,7 +938,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			// Get the current file from diff view
 			currentFile := m.tabbedWindow.GetCurrentDiffFile()
 			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
 			}
 			// Open the file in external diff tool
 			cmd := m.openFileInExternalDiff(selected, currentFile)
@@ -1040,7 +1040,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			}
 
 			if isDirty {
-				return fmt.Errorf("cannot rebase: you have uncommitted changes. Please commit or stash them first")
+				return fmt.Errorf("cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first")
 			}
 
 			// Perform the rebase
@@ -1082,7 +1082,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
-			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
+			return m, m.handleError(fmt.Errorf("no pull request found for this branch. Push the branch with 'p' first to create a PR"))
 		}
 
 		// Fetch PR comments (always fresh - includes resolved status detection)
@@ -1252,7 +1252,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
 
 		if diffCommand == "" {
-			return fmt.Errorf("no external diff tool configured. Set diff_command in global config or repository CLAUDE.md")
+			return fmt.Errorf("no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md")
 		}
 
 		// Construct the full path to the file using the worktree path
