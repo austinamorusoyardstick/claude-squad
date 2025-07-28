@@ -338,7 +338,10 @@ func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
 			}
 			
 			// Don't remove temp dir - user needs to resolve conflicts
-			return fmt.Errorf("merge conflicts detected during rebase in clone at %s. IDE opened for conflict resolution. After resolving conflicts and completing rebase, copy changes back to worktree", tempDir)
+			// Start polling for rebase completion
+			go g.pollRebaseCompletion(tempDir, mainBranch)
+			
+			return fmt.Errorf("merge conflicts detected during rebase. IDE opened at %s. Monitoring for completion...", tempDir)
 		}
 		
 		// If it's not a merge conflict, abort and clean up
