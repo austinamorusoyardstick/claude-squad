@@ -307,33 +307,28 @@ func (m PRReviewModel) getActiveComments() []*git.PRComment {
 		comments = m.pr.AllComments
 	}
 	
-	// Apply comment type filters
-	if !m.showComments || !m.showReviews {
-		var filtered []*git.PRComment
-		for _, comment := range comments {
-			// Show comment based on type and filter settings
-			switch comment.Type {
-			case "review":
-				if m.showReviews {
-					filtered = append(filtered, comment)
-				}
-			case "review_comment":
-				if m.showComments {
-					filtered = append(filtered, comment)
-				}
-			case "issue_comment":
-				if m.showComments {
-					filtered = append(filtered, comment)
-				}
-			default:
-				// Include unknown types
-				filtered = append(filtered, comment)
-			}
+	// Apply filters
+	var filtered []*git.PRComment
+	for _, comment := range comments {
+		// Check type filters
+		includeByType := true
+		switch comment.Type {
+		case "review":
+			includeByType = m.showReviews
+		case "review_comment", "issue_comment":
+			includeByType = m.showComments
 		}
-		return filtered
+		
+		// Check line number filter
+		includeByLine := m.showLineComments || comment.Line == 0
+		
+		// Include comment if it passes all filters
+		if includeByType && includeByLine {
+			filtered = append(filtered, comment)
+		}
 	}
 	
-	return comments
+	return filtered
 }
 
 func (m PRReviewModel) View() string {
