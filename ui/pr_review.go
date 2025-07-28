@@ -343,6 +343,15 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// resetViewAfterFilterChange resets the view after a filter change
+func (m *PRReviewModel) resetViewAfterFilterChange() {
+	m.currentIndex = 0
+	if m.ready {
+		m.updateViewportContent()
+		m.viewport.SetYOffset(0) // Reset scroll position
+	}
+}
+
 // getActiveComments returns the comments based on filter state
 func (m PRReviewModel) getActiveComments() []*git.PRComment {
 	var comments []*git.PRComment
