@@ -1157,8 +1157,9 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	case keys.KeyCheckUpdate:
 		// Trigger an immediate update check
 		m.updateChecker.CheckNow()
-		// Show a brief message that update check was triggered
-		return m, m.handleSuccess("Checking for updates...")
+		// For now, we'll just return without showing a message
+		// The update indicator will appear in the menu when the check completes
+		return m, nil
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
