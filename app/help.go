@@ -201,6 +201,10 @@ func (m *home) showHelpScreen(helpType helpText, onDismiss func()) (tea.Model, t
 
 		m.textOverlay = overlay.NewTextOverlay(content)
 		m.textOverlay.OnDismiss = onDismiss
+		// Set the overlay size based on current window dimensions
+		if m.windowWidth > 0 && m.windowHeight > 0 {
+			m.textOverlay.SetSize(int(float32(m.windowWidth)*0.8), int(float32(m.windowHeight)*0.9))
+		}
 		m.state = stateHelp
 		return m, nil
 	}
