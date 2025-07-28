@@ -110,6 +110,11 @@ func (w *TabbedWindow) Toggle() {
 	w.activeTab = (w.activeTab + 1) % len(w.tabs)
 }
 
+// ToggleReverse cycles through tabs in reverse order
+func (w *TabbedWindow) ToggleReverse() {
+	w.activeTab = (w.activeTab - 1 + len(w.tabs)) % len(w.tabs)
+}
+
 // SetTab sets the active tab directly by index
 func (w *TabbedWindow) SetTab(tabIndex int) {
 	if tabIndex >= 0 && tabIndex < len(w.tabs) {
