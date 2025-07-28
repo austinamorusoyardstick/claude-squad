@@ -1559,6 +1559,13 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 	}
 }
 
+// calculateOverlayDimensions returns the width and height for overlay components
+func (m *home) calculateOverlayDimensions() (width, height int) {
+	width = int(float32(m.windowWidth) * overlayWidthRatio)
+	height = int(float32(m.windowHeight) * overlayHeightRatio)
+	return width, height
+}
+
 // handleError handles all errors which get bubbled up to the app. sets the error message. We return a callback tea.Cmd that returns a hideErrMsg message
 // which clears the error message after 3 seconds.
 func (m *home) handleError(err error) tea.Cmd {
