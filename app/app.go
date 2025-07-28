@@ -1067,7 +1067,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Check if instance is paused
 		if selected.Paused() {
-			return m, m.handleError(fmt.Errorf("instance '%s' is paused - please resume it first", selected.Title))
+			return m, m.handleError(fmt.Errorf("instance '%s' is paused. Press 'r' to resume it first", selected.Title))
 		}
 
 		// Get the worktree for the selected instance
