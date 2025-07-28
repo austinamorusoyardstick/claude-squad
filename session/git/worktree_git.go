@@ -414,6 +414,94 @@ func (g *GitWorktree) hasMergeConflictsInPath(path string) bool {
 	return false
 }
 
+// pollRebaseCompletion polls the clone directory to check if rebase is complete
+func (g *GitWorktree) pollRebaseCompletion(tempDir string, mainBranch string) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	
+	log.InfoLog.Printf("Started monitoring rebase completion in %s", tempDir)
+	
+	for {
+		select {
+		case <-ticker.C:
+			// Check if directory still exists
+			if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+				log.InfoLog.Printf("Temp directory %s no longer exists, stopping rebase monitor", tempDir)
+				return
+			}
+			
+			// Check if rebase is still in progress
+			if g.isRebaseInProgressAtPath(tempDir) {
+				log.DebugLog.Printf("Rebase still in progress at %s", tempDir)
+				continue
+			}
+			
+			// Check if there are still conflicts
+			if g.hasMergeConflictsInPath(tempDir) {
+				log.DebugLog.Printf("Conflicts still exist at %s", tempDir)
+				continue
+			}
+			
+			// Rebase appears to be complete - sync back to worktree
+			log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
+			
+			if err := g.syncRebaseFromClone(tempDir, mainBranch); err != nil {
+				log.ErrorLog.Printf("Failed to sync rebase from clone: %v", err)
+				// Continue polling in case user wants to retry
+				continue
+			}
+			
+			// Success - clean up and exit
+			os.RemoveAll(tempDir)
+			log.InfoLog.Printf("Successfully synced rebase from clone and cleaned up temp directory")
+			return
+		}
+	}
+}
+
+// isRebaseInProgressAtPath checks if a rebase is in progress at a specific path
+func (g *GitWorktree) isRebaseInProgressAtPath(path string) bool {
+	// Check if .git/rebase-merge or .git/rebase-apply directories exist
+	rebaseMergePath := fmt.Sprintf("%s/.git/rebase-merge", path)
+	rebaseApplyPath := fmt.Sprintf("%s/.git/rebase-apply", path)
+	
+	if _, err := os.Stat(rebaseMergePath); err == nil {
+		return true
+	}
+	if _, err := os.Stat(rebaseApplyPath); err == nil {
+		return true
+	}
+	
+	return false
+}
+
+// syncRebaseFromClone syncs the completed rebase from clone back to worktree
+func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) error {
+	// Get the new commit SHA after rebase
+	newSHA, err := g.runGitCommand(tempDir, "rev-parse", "HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to get new commit SHA: %w", err)
+	}
+	newSHA = strings.TrimSpace(newSHA)
+	
+	// First push the rebased branch from the clone
+	if _, err := g.runGitCommand(tempDir, "push", "--force-with-lease", "origin", g.branchName); err != nil {
+		return fmt.Errorf("failed to push rebased branch from clone: %w", err)
+	}
+	
+	// Fetch in the worktree
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", "origin", g.branchName); err != nil {
+		return fmt.Errorf("failed to fetch rebased branch: %w", err)
+	}
+	
+	// Reset the worktree to the rebased state
+	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", g.branchName)); err != nil {
+		return fmt.Errorf("failed to reset worktree to rebased state: %w", err)
+	}
+	
+	return nil
+}
+
 // IsRebaseInProgress checks if a rebase is currently in progress
 func (g *GitWorktree) IsRebaseInProgress() bool {
 	// Check if .git/rebase-merge or .git/rebase-apply directories exist
