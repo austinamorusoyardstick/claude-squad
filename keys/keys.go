@@ -96,6 +96,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"D":          KeyKill,
 	"q":          KeyQuit,
 	"tab":        KeyTab,
+	"shift+tab":  KeyShiftTab,
 	"c":          KeyCheckout,
 	"r":          KeyResume,
 	"p":          KeySubmit,
