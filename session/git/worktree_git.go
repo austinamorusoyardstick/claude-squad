@@ -298,6 +298,127 @@ func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 	return nil
 }
 
+// rebaseWithCloneFallback attempts to perform a rebase in a fresh clone of the repository
+func (g *GitWorktree) rebaseWithCloneFallback(mainBranch, backupBranch string) error {
+	// Create a temporary directory for the clone
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("claude-squad-rebase-%s-*", g.branchName))
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	
+	log.InfoLog.Printf("Created temporary clone directory: %s", tempDir)
+	
+	// Get the remote URL
+	remoteURL, err := g.runGitCommand(g.worktreePath, "remote", "get-url", "origin")
+	if err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to get remote URL: %w", err)
+	}
+	remoteURL = strings.TrimSpace(remoteURL)
+	
+	// Clone the repository
+	log.InfoLog.Printf("Cloning repository to temp directory...")
+	cloneCmd := exec.Command("git", "clone", remoteURL, tempDir)
+	if output, err := cloneCmd.CombinedOutput(); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to clone repository: %s (%w)", output, err)
+	}
+	
+	// Checkout the branch in the clone
+	if _, err := g.runGitCommand(tempDir, "checkout", g.branchName); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to checkout branch %s in clone: %w", g.branchName, err)
+	}
+	
+	// Attempt rebase in the clone
+	if _, err := g.runGitCommand(tempDir, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
+		// Check if this is a merge conflict
+		if g.hasMergeConflictsInPath(tempDir) {
+			// Open IDE with the conflicted files in temp directory
+			globalConfig := config.LoadConfig()
+			ideCommand := config.GetEffectiveIdeCommand(g.repoPath, globalConfig)
+			
+			cmd := exec.Command(ideCommand, tempDir)
+			if ideErr := cmd.Start(); ideErr != nil {
+				log.WarningLog.Printf("Failed to open IDE for conflict resolution in temp clone: %v", ideErr)
+			} else {
+				log.InfoLog.Printf("IDE (%s) opened for conflict resolution at temp clone: %s", ideCommand, tempDir)
+			}
+			
+			// Don't remove temp dir - user needs to resolve conflicts
+			return fmt.Errorf("merge conflicts detected during rebase in clone at %s. IDE opened for conflict resolution. After resolving conflicts and completing rebase, copy changes back to worktree", tempDir)
+		}
+		
+		// If it's not a merge conflict, abort and clean up
+		g.runGitCommand(tempDir, "rebase", "--abort")
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("rebase failed in clone as well")
+	}
+	
+	// Rebase succeeded in clone - now we need to copy the changes back
+	log.InfoLog.Printf("Rebase succeeded in clone, copying changes back to worktree...")
+	
+	// Get the new commit SHA after rebase
+	newSHA, err := g.runGitCommand(tempDir, "rev-parse", "HEAD")
+	if err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to get new commit SHA: %w", err)
+	}
+	newSHA = strings.TrimSpace(newSHA)
+	
+	// Force update the branch in the worktree to match the rebased state
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", "origin"); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to fetch after clone rebase: %w", err)
+	}
+	
+	// First push the rebased branch from the clone
+	if _, err := g.runGitCommand(tempDir, "push", "--force-with-lease", "origin", g.branchName); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to push rebased branch from clone: %w", err)
+	}
+	
+	// Now reset the worktree to the rebased state
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", "origin", g.branchName); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to fetch rebased branch: %w", err)
+	}
+	
+	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", g.branchName)); err != nil {
+		os.RemoveAll(tempDir)
+		return fmt.Errorf("failed to reset worktree to rebased state: %w", err)
+	}
+	
+	// Clean up temp directory
+	os.RemoveAll(tempDir)
+	log.InfoLog.Printf("Successfully completed rebase using clone fallback")
+	
+	return nil
+}
+
+// hasMergeConflictsInPath checks if there are merge conflicts in a specific path
+func (g *GitWorktree) hasMergeConflictsInPath(path string) bool {
+	// Check git status for conflict markers
+	output, err := g.runGitCommand(path, "status", "--porcelain")
+	if err != nil {
+		return false
+	}
+
+	// Look for files with conflict status (UU, AA, etc.)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	for _, line := range lines {
+		if len(line) >= 2 {
+			status := line[:2]
+			// Common conflict statuses: UU (both modified), AA (both added), etc.
+			if strings.Contains(status, "U") || status == "AA" || status == "DD" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // IsRebaseInProgress checks if a rebase is currently in progress
 func (g *GitWorktree) IsRebaseInProgress() bool {
 	// Check if .git/rebase-merge or .git/rebase-apply directories exist
