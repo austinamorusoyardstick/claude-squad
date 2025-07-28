@@ -150,6 +150,26 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			}
 			return m, nil
 		
+		case "c":
+			m.showComments = !m.showComments
+			// Reset current index to ensure it's valid
+			m.currentIndex = 0
+			if m.ready {
+				m.updateViewportContent()
+				m.viewport.SetYOffset(0) // Reset scroll position
+			}
+			return m, nil
+		
+		case "r":
+			m.showReviews = !m.showReviews
+			// Reset current index to ensure it's valid
+			m.currentIndex = 0
+			if m.ready {
+				m.updateViewportContent()
+				m.viewport.SetYOffset(0) // Reset scroll position
+			}
+			return m, nil
+		
 		case "j", "down":
 			if m.currentIndex < len(m.getActiveComments())-1 {
 				m.currentIndex++
