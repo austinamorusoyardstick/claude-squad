@@ -407,6 +407,23 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 		return m, m.instanceChanged()
+	case rebaseConflictDetectedMsg:
+		// Handle rebase conflict detection
+		// Display the error
+		m.handleError(msg.err)
+		
+		// Start polling for rebase completion
+		if m.rebasePollingInfo != nil {
+			pollingCmd := func() tea.Msg {
+				time.Sleep(2 * time.Second) // Initial delay
+				return m.rebasePollingInfo.Worktree.CreateRebasePollingCommand(
+					m.rebasePollingInfo.TempDir,
+					m.rebasePollingInfo.MainBranch,
+				)()
+			}
+			return m, pollingCmd
+		}
+		return m, nil
 	case git.RebasePollingMsg:
 		// Handle rebase polling updates
 		return m.handleRebasePolling(msg)
