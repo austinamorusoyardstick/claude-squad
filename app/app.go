@@ -470,35 +470,6 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Success
 		return m, m.instanceChanged()
 		
-	case rebaseConflictDetectedMsg:
-		// Handle rebase conflict detection
-		log.InfoLog.Printf("Rebase conflict detected, setting up polling for %s", msg.err.TempDir)
-		
-		// Display the error
-		m.handleError(msg.err)
-		
-		// Store the polling info
-		m.rebasePollingInfo = &rebasePollingInfo{
-			TempDir:    msg.err.TempDir,
-			MainBranch: msg.err.MainBranch,
-			Worktree:   msg.err.Worktree,
-		}
-		
-		// Start polling for rebase completion
-		log.InfoLog.Printf("Creating polling command for tempDir: %s, mainBranch: %s", msg.err.TempDir, msg.err.MainBranch)
-		pollingCmd := func() tea.Msg {
-			log.InfoLog.Printf("Polling command executing - starting initial polling after 2 second delay")
-			time.Sleep(2 * time.Second) // Initial delay
-			log.InfoLog.Printf("Delay complete, calling CreateRebasePollingCommand")
-			pollResult := msg.err.Worktree.CreateRebasePollingCommand(
-				msg.err.TempDir,
-				msg.err.MainBranch,
-			)()
-			log.InfoLog.Printf("Polling command returned result of type: %T", pollResult)
-			return pollResult
-		}
-		log.InfoLog.Printf("Returning polling command from rebaseConflictDetectedMsg handler")
-		return m, pollingCmd
 	case git.RebasePollingMsg:
 		// Handle rebase polling updates
 		return m.handleRebasePolling(msg)
