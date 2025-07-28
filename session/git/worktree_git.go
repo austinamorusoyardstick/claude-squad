@@ -581,6 +581,26 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 	remoteSHA = strings.TrimSpace(remoteSHA)
 	log.InfoLog.Printf("Remote branch SHA after push: %s", remoteSHA)
 	
+	// Check current branch in worktree
+	worktreeBranch, err := g.runGitCommand(g.worktreePath, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		log.WarningLog.Printf("Failed to get current branch in worktree: %v", err)
+	} else {
+		worktreeBranch = strings.TrimSpace(worktreeBranch)
+		log.InfoLog.Printf("Worktree is on branch: %s", worktreeBranch)
+		
+		// If we're on a detached HEAD or wrong branch, checkout the right branch first
+		if worktreeBranch == "HEAD" || worktreeBranch != g.branchName {
+			log.InfoLog.Printf("Checking out branch %s in worktree first", g.branchName)
+			checkoutOutput, err := g.runGitCommand(g.worktreePath, "checkout", g.branchName)
+			if err != nil {
+				log.WarningLog.Printf("Failed to checkout branch, will try to continue: %v", err)
+			} else {
+				log.InfoLog.Printf("Checkout output: %s", strings.TrimSpace(checkoutOutput))
+			}
+		}
+	}
+	
 	// Reset the worktree to the rebased state
 	log.InfoLog.Printf("Resetting worktree to origin/%s", g.branchName)
 	resetOutput, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", g.branchName))
