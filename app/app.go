@@ -174,6 +174,13 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	}
 	h.list = ui.NewList(&h.spinner, autoYes)
 
+	// Set up command logging
+	logPane := h.tabbedWindow.GetLogPane()
+	if logPane != nil {
+		commandLogger := NewCommandLoggerAdapter(logPane)
+		log.SetCommandLogger(commandLogger)
+	}
+
 	// Load saved instances
 	instances, err := storage.LoadInstances()
 	if err != nil {
