@@ -80,6 +80,8 @@ type home struct {
 	appConfig *config.Config
 	// appState stores persistent application state like seen help screens
 	appState config.AppState
+	// updateChecker checks for application updates
+	updateChecker *UpdateChecker
 
 	// -- State --
 
