@@ -1154,6 +1154,11 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		// Show git status overlay in bookmark mode
 		return m, m.showGitStatusOverlayBookmarkMode(selected)
+	case keys.KeyCheckUpdate:
+		// Trigger an immediate update check
+		m.updateChecker.CheckNow()
+		// Show a brief message that update check was triggered
+		return m, m.handleSuccess("Checking for updates...")
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
