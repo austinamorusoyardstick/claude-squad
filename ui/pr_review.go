@@ -663,11 +663,30 @@ func (m PRReviewModel) simpleView() string {
 	filterStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
+	
+	var filterParts []string
 	if m.filterEnabled {
-		b.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved/gemini)"))
+		filterParts = append(filterParts, "Filter: ON")
 	} else {
-		b.WriteString(filterStyle.Render("(Filter: OFF - showing all comments)"))
+		filterParts = append(filterParts, "Filter: OFF")
 	}
+	
+	// Show comment/review filter status
+	if !m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "hiding all")
+	} else if !m.showComments {
+		filterParts = append(filterParts, "hiding comments")
+	} else if !m.showReviews {
+		filterParts = append(filterParts, "hiding reviews")
+	}
+	
+	filterStatus := "(" + strings.Join(filterParts, " - ")
+	if m.filterEnabled {
+		filterStatus += " - hiding outdated/resolved/gemini"
+	}
+	filterStatus += ")"
+	
+	b.WriteString(filterStyle.Render(filterStatus))
 	b.WriteString("\n\n")
 	
 	acceptedCount := len(m.pr.GetAcceptedComments())
