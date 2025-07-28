@@ -238,7 +238,9 @@ func (t *TerminalPane) ResetToNormalMode(instance *session.Instance) error {
 		// If content is empty, show a welcome message
 		if strings.TrimSpace(content) == "" {
 			content = "Terminal ready. This is a separate shell in the worktree directory.\n\n" +
-				"Note: This is a read-only view. To interact with the terminal, press 'a' to attach to the session.\n"
+				"Note: This is a read-only view. To interact with the terminal:\n" +
+				"  • Press '↵' or 'o' to attach to the session\n" +
+				"  • Use Shift+↑/↓ or 's' for scroll mode\n"
 		}
 		
 		t.terminalState.text = content
