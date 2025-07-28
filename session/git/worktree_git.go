@@ -445,9 +445,29 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 			}
 		}
 		
-		// Check if rebase is still in progress
+		// First, let's check git status to see what git thinks
+		gitStatus, statusErr := g.runGitCommand(tempDir, "status")
+		if statusErr != nil {
+			log.ErrorLog.Printf("Failed to get git status: %v", statusErr)
+		} else {
+			// Check if the status contains rebase-related messages
+			statusStr := strings.ToLower(gitStatus)
+			if strings.Contains(statusStr, "rebase in progress") || 
+			   strings.Contains(statusStr, "you are currently rebasing") ||
+			   strings.Contains(statusStr, "rebase --continue") {
+				log.InfoLog.Printf("Git status indicates rebase still in progress")
+				return RebasePollingMsg{
+					Status:     "in_progress",
+					TempDir:    tempDir,
+					MainBranch: mainBranch,
+					Worktree:   g,
+				}
+			}
+		}
+		
+		// Check if rebase is still in progress by looking for directories
 		rebaseInProgress := g.isRebaseInProgressAtPath(tempDir)
-		log.InfoLog.Printf("Checking rebase status: in progress = %v", rebaseInProgress)
+		log.InfoLog.Printf("Checking rebase status via directories: in progress = %v", rebaseInProgress)
 		
 		if rebaseInProgress {
 			log.InfoLog.Printf("Rebase still in progress at %s", tempDir)
