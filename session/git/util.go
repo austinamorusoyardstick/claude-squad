@@ -44,7 +44,7 @@ func checkGHCLI() error {
 	}
 
 	// Check if gh is authenticated
-	cmd := exec.Command("gh", "auth", "status")
+	cmd := util.Command("Git.EnsureGHInstalled", "gh", "auth", "status")
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("GitHub CLI is not configured. Please run 'gh auth login' first")
 	}
