@@ -25,10 +25,13 @@ type TextOverlay struct {
 
 // NewTextOverlay creates a new text screen overlay with the given title and content
 func NewTextOverlay(content string) *TextOverlay {
-	return &TextOverlay{
+	t := &TextOverlay{
 		Dismissed: false,
 		content:   content,
+		viewport:  viewport.New(0, 0),
 	}
+	t.viewport.SetContent(content)
+	return t
 }
 
 // HandleKeyPress processes a key press and updates the state
