@@ -301,6 +301,11 @@ func (w *TabbedWindow) GetLogPane() *LogPane {
 	return w.logPane
 }
 
+// ToggleLogDistinct toggles distinct mode in the log pane
+func (w *TabbedWindow) ToggleLogDistinct() {
+	w.logPane.ToggleDistinct()
+}
+
 // UpdateJest updates the Jest pane with test results
 func (w *TabbedWindow) UpdateJest(instance *session.Instance) {
 	if w.activeTab != JestTab {
