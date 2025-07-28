@@ -273,6 +273,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("G"),
 		key.WithHelp("G", "git status bookmarks"),
 	),
+	KeyCheckUpdate: key.NewBinding(
+		key.WithKeys("U"),
+		key.WithHelp("U", "check for updates"),
+	),
 
 	// -- Special keybindings --
 
