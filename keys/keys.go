@@ -385,6 +385,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "edit_keybindings", Keys: []string{"K"}, Help: "K"},
 			{Command: "git_status", Keys: []string{"g"}, Help: "g"},
 			{Command: "git_status_bookmark", Keys: []string{"G"}, Help: "G"},
+			{Command: "check_update", Keys: []string{"U"}, Help: "U"},
 		},
 	}
 }
