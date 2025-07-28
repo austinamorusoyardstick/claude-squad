@@ -2,6 +2,7 @@ package config
 
 import (
 	"claude-squad/log"
+	"claude-squad/util"
 	"encoding/json"
 	"fmt"
 	"os"
