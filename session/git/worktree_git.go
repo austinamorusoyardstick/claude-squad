@@ -535,13 +535,18 @@ func (g *GitWorktree) isRebaseInProgressAtPath(path string) bool {
 	rebaseMergePath := fmt.Sprintf("%s/.git/rebase-merge", path)
 	rebaseApplyPath := fmt.Sprintf("%s/.git/rebase-apply", path)
 	
+	log.InfoLog.Printf("Checking for rebase directories: %s and %s", rebaseMergePath, rebaseApplyPath)
+	
 	if _, err := os.Stat(rebaseMergePath); err == nil {
+		log.InfoLog.Printf("Found rebase-merge directory at %s", rebaseMergePath)
 		return true
 	}
 	if _, err := os.Stat(rebaseApplyPath); err == nil {
+		log.InfoLog.Printf("Found rebase-apply directory at %s", rebaseApplyPath)
 		return true
 	}
 	
+	log.InfoLog.Printf("No rebase directories found, rebase appears complete")
 	return false
 }
 
