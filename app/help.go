@@ -139,13 +139,19 @@ func (h helpTypeInstanceCheckout) toContent() string {
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		titleStyle.Render("Checkout Instance"),
 		"",
-		"Changes will be committed locally. The branch name has been copied to your clipboard for you to checkout.",
+		"Changes will be committed locally. The branch name has been copied to your clipboard.",
 		"",
-		"Feel free to make changes to the branch and commit them. When resuming, the session will continue from where you left off.",
+		"You can now checkout the branch in your main repository to review or modify the changes.",
+		"When resuming, the session will continue from where you left off.",
 		"",
-		headerStyle.Render("Commands:"),
-		keyStyle.Render("c")+descStyle.Render(" - Checkout: commit changes locally and pause session"),
+		headerStyle.Render("Available Actions:"),
+		keyStyle.Render("c")+descStyle.Render(" - Checkout: commit changes and pause session"),
 		keyStyle.Render("r")+descStyle.Render(" - Resume a paused session"),
+		keyStyle.Render("p")+descStyle.Render(" - Push branch to GitHub"),
+		keyStyle.Render("b")+descStyle.Render(" - Rebase with main branch"),
+		"",
+		dimStyle.Render("Note: The session is paused after checkout. Use 'r' to resume"),
+		dimStyle.Render("when you're ready to continue working with Claude Code."),
 	)
 	return content
 }
