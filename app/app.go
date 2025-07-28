@@ -1621,6 +1621,59 @@ func (m *home) handleError(err error) tea.Cmd {
 	}
 }
 
+// handleRebasePolling handles rebase polling message updates
+func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd) {
+	switch msg.Status {
+	case "in_progress":
+		// Still in progress, continue polling after a delay
+		log.DebugLog.Printf("Rebase still in progress at %s", msg.TempDir)
+		pollingCmd := func() tea.Msg {
+			time.Sleep(2 * time.Second)
+			return msg.Worktree.CreateRebasePollingCommand(msg.TempDir, msg.MainBranch)()
+		}
+		return m, pollingCmd
+		
+	case "completed":
+		// Rebase completed successfully
+		log.InfoLog.Printf("Rebase completed and synced successfully")
+		
+		// Update the UI to reflect the changes
+		return m, tea.Batch(
+			m.instanceChanged(),
+			func() tea.Msg {
+				// Show success message briefly
+				timestamp := time.Now().Format("15:04:05")
+				successMsg := fmt.Sprintf("[%s] Rebase completed successfully", timestamp)
+				m.errorLog = append(m.errorLog, successMsg)
+				return nil
+			},
+		)
+		
+	case "sync_failed":
+		// Sync failed, continue polling in case user fixes it
+		log.ErrorLog.Printf("Failed to sync rebase: %v", msg.Error)
+		
+		pollingCmd := func() tea.Msg {
+			time.Sleep(5 * time.Second) // Longer delay for failed sync
+			return msg.Worktree.CreateRebasePollingCommand(msg.TempDir, msg.MainBranch)()
+		}
+		
+		return m, tea.Batch(
+			m.handleError(fmt.Errorf("rebase sync failed: %w", msg.Error)),
+			pollingCmd,
+		)
+		
+	case "cancelled":
+		// Directory no longer exists, stop polling
+		log.InfoLog.Printf("Rebase monitoring cancelled for %s", msg.TempDir)
+		return m, nil
+		
+	default:
+		log.WarningLog.Printf("Unknown rebase polling status: %s", msg.Status)
+		return m, nil
+	}
+}
+
 // confirmAction shows a confirmation modal and stores the action to execute on confirm
 func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	m.state = stateConfirm
