@@ -1,6 +1,7 @@
 package git
 
 import (
+	"claude-squad/util"
 	"fmt"
 	"os/exec"
 	"path/filepath"
