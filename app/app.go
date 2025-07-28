@@ -165,10 +165,13 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	updateChecker := NewUpdateChecker()
 	updateChecker.StartBackgroundCheck()
 
+	menu := ui.NewMenu()
+	menu.SetUpdateChecker(updateChecker)
+
 	h := &home{
 		ctx:           ctx,
 		spinner:       spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		menu:          ui.NewMenu(),
+		menu:          menu,
 		tabbedWindow:  ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
 		errBox:        ui.NewErrBox(),
 		storage:       storage,
