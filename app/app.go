@@ -1626,7 +1626,7 @@ func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd
 	switch msg.Status {
 	case "in_progress":
 		// Still in progress, continue polling after a delay
-		log.DebugLog.Printf("Rebase still in progress at %s", msg.TempDir)
+		log.InfoLog.Printf("Rebase still in progress at %s", msg.TempDir)
 		pollingCmd := func() tea.Msg {
 			time.Sleep(2 * time.Second)
 			return msg.Worktree.CreateRebasePollingCommand(msg.TempDir, msg.MainBranch)()
