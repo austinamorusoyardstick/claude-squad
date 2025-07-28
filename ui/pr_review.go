@@ -188,7 +188,6 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			// Show only comments (not reviews)
 			m.showComments = true
 			m.showReviews = false
-			m.showLineComments = true
 			m.showOnlyLineComments = false
 			m = m.resetViewAfterFilterChange()
 			return m, nil
