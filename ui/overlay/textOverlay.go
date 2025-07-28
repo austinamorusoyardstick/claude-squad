@@ -123,8 +123,8 @@ func (t *TextOverlay) updateViewport() {
 	}
 	
 	// Calculate viewport dimensions (account for borders, padding, and scroll info)
-	// Border: 2 lines (top/bottom), padding: 2 lines, scroll info: 3 lines
-	viewportHeight := t.height - 7
+	// Vertical overhead: 2 (border) + 2 (padding) + 2 (scroll info) = 6 lines
+	viewportHeight := t.height - 6
 	viewportWidth := t.width - 6 // Border and padding on sides
 	
 	if viewportHeight < 1 {
