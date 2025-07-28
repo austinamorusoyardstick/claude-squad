@@ -782,6 +782,47 @@ func (g *GitWorktree) GetCurrentCommitSHA() (string, error) {
 	return strings.TrimSpace(sha), nil
 }
 
+// FetchBranch fetches a specific branch from remote
+func (g *GitWorktree) FetchBranch(branchName string) (string, error) {
+	output, err := g.runGitCommand(g.worktreePath, "fetch", "origin", branchName)
+	if err != nil {
+		return "", err
+	}
+	return output, nil
+}
+
+// GetRemoteBranchSHA gets the SHA of a branch on the remote
+func (g *GitWorktree) GetRemoteBranchSHA(branchName string) (string, error) {
+	sha, err := g.runGitCommand(g.worktreePath, "rev-parse", fmt.Sprintf("origin/%s", branchName))
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote branch SHA: %w", err)
+	}
+	return strings.TrimSpace(sha), nil
+}
+
+// ResetToRemote resets the current branch to match the remote
+func (g *GitWorktree) ResetToRemote(branchName string) error {
+	// First ensure we're on the right branch
+	currentBranch, err := g.runGitCommand(g.worktreePath, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to get current branch: %w", err)
+	}
+	currentBranch = strings.TrimSpace(currentBranch)
+	
+	if currentBranch != branchName {
+		if _, err := g.runGitCommand(g.worktreePath, "checkout", branchName); err != nil {
+			return fmt.Errorf("failed to checkout branch %s: %w", branchName, err)
+		}
+	}
+	
+	// Reset to remote
+	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", branchName)); err != nil {
+		return fmt.Errorf("failed to reset to remote: %w", err)
+	}
+	
+	return nil
+}
+
 // FindLastBookmarkCommit finds the last commit with [BOOKMARK] prefix on the given branch
 func (g *GitWorktree) FindLastBookmarkCommit(branchName string) (string, error) {
 	// Search for the last bookmark commit on the branch
