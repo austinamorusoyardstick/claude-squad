@@ -370,6 +370,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			// Actions
 			{Command: "enter", Keys: []string{"enter", "o"}, Help: "↵/o"},
 			{Command: "tab", Keys: []string{"tab"}, Help: "tab"},
+			{Command: "shift_tab", Keys: []string{"shift+tab"}, Help: "shift+tab"},
 			{Command: "help", Keys: []string{"?"}, Help: "?"},
 			{Command: "quit", Keys: []string{"q"}, Help: "q"},
 			{Command: "error_log", Keys: []string{"l"}, Help: "l"},
