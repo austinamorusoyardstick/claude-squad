@@ -21,11 +21,12 @@ type CommandLog struct {
 
 // LogPane displays command execution logs
 type LogPane struct {
-	logs     []CommandLog
-	viewport viewport.Model
-	width    int
-	height   int
-	mu       sync.RWMutex
+	logs        []CommandLog
+	viewport    viewport.Model
+	width       int
+	height      int
+	mu          sync.RWMutex
+	isScrolling bool // Track if user is manually scrolling
 }
 
 // NewLogPane creates a new log pane
@@ -49,7 +50,11 @@ func (p *LogPane) AddLog(cmd string, args []string, dir string, source string) {
 		Source:    source,
 	}
 	p.logs = append(p.logs, log)
-	p.updateViewport()
+	
+	// Only update viewport if not scrolling
+	if !p.isScrolling {
+		p.updateViewport()
+	}
 }
 
 // SetSize updates the size of the log pane
@@ -63,18 +68,51 @@ func (p *LogPane) SetSize(width, height int) {
 
 // ScrollUp scrolls the viewport up
 func (p *LogPane) ScrollUp() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	// Enable scroll mode when user scrolls
+	p.isScrolling = true
+	// Make sure content is updated before scrolling
+	p.updateViewportNoScroll()
 	p.viewport.LineUp(3)
 }
 
 // ScrollDown scrolls the viewport down
 func (p *LogPane) ScrollDown() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	// Enable scroll mode when user scrolls
+	p.isScrolling = true
+	// Make sure content is updated before scrolling
+	p.updateViewportNoScroll()
 	p.viewport.LineDown(3)
+	
+	// If we're at the bottom, disable scroll mode
+	if p.viewport.AtBottom() {
+		p.isScrolling = false
+	}
 }
 
-// updateViewport updates the viewport content
+// updateViewport updates the viewport content and scrolls to bottom
 func (p *LogPane) updateViewport() {
 	content := p.renderLogs()
 	p.viewport.SetContent(content)
+	p.viewport.GotoBottom()
+}
+
+// updateViewportNoScroll updates the viewport content without changing scroll position
+func (p *LogPane) updateViewportNoScroll() {
+	// Save current position
+	yOffset := p.viewport.YOffset
+	
+	// Update content
+	content := p.renderLogs()
+	p.viewport.SetContent(content)
+	
+	// Restore position
+	p.viewport.YOffset = yOffset
 }
 
 // renderLogs renders all logs as a string
@@ -135,7 +173,23 @@ func (p *LogPane) Clear() {
 
 // String returns the string representation of the log pane
 func (p *LogPane) String() string {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	// Update content if we have new logs
+	if p.isScrolling {
+		p.updateViewportNoScroll()
+	} else {
+		p.updateViewport()
+	}
+	
 	return p.viewport.View()
+}
+
+// ResetScroll resets the scroll mode
+func (p *LogPane) ResetScroll() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.isScrolling = false
+	p.updateViewport()
 }
