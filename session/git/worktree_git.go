@@ -614,8 +614,20 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 	finalSHA = strings.TrimSpace(finalSHA)
 	log.InfoLog.Printf("Final worktree SHA after reset: %s", finalSHA)
 	
-	if finalSHA != newSHA {
-		log.WarningLog.Printf("SHA mismatch after sync! Expected: %s, Got: %s", newSHA, finalSHA)
+	if finalSHA != newSHA && finalSHA != remoteSHA {
+		log.WarningLog.Printf("SHA mismatch after sync! Expected: %s or %s, Got: %s", newSHA, remoteSHA, finalSHA)
+		// Try one more pull to ensure we have the latest
+		log.InfoLog.Printf("Attempting final pull to ensure sync")
+		pullOutput, pullErr := g.runGitCommand(g.worktreePath, "pull", "origin", g.branchName)
+		if pullErr != nil {
+			log.ErrorLog.Printf("Final pull failed: %v", pullErr)
+		} else {
+			log.InfoLog.Printf("Pull output: %s", strings.TrimSpace(pullOutput))
+			// Check SHA one more time
+			finalSHA2, _ := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
+			finalSHA2 = strings.TrimSpace(finalSHA2)
+			log.InfoLog.Printf("Final SHA after pull: %s", finalSHA2)
+		}
 	} else {
 		log.InfoLog.Printf("Successfully synced rebase from clone to worktree")
 	}
