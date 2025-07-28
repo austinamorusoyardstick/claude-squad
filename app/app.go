@@ -894,6 +894,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		m.tabbedWindow.Toggle()
 		m.menu.SetInDiffTab(m.tabbedWindow.IsInDiffTab())
 		return m, m.instanceChanged()
+	case keys.KeyShiftTab:
+		m.tabbedWindow.ToggleReverse()
+		m.menu.SetInDiffTab(m.tabbedWindow.IsInDiffTab())
+		return m, m.instanceChanged()
 	case keys.KeyDiffAll:
 		if m.tabbedWindow.IsInDiffTab() {
 			m.tabbedWindow.SetDiffModeAll()
