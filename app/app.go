@@ -404,6 +404,9 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 		return m, m.instanceChanged()
+	case git.RebasePollingMsg:
+		// Handle rebase polling updates
+		return m.handleRebasePolling(msg)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
