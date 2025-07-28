@@ -238,14 +238,20 @@ func (w *TabbedWindow) ScrollToBottom() {
 }
 
 func (w *TabbedWindow) PageUp() {
-	if w.activeTab == DiffTab {
+	switch w.activeTab {
+	case DiffTab:
 		w.diff.PageUp()
+	case LogTab:
+		w.logPane.PageUp()
 	}
 }
 
 func (w *TabbedWindow) PageDown() {
-	if w.activeTab == DiffTab {
+	switch w.activeTab {
+	case DiffTab:
 		w.diff.PageDown()
+	case LogTab:
+		w.logPane.PageDown()
 	}
 }
 
