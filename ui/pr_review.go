@@ -182,6 +182,47 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			}
 			return m, nil
 		
+		case "L":
+			// Show only line comments
+			m.showComments = true
+			m.showReviews = true
+			m.showLineComments = true
+			// Now filter to show only comments with line numbers
+			// We'll handle this by temporarily setting filters
+			// Reset current index to ensure it's valid
+			m.currentIndex = 0
+			if m.ready {
+				m.updateViewportContent()
+				m.viewport.SetYOffset(0) // Reset scroll position
+			}
+			return m, nil
+		
+		case "R":
+			// Show only reviews
+			m.showComments = false
+			m.showReviews = true
+			m.showLineComments = true
+			// Reset current index to ensure it's valid
+			m.currentIndex = 0
+			if m.ready {
+				m.updateViewportContent()
+				m.viewport.SetYOffset(0) // Reset scroll position
+			}
+			return m, nil
+		
+		case "C":
+			// Show only comments (not reviews)
+			m.showComments = true
+			m.showReviews = false
+			m.showLineComments = true
+			// Reset current index to ensure it's valid
+			m.currentIndex = 0
+			if m.ready {
+				m.updateViewportContent()
+				m.viewport.SetYOffset(0) // Reset scroll position
+			}
+			return m, nil
+		
 		case "j", "down":
 			if m.currentIndex < len(m.getActiveComments())-1 {
 				m.currentIndex++
