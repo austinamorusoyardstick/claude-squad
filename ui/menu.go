@@ -53,6 +53,15 @@ type Menu struct {
 
 	// keyDown is the key which is pressed. The default is -1.
 	keyDown keys.KeyName
+	
+	// updateChecker is used to check if updates are available
+	updateChecker UpdateChecker
+}
+
+// UpdateChecker interface for checking if updates are available
+type UpdateChecker interface {
+	IsUpdateAvailable() bool
+	GetCommitsBehind() int
 }
 
 var defaultMenuOptions = []keys.KeyName{keys.KeyNew, keys.KeyExistingBranch, keys.KeyPrompt, keys.KeyHelp, keys.KeyErrorLog, keys.KeyQuit}
