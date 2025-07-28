@@ -146,45 +146,25 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "f":
 			m.filterEnabled = !m.filterEnabled
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "c":
 			m.showComments = !m.showComments
 			m.showOnlyLineComments = false
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "r":
 			m.showReviews = !m.showReviews
 			m.showOnlyLineComments = false
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "l":
 			m.showLineComments = !m.showLineComments
 			m.showOnlyLineComments = false
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "L":
@@ -193,12 +173,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showReviews = true
 			m.showLineComments = true
 			m.showOnlyLineComments = true
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "R":
@@ -207,12 +182,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showReviews = true
 			m.showLineComments = true
 			m.showOnlyLineComments = false
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "C":
@@ -221,12 +191,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showReviews = false
 			m.showLineComments = true
 			m.showOnlyLineComments = false
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "j", "down":
