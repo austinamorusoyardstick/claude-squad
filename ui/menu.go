@@ -2,6 +2,7 @@ package ui
 
 import (
 	"claude-squad/keys"
+	"strconv"
 	"strings"
 
 	"claude-squad/session"
