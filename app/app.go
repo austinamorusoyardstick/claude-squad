@@ -137,6 +137,9 @@ type home struct {
 
 	// errorLog stores all error messages for display
 	errorLog []string
+	
+	// rebasePollingInfo stores info for ongoing rebase polling
+	rebasePollingInfo *rebasePollingInfo
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
