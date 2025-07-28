@@ -114,6 +114,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"x":          KeyExternalDiff,
 	"g":          KeyGitStatus,
 	"G":          KeyGitStatusBookmark,
+	"U":          KeyCheckUpdate,
 	
 	// Jest navigation - these are only active in Jest tab
 	// "n" and "p" are already taken globally, so we'll handle them contextually
