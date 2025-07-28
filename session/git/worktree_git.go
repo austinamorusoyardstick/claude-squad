@@ -289,8 +289,11 @@ func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 
 // rebaseWithClone attempts to perform a rebase in a fresh clone of the repository
 func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
+	// Sanitize branch name for use in temp directory name (replace path separators)
+	sanitizedBranch := strings.ReplaceAll(g.branchName, "/", "-")
+	
 	// Create a temporary directory for the clone
-	tempDir, err := os.MkdirTemp("", fmt.Sprintf("claude-squad-rebase-%s-*", g.branchName))
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("claude-squad-rebase-%s-*", sanitizedBranch))
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
