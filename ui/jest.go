@@ -226,7 +226,15 @@ func (j *JestPane) formatContent() string {
 
 	// If no output yet
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-	return dimStyle.Render("No test results to display.\nPress 'r' to run tests.")
+	helpText := `No test results to display.
+
+Available commands:
+  t - Run all tests
+  r - Re-run tests (when in Jest tab)
+  n - Navigate to next failure
+  p - Navigate to previous failure
+  ↵ - Open failed test in IDE`
+	return dimStyle.Render(helpText)
 }
 
 func (j *JestPane) RunTests(instance *session.Instance) error {
