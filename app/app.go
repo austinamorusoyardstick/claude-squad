@@ -887,12 +887,12 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		return m, m.instanceChanged()
 	case keys.KeyPageUp:
-		if m.tabbedWindow.IsInDiffTab() {
+		if m.tabbedWindow.IsInDiffTab() || m.tabbedWindow.IsInLogTab() {
 			m.tabbedWindow.PageUp()
 		}
 		return m, m.instanceChanged()
 	case keys.KeyPageDown:
-		if m.tabbedWindow.IsInDiffTab() {
+		if m.tabbedWindow.IsInDiffTab() || m.tabbedWindow.IsInLogTab() {
 			m.tabbedWindow.PageDown()
 		}
 		return m, m.instanceChanged()
