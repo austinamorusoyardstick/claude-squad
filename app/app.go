@@ -1288,6 +1288,10 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 const (
 	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
 	maxBookmarkSummaryLen = 100
+	
+	// Overlay dimension ratios
+	overlayWidthRatio  = 0.8
+	overlayHeightRatio = 0.9
 )
 
 func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
