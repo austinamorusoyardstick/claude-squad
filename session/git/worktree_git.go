@@ -430,8 +430,9 @@ func (g *GitWorktree) hasMergeConflictsInPath(path string) bool {
 
 // CreateRebasePollingCommand creates a tea.Cmd for polling rebase completion
 func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch string) func() interface{} {
+	log.InfoLog.Printf("CreateRebasePollingCommand called for %s", tempDir)
 	return func() interface{} {
-		log.InfoLog.Printf("Checking rebase completion status in %s", tempDir)
+		log.InfoLog.Printf("Polling function executing - checking rebase completion status in %s", tempDir)
 		
 		// Check if directory still exists
 		if _, err := os.Stat(tempDir); os.IsNotExist(err) {
