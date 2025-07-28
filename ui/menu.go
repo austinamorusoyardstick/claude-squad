@@ -256,14 +256,11 @@ func (m *Menu) String() string {
 			Foreground(lipgloss.Color("214")).  // Orange color
 			Bold(true)
 		commitsBehind := m.updateChecker.GetCommitsBehind()
-		updateText := "[UPDATE AVAILABLE"
 		if commitsBehind > 0 {
-			updateText += lipgloss.NewStyle().Foreground(lipgloss.Color("249")).Render(" (") +
-				updateStyle.Render(strconv.Itoa(commitsBehind)) +
-				lipgloss.NewStyle().Foreground(lipgloss.Color("249")).Render(" commits behind)")
+			s.WriteString(updateStyle.Render("[UPDATE AVAILABLE - " + strconv.Itoa(commitsBehind) + " commits behind]"))
+		} else {
+			s.WriteString(updateStyle.Render("[UPDATE AVAILABLE]"))
 		}
-		updateText += "]"
-		s.WriteString(updateStyle.Render(updateText))
 	}
 
 	centeredMenuText := menuStyle.Render(s.String())
