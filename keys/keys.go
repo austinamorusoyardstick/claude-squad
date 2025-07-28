@@ -23,6 +23,7 @@ const (
 	KeyPRReview
 
 	KeyTab        // Tab is a special keybinding for switching between panes.
+	KeyShiftTab   // ShiftTab is a special keybinding for switching between panes in reverse.
 	KeySubmitName // SubmitName is a special keybinding for submitting the name of a new instance.
 
 	KeyCheckout
