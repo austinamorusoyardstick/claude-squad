@@ -4,6 +4,7 @@ import (
 	"claude-squad/log"
 	"claude-squad/session/git"
 	"claude-squad/session/tmux"
+	"claude-squad/util"
 	"path/filepath"
 
 	"fmt"
@@ -398,10 +399,10 @@ func (i *Instance) ForceKill() error {
 		sessionName := i.tmuxSession.GetSessionName()
 		if sessionName != "" {
 			// Check if session exists before trying to kill it
-			checkCmd := exec.Command("tmux", "has-session", "-t", sessionName)
+			checkCmd := util.Command("Instance.Delete", "tmux", "has-session", "-t", sessionName)
 			if checkErr := checkCmd.Run(); checkErr == nil {
 				// Session exists, try to kill it
-				killCmd := exec.Command("tmux", "kill-session", "-t", sessionName)
+				killCmd := util.Command("Instance.Delete", "tmux", "kill-session", "-t", sessionName)
 				if err := killCmd.Run(); err != nil {
 					errs = append(errs, fmt.Errorf("failed to force kill tmux session: %w", err))
 				}
@@ -565,7 +566,7 @@ func (i *Instance) GetTerminalFullHistory() (string, error) {
 
 	// Terminal is in pane 0, capture with full history (-S - means from start of history)
 	// We need to specify the target pane explicitly
-	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".0")
+	cmd := util.Command("Instance.GetFullTerminalHistory", "tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".0")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to capture terminal full history: %v", err)
@@ -591,7 +592,7 @@ func (i *Instance) GetAIFullHistory() (string, error) {
 
 	// AI is in pane 1, capture with full history (-S - means from start of history)
 	// We need to specify the target pane explicitly
-	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".1")
+	cmd := util.Command("Instance.GetFullAIHistory", "tmux", "capture-pane", "-p", "-e", "-J", "-S", "-", "-t", i.tmuxSession.GetSessionName()+".1")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to capture AI full history: %v", err)
