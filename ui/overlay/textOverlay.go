@@ -37,7 +37,31 @@ func NewTextOverlay(content string) *TextOverlay {
 // HandleKeyPress processes a key press and updates the state
 // Returns true if the overlay should be closed
 func (t *TextOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
-	// Close on any key
+	// If scrolling is needed, handle navigation keys
+	if t.needsScrolling {
+		switch msg.String() {
+		case "up", "k":
+			t.viewport.LineUp(1)
+			return false
+		case "down", "j":
+			t.viewport.LineDown(1)
+			return false
+		case "pgup":
+			t.viewport.HalfViewUp()
+			return false
+		case "pgdown":
+			t.viewport.HalfViewDown()
+			return false
+		case "home", "ctrl+home", "g":
+			t.viewport.GotoTop()
+			return false
+		case "end", "ctrl+end", "G":
+			t.viewport.GotoBottom()
+			return false
+		}
+	}
+	
+	// Close on any other key
 	t.Dismissed = true
 	// Call the OnDismiss callback if it exists
 	if t.OnDismiss != nil {
