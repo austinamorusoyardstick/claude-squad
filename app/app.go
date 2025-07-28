@@ -1766,8 +1766,20 @@ func (m *home) View() string {
 	previewWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.tabbedWindow.String())
 	listAndPreview := lipgloss.JoinHorizontal(lipgloss.Top, listWithPadding, previewWithPadding)
 
+	// Add rebase loading indicator if rebase is in progress
+	var rebaseIndicator string
+	if m.rebaseInProgress {
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Bold(true).
+			Padding(1, 2)
+		rebaseIndicator = loadingStyle.Render(fmt.Sprintf("%s Rebase in progress for branch %s... Waiting for remote update",
+			m.spinner.View(), m.rebaseBranchName))
+	}
+
 	mainView := lipgloss.JoinVertical(
 		lipgloss.Center,
+		rebaseIndicator,
 		listAndPreview,
 		m.menu.String(),
 		m.errBox.String(),
