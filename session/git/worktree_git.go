@@ -457,7 +457,7 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		
 		// Check if there are still conflicts
 		if g.hasMergeConflictsInPath(tempDir) {
-			log.DebugLog.Printf("Conflicts still exist at %s", tempDir)
+			log.InfoLog.Printf("Conflicts still exist at %s", tempDir)
 			return RebasePollingMsg{
 				Status:     "in_progress",
 				TempDir:    tempDir,
