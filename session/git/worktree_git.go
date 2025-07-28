@@ -446,7 +446,10 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		}
 		
 		// Check if rebase is still in progress
-		if g.isRebaseInProgressAtPath(tempDir) {
+		rebaseInProgress := g.isRebaseInProgressAtPath(tempDir)
+		log.InfoLog.Printf("Checking rebase status: in progress = %v", rebaseInProgress)
+		
+		if rebaseInProgress {
 			log.InfoLog.Printf("Rebase still in progress at %s", tempDir)
 			return RebasePollingMsg{
 				Status:     "in_progress",
@@ -457,7 +460,10 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		}
 		
 		// Check if there are still conflicts
-		if g.hasMergeConflictsInPath(tempDir) {
+		hasConflicts := g.hasMergeConflictsInPath(tempDir)
+		log.InfoLog.Printf("Checking for conflicts: has conflicts = %v", hasConflicts)
+		
+		if hasConflicts {
 			log.InfoLog.Printf("Conflicts still exist at %s", tempDir)
 			return RebasePollingMsg{
 				Status:     "in_progress",
@@ -472,8 +478,21 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		if err != nil {
 			log.ErrorLog.Printf("Failed to get status in clone: %v", err)
 		} else {
-			log.InfoLog.Printf("Clone status (should be empty): '%s'", status)
+			log.InfoLog.Printf("Clone git status output: '%s' (length: %d)", status, len(strings.TrimSpace(status)))
 		}
+		
+		// Also check if we're still on the right branch
+		currentBranch, err := g.runGitCommand(tempDir, "rev-parse", "--abbrev-ref", "HEAD")
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get current branch: %v", err) 
+		} else {
+			currentBranch = strings.TrimSpace(currentBranch)
+			log.InfoLog.Printf("Clone is on branch: %s", currentBranch)
+		}
+		
+		// Check the rebase status more thoroughly
+		rebaseOutput, _ := g.runGitCommand(tempDir, "status", "--short")
+		log.InfoLog.Printf("Short status output: '%s'", strings.TrimSpace(rebaseOutput))
 		
 		// Rebase appears to be complete - sync back to worktree
 		log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
