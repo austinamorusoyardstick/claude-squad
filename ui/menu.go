@@ -248,6 +248,23 @@ func (m *Menu) String() string {
 		s.WriteString(scrollLockStyle.Render("[SCROLL LOCK]"))
 	}
 
+	// Add update indicator if updates are available
+	if m.updateChecker != nil && m.updateChecker.IsUpdateAvailable() {
+		s.WriteString(sepStyle.Render(verticalSeparator))
+		updateStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).  // Orange color
+			Bold(true)
+		commitsBehind := m.updateChecker.GetCommitsBehind()
+		updateText := "[UPDATE AVAILABLE"
+		if commitsBehind > 0 {
+			updateText += lipgloss.NewStyle().Foreground(lipgloss.Color("249")).Render(" (") +
+				updateStyle.Render(strconv.Itoa(commitsBehind)) +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("249")).Render(" commits behind)")
+		}
+		updateText += "]"
+		s.WriteString(updateStyle.Render(updateText))
+	}
+
 	centeredMenuText := menuStyle.Render(s.String())
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, centeredMenuText)
 }
