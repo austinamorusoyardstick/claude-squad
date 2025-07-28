@@ -107,18 +107,21 @@ func (w *TabbedWindow) GetPreviewSize() (width, height int) {
 }
 
 func (w *TabbedWindow) Toggle() {
-	if len(w.tabs) == 0 {
-		return
-	}
-	w.activeTab = (w.activeTab + 1) % len(w.tabs)
+	w.cycleTabs(1)
 }
 
 // ToggleReverse cycles through tabs in reverse order
 func (w *TabbedWindow) ToggleReverse() {
+	w.cycleTabs(-1)
+}
+
+// cycleTabs handles cycling through tabs in a given direction.
+func (w *TabbedWindow) cycleTabs(direction int) {
 	if len(w.tabs) == 0 {
 		return
 	}
-	w.activeTab = (w.activeTab - 1 + len(w.tabs)) % len(w.tabs)
+	numTabs := len(w.tabs)
+	w.activeTab = (w.activeTab + direction + numTabs) % numTabs
 }
 
 // SetTab sets the active tab directly by index
