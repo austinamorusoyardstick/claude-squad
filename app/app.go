@@ -1729,37 +1729,6 @@ func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd
 	}
 }
 
-// executeRebase performs the rebase operation and returns appropriate messages
-func (m *home) executeRebase(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		worktree, err := instance.GetGitWorktree()
-		if err != nil {
-			return err
-		}
-
-		// Check if there are uncommitted changes
-		isDirty, err := worktree.IsDirty()
-		if err != nil {
-			return err
-		}
-
-		if isDirty {
-			return fmt.Errorf(cannotRebaseUncommittedChangesError)
-		}
-
-		// Perform the rebase
-		if err := worktree.RebaseWithMain(); err != nil {
-			// Check if this is a rebase conflict error that needs polling
-			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
-				// Return the conflict error to be handled
-				return rebaseConflictDetectedMsg{err: rebaseErr}
-			}
-			return err
-		}
-
-		return instanceChangedMsg{}
-	}
-}
 
 // confirmAction shows a confirmation modal and stores the action to execute on confirm
 func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
