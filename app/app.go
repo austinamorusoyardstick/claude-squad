@@ -96,6 +96,10 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
+	
+	// Window dimensions
+	windowWidth  int
+	windowHeight int
 
 	// pendingCmd stores a command to be executed after confirmation
 	pendingCmd tea.Cmd
@@ -192,6 +196,10 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 // updateHandleWindowSizeEvent sets the sizes of the components.
 // The components will try to render inside their bounds.
 func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
+	// Store window dimensions
+	m.windowWidth = msg.Width
+	m.windowHeight = msg.Height
+	
 	// List takes 30% of width, preview takes 70%
 	listWidth := int(float32(msg.Width) * 0.3)
 	tabsWidth := msg.Width - listWidth
@@ -208,7 +216,8 @@ func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
 		m.textInputOverlay.SetSize(int(float32(msg.Width)*0.6), int(float32(msg.Height)*0.4))
 	}
 	if m.textOverlay != nil {
-		m.textOverlay.SetWidth(int(float32(msg.Width) * 0.6))
+		width, height := m.calculateOverlayDimensions()
+		m.textOverlay.SetSize(width, height)
 	}
 	if m.historyOverlay != nil {
 		m.historyOverlay.SetSize(int(float32(msg.Width)*0.9), int(float32(msg.Height)*0.9))
@@ -921,7 +930,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			// Get the current file from diff view
 			currentFile := m.tabbedWindow.GetCurrentDiffFile()
 			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
 			}
 			// Open the file in IDE
 			cmd := m.openFileInIDE(selected, currentFile)
@@ -938,7 +947,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			// Get the current file from diff view
 			currentFile := m.tabbedWindow.GetCurrentDiffFile()
 			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected in diff view"))
+				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
 			}
 			// Open the file in external diff tool
 			cmd := m.openFileInExternalDiff(selected, currentFile)
@@ -1040,7 +1049,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			}
 
 			if isDirty {
-				return fmt.Errorf("cannot rebase: you have uncommitted changes. Please commit or stash them first")
+				return fmt.Errorf(cannotRebaseUncommittedChangesError)
 			}
 
 			// Perform the rebase
@@ -1067,7 +1076,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Check if instance is paused
 		if selected.Paused() {
-			return m, m.handleError(fmt.Errorf("instance '%s' is paused - please resume it first", selected.Title))
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
 		}
 
 		// Get the worktree for the selected instance
@@ -1082,7 +1091,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
-			return m, m.handleError(fmt.Errorf("no pull request found for branch in %s: %w", worktreePath, err))
+			return m, m.handleError(fmt.Errorf(noPullRequestFoundError, err))
 		}
 
 		// Fetch PR comments (always fresh - includes resolved status detection)
@@ -1252,7 +1261,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
 
 		if diffCommand == "" {
-			return fmt.Errorf("no external diff tool configured. Set diff_command in global config or repository CLAUDE.md")
+			return fmt.Errorf(noExternalDiffToolConfiguredError)
 		}
 
 		// Construct the full path to the file using the worktree path
@@ -1280,6 +1289,16 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 const (
 	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
 	maxBookmarkSummaryLen = 100
+	
+	// Overlay dimension ratios
+	overlayWidthRatio  = 0.8
+	overlayHeightRatio = 0.9
+	
+	// Error messages
+	cannotRebaseUncommittedChangesError = "cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first"
+	instancePausedError                  = "instance '%s' is paused. Press 'r' to resume it first"
+	noPullRequestFoundError              = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
+	noExternalDiffToolConfiguredError    = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
 )
 
 func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
@@ -1539,6 +1558,13 @@ func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
 			err:   resultErr,
 		}
 	}
+}
+
+// calculateOverlayDimensions returns the width and height for overlay components
+func (m *home) calculateOverlayDimensions() (width, height int) {
+	width = int(float32(m.windowWidth) * overlayWidthRatio)
+	height = int(float32(m.windowHeight) * overlayHeightRatio)
+	return width, height
 }
 
 // handleError handles all errors which get bubbled up to the app. sets the error message. We return a callback tea.Cmd that returns a hideErrMsg message
