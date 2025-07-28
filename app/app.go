@@ -1054,6 +1054,20 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 			// Perform the rebase
 			if err := worktree.RebaseWithMain(); err != nil {
+				// Check if this is a rebase conflict error that needs polling
+				if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
+					// Show the conflict error but start polling
+					log.InfoLog.Printf("Starting rebase polling for %s", rebaseErr.TempDir)
+					
+					// Start the polling command with a small delay
+					pollingCmd := func() tea.Msg {
+						time.Sleep(2 * time.Second) // Initial delay before polling
+						return rebaseErr.Worktree.CreateRebasePollingCommand(rebaseErr.TempDir, rebaseErr.MainBranch)()
+					}
+					
+					// Return both the error display and the polling command
+					return tea.Batch(func() tea.Msg { return err }, pollingCmd)
+				}
 				return err
 			}
 
