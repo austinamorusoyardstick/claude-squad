@@ -234,24 +234,13 @@ func (g *GitWorktree) RebaseWithMain() error {
 
 	// Perform the rebase
 	if _, err := g.runGitCommand(g.worktreePath, "rebase", fmt.Sprintf("origin/%s", mainBranch)); err != nil {
-		// Check if this is a merge conflict by examining the git status
-		if g.hasMergeConflicts() {
-			// Open IDE with the conflicted files - for now, load config here since we can't change the function signature easily
-			globalConfig := config.LoadConfig()
-			if ideErr := g.openIdeForConflicts(globalConfig); ideErr != nil {
-				// If IDE fails to open, still return the conflict info
-				log.WarningLog.Printf("Failed to open IDE for conflict resolution: %v", ideErr)
-			}
-			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. IDE opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
-		}
-
-		// If it's not a merge conflict, abort the rebase and try fallback clone approach
+		// Abort the rebase in worktree
 		g.runGitCommand(g.worktreePath, "rebase", "--abort")
 		
-		// Try rebase with clone fallback
-		log.InfoLog.Printf("Rebase failed in worktree, attempting fallback clone approach")
-		if fallbackErr := g.rebaseWithCloneFallback(mainBranch, backupBranch); fallbackErr != nil {
-			return fmt.Errorf("rebase failed with origin/%s in both worktree and clone fallback. Backup branch created: %s. Error: %w", mainBranch, backupBranch, fallbackErr)
+		// Always use clone approach for any rebase failure (including conflicts)
+		log.InfoLog.Printf("Rebase failed in worktree, using clone approach")
+		if cloneErr := g.rebaseWithClone(mainBranch, backupBranch); cloneErr != nil {
+			return fmt.Errorf("rebase failed with origin/%s. Backup branch created: %s. Error: %w", mainBranch, backupBranch, cloneErr)
 		}
 		
 		return nil
