@@ -245,9 +245,16 @@ func (g *GitWorktree) RebaseWithMain() error {
 			return fmt.Errorf("merge conflicts detected during rebase with origin/%s. IDE opened for conflict resolution. Backup branch created: %s", mainBranch, backupBranch)
 		}
 
-		// If it's not a merge conflict, abort the rebase as before
+		// If it's not a merge conflict, abort the rebase and try fallback clone approach
 		g.runGitCommand(g.worktreePath, "rebase", "--abort")
-		return fmt.Errorf("rebase failed with origin/%s. Backup branch created: %s", mainBranch, backupBranch)
+		
+		// Try rebase with clone fallback
+		log.InfoLog.Printf("Rebase failed in worktree, attempting fallback clone approach")
+		if fallbackErr := g.rebaseWithCloneFallback(mainBranch, backupBranch); fallbackErr != nil {
+			return fmt.Errorf("rebase failed with origin/%s in both worktree and clone fallback. Backup branch created: %s. Error: %w", mainBranch, backupBranch, fallbackErr)
+		}
+		
+		return nil
 	}
 
 	return nil
