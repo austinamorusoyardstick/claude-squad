@@ -764,6 +764,15 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 	}
 
+	// Handle Log-specific keybindings when in Log tab
+	if m.tabbedWindow.IsInLogTab() {
+		switch msg.String() {
+		case "u":
+			m.tabbedWindow.ToggleLogDistinct()
+			return m, nil
+		}
+	}
+
 	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return m, nil
