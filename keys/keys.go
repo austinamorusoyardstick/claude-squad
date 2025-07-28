@@ -225,6 +225,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "switch tab"),
 	),
+	KeyShiftTab: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "switch tab (reverse)"),
+	),
 	KeyResume: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "resume"),
