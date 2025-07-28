@@ -96,6 +96,10 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
+	
+	// Window dimensions
+	windowWidth  int
+	windowHeight int
 
 	// pendingCmd stores a command to be executed after confirmation
 	pendingCmd tea.Cmd
