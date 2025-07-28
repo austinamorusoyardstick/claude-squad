@@ -8,6 +8,7 @@ import (
 	"claude-squad/session/git"
 	"claude-squad/ui"
 	"claude-squad/ui/overlay"
+	"claude-squad/util"
 	"context"
 	"fmt"
 	"os"
