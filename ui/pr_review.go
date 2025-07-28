@@ -39,15 +39,16 @@ type PRReviewShowCommentMsg struct {
 
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
-		pr:            pr,
-		currentIndex:  0,
-		showHelp:      true,
-		filterEnabled: true,  // Default to filter enabled
-		showComments:  true,  // Default to show comments
-		showReviews:   true,  // Default to show reviews
-		ready:         false,
-		width:         80,   // Default width
-		height:        24,   // Default height
+		pr:               pr,
+		currentIndex:     0,
+		showHelp:         true,
+		filterEnabled:    true,  // Default to filter enabled
+		showComments:     true,  // Default to show comments
+		showReviews:      true,  // Default to show reviews
+		showLineComments: true,  // Default to show line comments
+		ready:            false,
+		width:            80,   // Default width
+		height:           24,   // Default height
 	}
 }
 
