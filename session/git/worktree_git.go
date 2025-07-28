@@ -494,8 +494,35 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		rebaseOutput, _ := g.runGitCommand(tempDir, "status", "--short")
 		log.InfoLog.Printf("Short status output: '%s'", strings.TrimSpace(rebaseOutput))
 		
+		// Check if any git process is still running in the directory
+		// This helps avoid race conditions where git hasn't cleaned up yet
+		gitProcessCheck, _ := exec.Command("sh", "-c", fmt.Sprintf("lsof +D %s 2>/dev/null | grep -E '(git|git-rebase)' || true", tempDir)).Output()
+		if len(strings.TrimSpace(string(gitProcessCheck))) > 0 {
+			log.InfoLog.Printf("Git process still running in directory, continuing to poll")
+			return RebasePollingMsg{
+				Status:     "in_progress",
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
+			}
+		}
+		
+		// Final check - make sure we can actually read the HEAD
+		headSHA, err := g.runGitCommand(tempDir, "rev-parse", "HEAD")
+		if err != nil {
+			log.ErrorLog.Printf("Failed to read HEAD after rebase: %v", err)
+			// This might mean git is in a weird state, continue polling
+			return RebasePollingMsg{
+				Status:     "in_progress",
+				TempDir:    tempDir,
+				MainBranch: mainBranch,
+				Worktree:   g,
+			}
+		}
+		log.InfoLog.Printf("HEAD SHA after rebase: %s", strings.TrimSpace(headSHA))
+		
 		// Rebase appears to be complete - sync back to worktree
-		log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
+		log.InfoLog.Printf("All checks passed - rebase completed in clone, syncing back to worktree")
 		
 		if err := g.syncRebaseFromClone(tempDir, mainBranch); err != nil {
 			log.ErrorLog.Printf("Failed to sync rebase from clone: %v", err)
