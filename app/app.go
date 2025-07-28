@@ -1049,7 +1049,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			}
 
 			if isDirty {
-				return fmt.Errorf("cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first")
+				return fmt.Errorf(cannotRebaseUncommittedChangesError)
 			}
 
 			// Perform the rebase
@@ -1076,7 +1076,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Check if instance is paused
 		if selected.Paused() {
-			return m, m.handleError(fmt.Errorf("instance '%s' is paused. Press 'r' to resume it first", selected.Title))
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
 		}
 
 		// Get the worktree for the selected instance
@@ -1091,7 +1091,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
-			return m, m.handleError(fmt.Errorf("no pull request found for this branch. Push the branch with 'p' first to create a PR: %w", err))
+			return m, m.handleError(fmt.Errorf(noPullRequestFoundError, err))
 		}
 
 		// Fetch PR comments (always fresh - includes resolved status detection)
@@ -1261,7 +1261,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
 
 		if diffCommand == "" {
-			return fmt.Errorf("no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md")
+			return fmt.Errorf(noExternalDiffToolConfiguredError)
 		}
 
 		// Construct the full path to the file using the worktree path
