@@ -1523,11 +1523,10 @@ type instanceChangedMsg struct{}
 // startRebaseMsg is sent to trigger the actual rebase after confirmation
 type startRebaseMsg struct{}
 
-// rebasePollingInfo stores information needed for polling rebase completion
-type rebasePollingInfo struct {
-	TempDir    string
-	MainBranch string
-	Worktree   *git.GitWorktree
+// remotePollingMsg is sent to check if the remote branch has been updated
+type remotePollingMsg struct {
+	branchName  string
+	originalSHA string
 }
 
 // instanceCreatedMsg is sent when an instance has been created successfully
