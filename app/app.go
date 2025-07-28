@@ -1734,6 +1734,19 @@ func (m *home) handleRebasePolling(msg git.RebasePollingMsg) (tea.Model, tea.Cmd
 }
 
 
+// createRemotePollingCmd creates a command that polls the remote for branch changes
+func (m *home) createRemotePollingCmd(branchName string, originalSHA string) tea.Cmd {
+	return func() tea.Msg {
+		// Wait a bit before polling
+		time.Sleep(3 * time.Second)
+		
+		return remotePollingMsg{
+			branchName:  branchName,
+			originalSHA: originalSHA,
+		}
+	}
+}
+
 // confirmAction shows a confirmation modal and stores the action to execute on confirm
 func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	m.state = stateConfirm
