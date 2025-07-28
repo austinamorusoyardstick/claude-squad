@@ -552,9 +552,16 @@ func (g *GitWorktree) syncRebaseFromClone(tempDir string, mainBranch string) err
 	
 	// First push the rebased branch from the clone
 	log.InfoLog.Printf("Pushing rebased branch %s from clone to origin", g.branchName)
-	pushOutput, err := g.runGitCommand(tempDir, "push", "--force-with-lease", "origin", g.branchName)
+	// Use explicit refs to ensure we're pushing the right thing
+	pushCmd := fmt.Sprintf("refs/heads/%s:refs/heads/%s", g.branchName, g.branchName)
+	pushOutput, err := g.runGitCommand(tempDir, "push", "--force-with-lease", "origin", pushCmd)
 	if err != nil {
-		return fmt.Errorf("failed to push rebased branch from clone: %w", err)
+		// Try without --force-with-lease as a fallback
+		log.WarningLog.Printf("Push with --force-with-lease failed, trying --force: %v", err)
+		pushOutput, err = g.runGitCommand(tempDir, "push", "--force", "origin", pushCmd)
+		if err != nil {
+			return fmt.Errorf("failed to push rebased branch from clone: %w", err)
+		}
 	}
 	log.InfoLog.Printf("Push output: %s", strings.TrimSpace(pushOutput))
 	
