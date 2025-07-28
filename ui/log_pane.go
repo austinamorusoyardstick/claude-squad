@@ -21,12 +21,13 @@ type CommandLog struct {
 
 // LogPane displays command execution logs
 type LogPane struct {
-	logs        []CommandLog
-	viewport    viewport.Model
-	width       int
-	height      int
-	mu          sync.RWMutex
-	isScrolling bool // Track if user is manually scrolling
+	logs         []CommandLog
+	viewport     viewport.Model
+	width        int
+	height       int
+	mu           sync.RWMutex
+	isScrolling  bool // Track if user is manually scrolling
+	showDistinct bool // Show only distinct commands
 }
 
 // NewLogPane creates a new log pane
@@ -129,9 +130,24 @@ func (p *LogPane) renderLogs() string {
 	argsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("white"))
 	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("yellow"))
 	sourceStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("magenta"))
+	countStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("green"))
 
-	for i := len(p.logs) - 1; i >= 0; i-- { // Show newest first
-		log := p.logs[i]
+	// Show mode indicator
+	if p.showDistinct {
+		builder.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("yellow")).
+			Bold(true).
+			Render("[Distinct Commands Mode - Press 'u' to toggle]"))
+		builder.WriteString("\n\n")
+	}
+
+	logsToRender := p.logs
+	if p.showDistinct {
+		logsToRender = p.getDistinctLogs()
+	}
+
+	for i := len(logsToRender) - 1; i >= 0; i-- { // Show newest first
+		log := logsToRender[i]
 		timestamp := log.Timestamp.Format("15:04:05")
 		
 		// Format command with arguments
@@ -146,6 +162,14 @@ func (p *LogPane) renderLogs() string {
 			sourceStyle.Render(log.Source),
 			cmdLine,
 		)
+
+		// In distinct mode, show count
+		if p.showDistinct {
+			count := p.getCommandCount(log)
+			if count > 1 {
+				entry += " " + countStyle.Render(fmt.Sprintf("(×%d)", count))
+			}
+		}
 
 		if log.Dir != "" {
 			entry += fmt.Sprintf("\n      %s %s",
@@ -192,4 +216,75 @@ func (p *LogPane) ResetScroll() {
 	defer p.mu.Unlock()
 	p.isScrolling = false
 	p.updateViewport()
+}
+
+// ToggleDistinct toggles showing only distinct commands
+func (p *LogPane) ToggleDistinct() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.showDistinct = !p.showDistinct
+	p.updateViewport()
+}
+
+// getDistinctLogs returns only the most recent occurrence of each unique command
+func (p *LogPane) getDistinctLogs() []CommandLog {
+	seen := make(map[string]bool)
+	distinct := make([]CommandLog, 0)
+	
+	// Process from newest to oldest
+	for i := len(p.logs) - 1; i >= 0; i-- {
+		log := p.logs[i]
+		key := p.getCommandKey(log)
+		
+		if !seen[key] {
+			seen[key] = true
+			// Insert at beginning to maintain newest-first order
+			distinct = append([]CommandLog{log}, distinct...)
+		}
+	}
+	
+	return distinct
+}
+
+// getCommandKey returns a unique key for a command
+func (p *LogPane) getCommandKey(log CommandLog) string {
+	return fmt.Sprintf("%s|%s|%s", log.Command, strings.Join(log.Args, " "), log.Dir)
+}
+
+// getCommandCount returns how many times this command has been executed
+func (p *LogPane) getCommandCount(target CommandLog) int {
+	key := p.getCommandKey(target)
+	count := 0
+	
+	for _, log := range p.logs {
+		if p.getCommandKey(log) == key {
+			count++
+		}
+	}
+	
+	return count
+}
+
+// PageUp scrolls up by a page
+func (p *LogPane) PageUp() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	p.isScrolling = true
+	p.updateViewportNoScroll()
+	p.viewport.HalfViewUp()
+}
+
+// PageDown scrolls down by a page  
+func (p *LogPane) PageDown() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	p.isScrolling = true
+	p.updateViewportNoScroll()
+	p.viewport.HalfViewDown()
+	
+	if p.viewport.AtBottom() {
+		p.isScrolling = false
+	}
 }
