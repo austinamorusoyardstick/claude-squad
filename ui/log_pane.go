@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +29,7 @@ type LogPane struct {
 	mu           sync.RWMutex
 	isScrolling  bool // Track if user is manually scrolling
 	showDistinct bool // Show only distinct commands
+	sortByCommand bool // Sort by command instead of date
 }
 
 // NewLogPane creates a new log pane
@@ -42,6 +44,21 @@ func NewLogPane() *LogPane {
 func (p *LogPane) AddLog(cmd string, args []string, dir string, source string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	// Check if this exact command already exists
+	if p.showDistinct {
+		for i, existingLog := range p.logs {
+			if p.getCommandKey(existingLog) == p.getCommandKey(CommandLog{Command: cmd, Args: args, Dir: dir}) {
+				// Update timestamp of existing command
+				p.logs[i].Timestamp = time.Now()
+				// Only update viewport if not scrolling
+				if !p.isScrolling {
+					p.updateViewport()
+				}
+				return
+			}
+		}
+	}
 
 	log := CommandLog{
 		Timestamp: time.Now(),
@@ -132,22 +149,53 @@ func (p *LogPane) renderLogs() string {
 	sourceStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("magenta"))
 	countStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("green"))
 
-	// Show mode indicator
+	// Show mode indicators
+	modes := []string{}
 	if p.showDistinct {
+		modes = append(modes, "Distinct")
+	}
+	if p.sortByCommand {
+		modes = append(modes, "Sorted")
+	}
+	if len(modes) > 0 {
 		builder.WriteString(lipgloss.NewStyle().
 			Foreground(lipgloss.Color("yellow")).
 			Bold(true).
-			Render("[Distinct Commands Mode - Press 'u' to toggle]"))
+			Render(fmt.Sprintf("[%s Mode - 'u': toggle distinct, 's': toggle sort]", strings.Join(modes, ", "))))
 		builder.WriteString("\n\n")
 	}
 
-	logsToRender := p.logs
-	if p.showDistinct {
-		logsToRender = p.getDistinctLogs()
+	logsToRender := make([]CommandLog, len(p.logs))
+	copy(logsToRender, p.logs)
+
+	// Apply sorting if enabled
+	if p.sortByCommand {
+		sort.Slice(logsToRender, func(i, j int) bool {
+			// First sort by command
+			if logsToRender[i].Command != logsToRender[j].Command {
+				return logsToRender[i].Command < logsToRender[j].Command
+			}
+			// Then by args
+			argsI := strings.Join(logsToRender[i].Args, " ")
+			argsJ := strings.Join(logsToRender[j].Args, " ")
+			if argsI != argsJ {
+				return argsI < argsJ
+			}
+			// Then by directory
+			if logsToRender[i].Dir != logsToRender[j].Dir {
+				return logsToRender[i].Dir < logsToRender[j].Dir
+			}
+			// Finally by timestamp (most recent first)
+			return logsToRender[i].Timestamp.After(logsToRender[j].Timestamp)
+		})
+	} else {
+		// Default: newest first
+		sort.Slice(logsToRender, func(i, j int) bool {
+			return logsToRender[i].Timestamp.After(logsToRender[j].Timestamp)
+		})
 	}
 
-	for i := len(logsToRender) - 1; i >= 0; i-- { // Show newest first
-		log := logsToRender[i]
+	for i, log := range logsToRender {
 		timestamp := log.Timestamp.Format("15:04:05")
 		
 		// Format command with arguments
@@ -179,7 +227,7 @@ func (p *LogPane) renderLogs() string {
 		}
 
 		builder.WriteString(entry + "\n")
-		if i > 0 {
+		if i < len(logsToRender)-1 {
 			builder.WriteString("\n")
 		}
 	}
@@ -226,25 +274,15 @@ func (p *LogPane) ToggleDistinct() {
 	p.updateViewport()
 }
 
-// getDistinctLogs returns only the most recent occurrence of each unique command
-func (p *LogPane) getDistinctLogs() []CommandLog {
-	seen := make(map[string]bool)
-	distinct := make([]CommandLog, 0)
-	
-	// Process from newest to oldest
-	for i := len(p.logs) - 1; i >= 0; i-- {
-		log := p.logs[i]
-		key := p.getCommandKey(log)
-		
-		if !seen[key] {
-			seen[key] = true
-			// Insert at beginning to maintain newest-first order
-			distinct = append([]CommandLog{log}, distinct...)
-		}
-	}
-	
-	return distinct
+// ToggleSort toggles sorting by command
+func (p *LogPane) ToggleSort() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.sortByCommand = !p.sortByCommand
+	p.updateViewport()
 }
+
+// getDistinctLogs is no longer needed as we handle distinct mode differently now
 
 // getCommandKey returns a unique key for a command
 func (p *LogPane) getCommandKey(log CommandLog) string {
