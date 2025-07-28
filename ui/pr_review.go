@@ -331,29 +331,28 @@ func (m PRReviewModel) getActiveComments() []*git.PRComment {
 	// Apply filters
 	var filtered []*git.PRComment
 	for _, comment := range comments {
-		// Check type filters
-		includeByType := true
+		// Filter by type
 		switch comment.Type {
 		case "review":
-			includeByType = m.showReviews
+			if !m.showReviews {
+				continue
+			}
 		case "review_comment", "issue_comment":
-			includeByType = m.showComments
+			if !m.showComments {
+				continue
+			}
 		}
 		
-		// Check line number filter
-		includeByLine := true
+		// Filter by line number
 		if m.showOnlyLineComments {
-			// When showing only line comments, include only those with line numbers
-			includeByLine = comment.Line > 0
-		} else {
-			// Normal line filter behavior
-			includeByLine = m.showLineComments || comment.Line == 0
+			if comment.Line <= 0 {
+				continue
+			}
+		} else if !m.showLineComments && comment.Line > 0 {
+			continue
 		}
 		
-		// Include comment if it passes all filters
-		if includeByType && includeByLine {
-			filtered = append(filtered, comment)
-		}
+		filtered = append(filtered, comment)
 	}
 	
 	return filtered
