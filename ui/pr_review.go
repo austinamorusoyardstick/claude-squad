@@ -11,17 +11,21 @@ import (
 )
 
 type PRReviewModel struct {
-	pr            *git.PullRequest
-	currentIndex  int
-	width         int
-	height        int
-	showHelp      bool
-	filterEnabled bool
-	err           error
-	viewport      viewport.Model
-	ready         bool
-	splitMode     bool
-	splitModel    *CommentSplitModel
+	pr                *git.PullRequest
+	currentIndex      int
+	width             int
+	height            int
+	showHelp          bool
+	filterEnabled     bool
+	showComments      bool
+	showReviews       bool
+	showLineComments  bool
+	showOnlyLineComments bool
+	err               error
+	viewport          viewport.Model
+	ready             bool
+	splitMode         bool
+	splitModel        *CommentSplitModel
 }
 
 type PRReviewCompleteMsg struct {
@@ -36,13 +40,17 @@ type PRReviewShowCommentMsg struct {
 
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
-		pr:            pr,
-		currentIndex:  0,
-		showHelp:      true,
-		filterEnabled: true,  // Default to filter enabled
-		ready:         false,
-		width:         80,   // Default width
-		height:        24,   // Default height
+		pr:                  pr,
+		currentIndex:        0,
+		showHelp:            true,
+		filterEnabled:       true,  // Default to filter enabled
+		showComments:        true,  // Default to show comments
+		showReviews:         true,  // Default to show reviews
+		showLineComments:    true,  // Default to show line comments
+		showOnlyLineComments: false, // Default to not showing only line comments
+		ready:               false,
+		width:               80,   // Default width
+		height:              24,   // Default height
 	}
 }
 
@@ -138,12 +146,50 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 		
 		case "f":
 			m.filterEnabled = !m.filterEnabled
-			// Reset current index to ensure it's valid
-			m.currentIndex = 0
-			if m.ready {
-				m.updateViewportContent()
-				m.viewport.SetYOffset(0) // Reset scroll position
-			}
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "c":
+			m.showComments = !m.showComments
+			m.showOnlyLineComments = false
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "r":
+			m.showReviews = !m.showReviews
+			m.showOnlyLineComments = false
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "l":
+			m.showLineComments = !m.showLineComments
+			m.showOnlyLineComments = false
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "L":
+			// Show only line comments
+			m.showComments = true
+			m.showReviews = true
+			m.showLineComments = true
+			m.showOnlyLineComments = true
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "R":
+			// Show only reviews
+			m.showComments = false
+			m.showReviews = true
+			m.showOnlyLineComments = false
+			m = m.resetViewAfterFilterChange()
+			return m, nil
+		
+		case "C":
+			// Show only comments (not reviews)
+			m.showComments = true
+			m.showReviews = false
+			m.showOnlyLineComments = false
+			m = m.resetViewAfterFilterChange()
 			return m, nil
 		
 		case "j", "down":
@@ -260,12 +306,89 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// resetViewAfterFilterChange resets the view after a filter change
+func (m PRReviewModel) resetViewAfterFilterChange() PRReviewModel {
+	m.currentIndex = 0
+	if m.ready {
+		m.updateViewportContent()
+		m.viewport.SetYOffset(0) // Reset scroll position
+	}
+	return m
+}
+
+// buildFilterStatus builds the filter status string
+func (m PRReviewModel) buildFilterStatus() string {
+	var filterParts []string
+	if m.filterEnabled {
+		filterParts = append(filterParts, "Filter: ON")
+	} else {
+		filterParts = append(filterParts, "Filter: OFF")
+	}
+
+	// Show comment/review filter status
+	if m.showOnlyLineComments {
+		filterParts = append(filterParts, "showing only line comments")
+	} else if !m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "hiding all")
+	} else if !m.showComments && m.showReviews {
+		filterParts = append(filterParts, "showing only reviews")
+	} else if m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "showing only comments")
+	}
+
+	// Show line comments filter status (only if relevant - when showing comments that can have line numbers)
+	if !m.showOnlyLineComments && m.showComments && !m.showLineComments {
+		filterParts = append(filterParts, "hiding line comments")
+	}
+
+	filterStatus := "(" + strings.Join(filterParts, " - ")
+	if m.filterEnabled {
+		filterStatus += " - hiding outdated/resolved/gemini"
+	}
+	filterStatus += ")"
+
+	return filterStatus
+}
+
 // getActiveComments returns the comments based on filter state
 func (m PRReviewModel) getActiveComments() []*git.PRComment {
+	var comments []*git.PRComment
+	
+	// Start with the appropriate base set
 	if m.filterEnabled {
-		return m.pr.Comments
+		comments = m.pr.Comments
+	} else {
+		comments = m.pr.AllComments
 	}
-	return m.pr.AllComments
+	
+	// Apply filters
+	filtered := make([]*git.PRComment, 0, len(comments))
+	for _, comment := range comments {
+		// Filter by type
+		switch comment.Type {
+		case "review":
+			if !m.showReviews {
+				continue
+			}
+		case "review_comment", "issue_comment":
+			if !m.showComments {
+				continue
+			}
+		}
+		
+		// Filter by line number
+		if m.showOnlyLineComments {
+			if comment.Line <= 0 {
+				continue
+			}
+		} else if !m.showLineComments && comment.Line > 0 {
+			continue
+		}
+		
+		filtered = append(filtered, comment)
+	}
+	
+	return filtered
 }
 
 func (m PRReviewModel) View() string {
@@ -313,11 +436,8 @@ func (m PRReviewModel) View() string {
 	filterStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
-	if m.filterEnabled {
-		header.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved/gemini)"))
-	} else {
-		header.WriteString(filterStyle.Render("(Filter: OFF - showing all comments)"))
-	}
+	
+	header.WriteString(filterStyle.Render(m.buildFilterStatus()))
 	header.WriteString("\n")
 
 	acceptedCount := len(m.pr.GetAcceptedComments())
@@ -370,6 +490,9 @@ func (m PRReviewModel) View() string {
 			"e:expand",
 			"s:split",
 			"f:toggle filter",
+			"c/C:toggle/only comments",
+			"r/R:toggle/only reviews",
+			"l/L:toggle/only line comments",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
@@ -588,11 +711,8 @@ func (m PRReviewModel) simpleView() string {
 	filterStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
 		Italic(true)
-	if m.filterEnabled {
-		b.WriteString(filterStyle.Render("(Filter: ON - hiding outdated/resolved/gemini)"))
-	} else {
-		b.WriteString(filterStyle.Render("(Filter: OFF - showing all comments)"))
-	}
+	
+	b.WriteString(filterStyle.Render(m.buildFilterStatus()))
 	b.WriteString("\n\n")
 	
 	acceptedCount := len(m.pr.GetAcceptedComments())
@@ -702,7 +822,7 @@ func (m PRReviewModel) simpleView() string {
 		Foreground(lipgloss.Color("241"))
 	
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • Enter:process • q:cancel"))
+	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • c/C:toggle/only comments • r/R:toggle/only reviews • l/L:toggle/only line comments • Enter:process • q:cancel"))
 
 	return b.String()
 }
