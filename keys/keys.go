@@ -521,6 +521,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"open_ide":         KeyOpenIDE,
 		"rebase":           KeyRebase,
 		"tab":              KeyTab,
+		"shift_tab":        KeyShiftTab,
 		"scroll_up":        KeyShiftUp,
 		"scroll_down":      KeyShiftDown,
 		"home":             KeyHome,
