@@ -286,10 +286,42 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 
 // getActiveComments returns the comments based on filter state
 func (m PRReviewModel) getActiveComments() []*git.PRComment {
+	var comments []*git.PRComment
+	
+	// Start with the appropriate base set
 	if m.filterEnabled {
-		return m.pr.Comments
+		comments = m.pr.Comments
+	} else {
+		comments = m.pr.AllComments
 	}
-	return m.pr.AllComments
+	
+	// Apply comment type filters
+	if !m.showComments || !m.showReviews {
+		var filtered []*git.PRComment
+		for _, comment := range comments {
+			// Show comment based on type and filter settings
+			switch comment.Type {
+			case "review":
+				if m.showReviews {
+					filtered = append(filtered, comment)
+				}
+			case "review_comment":
+				if m.showComments {
+					filtered = append(filtered, comment)
+				}
+			case "issue_comment":
+				if m.showComments {
+					filtered = append(filtered, comment)
+				}
+			default:
+				// Include unknown types
+				filtered = append(filtered, comment)
+			}
+		}
+		return filtered
+	}
+	
+	return comments
 }
 
 func (m PRReviewModel) View() string {
