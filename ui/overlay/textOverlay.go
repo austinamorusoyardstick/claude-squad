@@ -76,13 +76,68 @@ func (t *TextOverlay) Render(opts ...WhitespaceOption) string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("62")).
-		Padding(1, 2).
-		Width(t.width)
+		Padding(1, 2)
+
+	var content string
+	if t.needsScrolling {
+		// Use viewport for scrollable content
+		content = t.viewport.View()
+		
+		// Add scroll indicator at bottom if needed
+		if t.viewport.TotalLineCount() > t.viewport.Height {
+			scrollInfo := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				Render("↑/↓ to scroll • Press any other key to close")
+			content = lipgloss.JoinVertical(lipgloss.Left, content, "", scrollInfo)
+		}
+	} else {
+		// Use regular content for non-scrollable
+		content = t.content
+	}
+
+	// Apply width if set
+	if t.width > 0 {
+		style = style.Width(t.width)
+	}
 
 	// Apply the border style and return
-	return style.Render(t.content)
+	return style.Render(content)
 }
 
 func (t *TextOverlay) SetWidth(width int) {
 	t.width = width
+	t.updateViewport()
+}
+
+// SetSize updates the dimensions of the overlay
+func (t *TextOverlay) SetSize(width, height int) {
+	t.width = width
+	t.height = height
+	t.updateViewport()
+}
+
+// updateViewport updates the viewport dimensions based on the overlay size
+func (t *TextOverlay) updateViewport() {
+	if t.height == 0 || t.width == 0 {
+		return
+	}
+	
+	// Calculate viewport dimensions (account for borders, padding, and scroll info)
+	// Border: 2 lines (top/bottom), padding: 2 lines, scroll info: 3 lines
+	viewportHeight := t.height - 7
+	viewportWidth := t.width - 6 // Border and padding on sides
+	
+	if viewportHeight < 1 {
+		viewportHeight = 1
+	}
+	if viewportWidth < 1 {
+		viewportWidth = 1
+	}
+	
+	t.viewport.Width = viewportWidth
+	t.viewport.Height = viewportHeight
+	
+	// Determine if scrolling is needed
+	totalLines := lipgloss.Height(t.content)
+	t.needsScrolling = totalLines > viewportHeight
 }
