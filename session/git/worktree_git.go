@@ -451,22 +451,31 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 			}
 		}
 		
-		// First, let's check git status to see what git thinks
-		gitStatus, statusErr := g.runGitCommand(tempDir, "status")
-		if statusErr != nil {
-			log.ErrorLog.Printf("Failed to get git status: %v", statusErr)
+		// Check for our marker file - if it's been removed, consider rebase complete
+		markerPath := fmt.Sprintf("%s/.claude-squad-rebase-in-progress", tempDir)
+		if _, err := os.Stat(markerPath); os.IsNotExist(err) {
+			log.InfoLog.Printf("Marker file removed, considering rebase complete")
+			// Skip other checks and proceed to sync
 		} else {
-			// Check if the status contains rebase-related messages
-			statusStr := strings.ToLower(gitStatus)
-			if strings.Contains(statusStr, "rebase in progress") || 
-			   strings.Contains(statusStr, "you are currently rebasing") ||
-			   strings.Contains(statusStr, "rebase --continue") {
-				log.InfoLog.Printf("Git status indicates rebase still in progress")
-				return RebasePollingMsg{
-					Status:     "in_progress",
-					TempDir:    tempDir,
-					MainBranch: mainBranch,
-					Worktree:   g,
+			// Marker still exists, do normal checks
+			
+			// First, let's check git status to see what git thinks
+			gitStatus, statusErr := g.runGitCommand(tempDir, "status")
+			if statusErr != nil {
+				log.ErrorLog.Printf("Failed to get git status: %v", statusErr)
+			} else {
+				// Check if the status contains rebase-related messages
+				statusStr := strings.ToLower(gitStatus)
+				if strings.Contains(statusStr, "rebase in progress") || 
+				   strings.Contains(statusStr, "you are currently rebasing") ||
+				   strings.Contains(statusStr, "rebase --continue") {
+					log.InfoLog.Printf("Git status indicates rebase still in progress")
+					return RebasePollingMsg{
+						Status:     "in_progress",
+						TempDir:    tempDir,
+						MainBranch: mainBranch,
+						Worktree:   g,
+					}
 				}
 			}
 		}
