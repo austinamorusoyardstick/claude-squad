@@ -460,7 +460,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			ideCommand := config.GetEffectiveIdeCommand(fileDir, globalConfig)
 
 			for _, file := range msg.failedFiles {
-				cmd := exec.Command(ideCommand, file)
+				cmd := util.Command("App.OpenFailedTests", ideCommand, file)
 				cmd.Start()
 			}
 			// Show brief status about failed tests with counts
@@ -1231,7 +1231,7 @@ func (m *home) openIDE(instance *session.Instance) tea.Cmd {
 		globalConfig := m.appConfig
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
 
-		cmd := exec.Command(ideCommand, worktreePath)
+		cmd := util.Command("App.OpenInIDE", ideCommand, worktreePath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open IDE (%s): %w", ideCommand, err)
 		}
@@ -1257,7 +1257,7 @@ func (m *home) openFileInIDE(instance *session.Instance, filePath string) tea.Cm
 		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
 
 		// Open IDE with the specific file
-		cmd := exec.Command(ideCommand, fullPath)
+		cmd := util.Command("App.OpenFileInIDE", ideCommand, fullPath)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open file in IDE (%s): %w", ideCommand, err)
 		}
@@ -1296,7 +1296,7 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		if len(parts) == 0 {
 			return fmt.Errorf("empty diff command")
 		}
-		cmd := exec.Command(parts[0], append(parts[1:], fullPath)...)
+		cmd := util.Command("App.OpenInExternalDiff", parts[0], append(parts[1:], fullPath)...)
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("failed to open file in external diff tool (%s): %w", diffCommand, err)
 		}
