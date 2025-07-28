@@ -1519,11 +1519,6 @@ type instanceChangedMsg struct{}
 // startRebaseMsg is sent to trigger the actual rebase after confirmation
 type startRebaseMsg struct{}
 
-// rebaseConflictDetectedMsg is sent when a rebase conflict is detected and polling should start
-type rebaseConflictDetectedMsg struct {
-	err *git.RebaseConflictError
-}
-
 // rebasePollingInfo stores information needed for polling rebase completion
 type rebasePollingInfo struct {
 	TempDir    string
