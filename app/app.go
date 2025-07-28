@@ -138,11 +138,17 @@ type home struct {
 	// errorLog stores all error messages for display
 	errorLog []string
 	
-	// rebasePollingInfo stores info for ongoing rebase polling
-	rebasePollingInfo *rebasePollingInfo
-	
 	// pendingRebaseInstance stores the instance to rebase after confirmation
 	pendingRebaseInstance *session.Instance
+	
+	// rebaseInProgress indicates if a rebase is currently in progress
+	rebaseInProgress bool
+	// rebaseInstance is the instance being rebased
+	rebaseInstance *session.Instance
+	// rebaseBranchName is the branch being rebased
+	rebaseBranchName string
+	// rebaseOriginalSHA is the commit SHA before rebase started
+	rebaseOriginalSHA string
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
