@@ -579,6 +579,7 @@ func getHelpText(command string) string {
 		"open_ide":         "open IDE",
 		"rebase":           "rebase",
 		"tab":              "switch tab",
+		"shift_tab":        "switch tab (reverse)",
 		"scroll_up":        "scroll",
 		"scroll_down":      "scroll",
 		"home":             "scroll to top",
