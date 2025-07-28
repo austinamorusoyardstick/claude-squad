@@ -768,11 +768,6 @@ func (g *GitWorktree) GetCurrentBranch() (string, error) {
 	return g.branchName, nil
 }
 
-// GetBranchName returns the branch name for this worktree
-func (g *GitWorktree) GetBranchName() string {
-	return g.branchName
-}
-
 // GetCurrentCommitSHA returns the current commit SHA
 func (g *GitWorktree) GetCurrentCommitSHA() (string, error) {
 	sha, err := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
