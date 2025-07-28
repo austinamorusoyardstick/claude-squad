@@ -11,20 +11,21 @@ import (
 )
 
 type PRReviewModel struct {
-	pr              *git.PullRequest
-	currentIndex    int
-	width           int
-	height          int
-	showHelp        bool
-	filterEnabled   bool
-	showComments    bool
-	showReviews     bool
-	showLineComments bool
-	err             error
-	viewport        viewport.Model
-	ready           bool
-	splitMode       bool
-	splitModel      *CommentSplitModel
+	pr                *git.PullRequest
+	currentIndex      int
+	width             int
+	height            int
+	showHelp          bool
+	filterEnabled     bool
+	showComments      bool
+	showReviews       bool
+	showLineComments  bool
+	showOnlyLineComments bool
+	err               error
+	viewport          viewport.Model
+	ready             bool
+	splitMode         bool
+	splitModel        *CommentSplitModel
 }
 
 type PRReviewCompleteMsg struct {
