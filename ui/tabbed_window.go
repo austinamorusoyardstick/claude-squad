@@ -312,6 +312,11 @@ func (w *TabbedWindow) ToggleLogDistinct() {
 	w.logPane.ToggleDistinct()
 }
 
+// ToggleLogSort toggles sort mode in the log pane
+func (w *TabbedWindow) ToggleLogSort() {
+	w.logPane.ToggleSort()
+}
+
 // UpdateJest updates the Jest pane with test results
 func (w *TabbedWindow) UpdateJest(instance *session.Instance) {
 	if w.activeTab != JestTab {
