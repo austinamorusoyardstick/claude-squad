@@ -1190,6 +1190,17 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	}
 }
 
+// handleTabSwitch handles tab switching in both forward and reverse directions
+func (m *home) handleTabSwitch(reverse bool) (tea.Model, tea.Cmd) {
+	if reverse {
+		m.tabbedWindow.ToggleReverse()
+	} else {
+		m.tabbedWindow.Toggle()
+	}
+	m.menu.SetInDiffTab(m.tabbedWindow.IsInDiffTab())
+	return m, m.instanceChanged()
+}
+
 // instanceChanged updates the AI pane, menu, diff pane, and terminal pane based on the selected instance. It returns an error
 // Cmd if there was any error.
 func (m *home) openIDE(instance *session.Instance) tea.Cmd {
