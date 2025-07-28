@@ -11,6 +11,17 @@ import (
 	"time"
 )
 
+// RebaseConflictError is returned when rebase conflicts occur and polling is needed
+type RebaseConflictError struct {
+	TempDir    string
+	MainBranch string
+	Message    string
+}
+
+func (e *RebaseConflictError) Error() string {
+	return e.Message
+}
+
 // runGitCommand executes a git command and returns any error
 func (g *GitWorktree) runGitCommand(path string, args ...string) (string, error) {
 	// Check if the path exists before running git command
