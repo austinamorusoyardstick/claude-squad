@@ -447,10 +447,6 @@ func (m PRReviewModel) View() string {
 		filterParts = append(filterParts, "showing only reviews")
 	} else if m.showComments && !m.showReviews {
 		filterParts = append(filterParts, "showing only comments")
-	} else if !m.showComments {
-		filterParts = append(filterParts, "hiding comments")
-	} else if !m.showReviews {
-		filterParts = append(filterParts, "hiding reviews")
 	}
 	
 	// Show line comments filter status (only if not in "show only line comments" mode)
@@ -755,10 +751,6 @@ func (m PRReviewModel) simpleView() string {
 		filterParts = append(filterParts, "showing only reviews")
 	} else if m.showComments && !m.showReviews {
 		filterParts = append(filterParts, "showing only comments")
-	} else if !m.showComments {
-		filterParts = append(filterParts, "hiding comments")
-	} else if !m.showReviews {
-		filterParts = append(filterParts, "hiding reviews")
 	}
 	
 	// Show line comments filter status (only if not in "show only line comments" mode)
