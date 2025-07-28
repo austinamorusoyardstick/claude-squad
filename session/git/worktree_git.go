@@ -446,7 +446,7 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 		
 		// Check if rebase is still in progress
 		if g.isRebaseInProgressAtPath(tempDir) {
-			log.DebugLog.Printf("Rebase still in progress at %s", tempDir)
+			log.InfoLog.Printf("Rebase still in progress at %s", tempDir)
 			return RebasePollingMsg{
 				Status:     "in_progress",
 				TempDir:    tempDir,
