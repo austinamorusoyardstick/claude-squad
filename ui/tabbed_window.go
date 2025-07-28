@@ -290,7 +290,6 @@ func (w *TabbedWindow) UpdateJest(instance *session.Instance) {
 	w.jest.RunTests(instance)
 }
 
-
 // JestRerunTests reruns the Jest tests
 func (w *TabbedWindow) JestRerunTests() {
 	if w.activeTab == JestTab && w.instance != nil {

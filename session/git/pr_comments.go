@@ -15,30 +15,30 @@ const (
 )
 
 type PRComment struct {
-	ID                 int       `json:"id"`
-	Body               string    `json:"body"`
-	Path               string    `json:"path"`
-	Line               int       `json:"line"`
-	OriginalLine       int       `json:"original_line"`
-	Author             string    `json:"author"`
-	CreatedAt          time.Time `json:"createdAt"`
-	UpdatedAt          time.Time `json:"updatedAt"`
-	State              string    `json:"state"`
-	Type               string    `json:"type"`
-	CommitID           string    `json:"commit_id"`
-	OriginalCommitID   string    `json:"original_commit_id"`
-	Position           *int      `json:"position"`
-	OriginalPosition   *int      `json:"original_position"`
-	PullRequestReviewID int      `json:"pull_request_review_id"`
-	IsOutdated         bool      `json:"is_outdated"`
-	IsResolved         bool      `json:"is_resolved"`
-	IsGeminiReview     bool      `json:"is_gemini_review"`
-	Accepted           bool      `json:"-"`
+	ID                  int       `json:"id"`
+	Body                string    `json:"body"`
+	Path                string    `json:"path"`
+	Line                int       `json:"line"`
+	OriginalLine        int       `json:"original_line"`
+	Author              string    `json:"author"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+	State               string    `json:"state"`
+	Type                string    `json:"type"`
+	CommitID            string    `json:"commit_id"`
+	OriginalCommitID    string    `json:"original_commit_id"`
+	Position            *int      `json:"position"`
+	OriginalPosition    *int      `json:"original_position"`
+	PullRequestReviewID int       `json:"pull_request_review_id"`
+	IsOutdated          bool      `json:"is_outdated"`
+	IsResolved          bool      `json:"is_resolved"`
+	IsGeminiReview      bool      `json:"is_gemini_review"`
+	Accepted            bool      `json:"-"`
 	// Cached rendered content
-	RenderedBody       string    `json:"-"`
-	PlainBody          string    `json:"-"`
-	SplitPieces        []CommentPiece `json:"-"`
-	IsSplit            bool      `json:"-"`
+	RenderedBody string         `json:"-"`
+	PlainBody    string         `json:"-"`
+	SplitPieces  []CommentPiece `json:"-"`
+	IsSplit      bool           `json:"-"`
 }
 
 type CommentPiece struct {
@@ -59,13 +59,13 @@ type PRReview struct {
 }
 
 type PullRequest struct {
-	Number      int    `json:"number"`
-	Title       string `json:"title"`
-	State       string `json:"state"`
-	HeadRef     string `json:"headRef"`
-	BaseRef     string `json:"baseRef"`
-	URL         string `json:"url"`
-	HeadSHA     string `json:"headSHA"`
+	Number      int          `json:"number"`
+	Title       string       `json:"title"`
+	State       string       `json:"state"`
+	HeadRef     string       `json:"headRef"`
+	BaseRef     string       `json:"baseRef"`
+	URL         string       `json:"url"`
+	HeadSHA     string       `json:"headSHA"`
 	Comments    []*PRComment // Filtered comments (default view)
 	AllComments []*PRComment // All comments including outdated/resolved
 	Reviews     []PRReview
@@ -80,13 +80,13 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 	}
 
 	var prData struct {
-		Number       int    `json:"number"`
-		Title        string `json:"title"`
-		State        string `json:"state"`
-		HeadRefName  string `json:"headRefName"`
-		BaseRefName  string `json:"baseRefName"`
-		URL          string `json:"url"`
-		HeadRefOid   string `json:"headRefOid"`
+		Number      int    `json:"number"`
+		Title       string `json:"title"`
+		State       string `json:"state"`
+		HeadRefName string `json:"headRefName"`
+		BaseRefName string `json:"baseRefName"`
+		URL         string `json:"url"`
+		HeadRefOid  string `json:"headRefOid"`
 	}
 
 	if err := json.Unmarshal(output, &prData); err != nil {
@@ -241,10 +241,12 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 	}
 
 	var reviews []struct {
-		ID          int    `json:"id"`
-		Body        string `json:"body"`
-		State       string `json:"state"`
-		User        struct{ Login string `json:"login"` } `json:"user"`
+		ID    int    `json:"id"`
+		Body  string `json:"body"`
+		State string `json:"state"`
+		User  struct {
+			Login string `json:"login"`
+		} `json:"user"`
 		SubmittedAt string `json:"submitted_at"`
 		CommitID    string `json:"commit_id"`
 	}
@@ -263,7 +265,7 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse submittedAt for review ID %d: %w", r.ID, err)
 		}
-		
+
 		// Check if review is outdated (not from the current head commit)
 		isOutdated := r.CommitID != pr.HeadSHA
 
@@ -278,19 +280,19 @@ func (pr *PullRequest) fetchReviews(workingDir string) error {
 
 		// Convert review to comment format
 		reviewComment := &PRComment{
-			ID:                 r.ID,
-			Body:               r.Body,
-			Author:             r.User.Login,
-			CreatedAt:          submittedAt,
-			UpdatedAt:          submittedAt,
-			State:              strings.ToLower(r.State),
-			Type:               "review",
-			CommitID:           r.CommitID,
+			ID:                  r.ID,
+			Body:                r.Body,
+			Author:              r.User.Login,
+			CreatedAt:           submittedAt,
+			UpdatedAt:           submittedAt,
+			State:               strings.ToLower(r.State),
+			Type:                "review",
+			CommitID:            r.CommitID,
 			PullRequestReviewID: r.ID,
-			IsOutdated:         isOutdated,
-			IsResolved:         r.State == "DISMISSED",
-			IsGeminiReview:     strings.Contains(r.Body, GeminiReviewCommand),
-			Accepted:           false,
+			IsOutdated:          isOutdated,
+			IsResolved:          r.State == "DISMISSED",
+			IsGeminiReview:      strings.Contains(r.Body, GeminiReviewCommand),
+			Accepted:            false,
 		}
 		pr.AllComments = append(pr.AllComments, reviewComment)
 
@@ -309,19 +311,21 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 	}
 
 	var reviewComments []struct {
-		ID                  int     `json:"id"`
-		Body                string  `json:"body"`
-		Path                string  `json:"path"`
-		Line                *int    `json:"line"`
-		OriginalLine        int     `json:"original_line"`
-		Position            *int    `json:"position"`
-		OriginalPosition    *int    `json:"original_position"`
-		User                struct{ Login string `json:"login"` } `json:"user"`
-		CreatedAt           string  `json:"created_at"`
-		UpdatedAt           string  `json:"updated_at"`
-		CommitID            string  `json:"commit_id"`
-		OriginalCommitID    string  `json:"original_commit_id"`
-		PullRequestReviewID int     `json:"pull_request_review_id"`
+		ID               int    `json:"id"`
+		Body             string `json:"body"`
+		Path             string `json:"path"`
+		Line             *int   `json:"line"`
+		OriginalLine     int    `json:"original_line"`
+		Position         *int   `json:"position"`
+		OriginalPosition *int   `json:"original_position"`
+		User             struct {
+			Login string `json:"login"`
+		} `json:"user"`
+		CreatedAt           string `json:"created_at"`
+		UpdatedAt           string `json:"updated_at"`
+		CommitID            string `json:"commit_id"`
+		OriginalCommitID    string `json:"original_commit_id"`
+		PullRequestReviewID int    `json:"pull_request_review_id"`
 	}
 
 	if err := json.Unmarshal(output, &reviewComments); err != nil {
@@ -342,10 +346,10 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 		if err != nil {
 			return fmt.Errorf("failed to parse updatedAt for review comment ID %d: %w", rc.ID, err)
 		}
-		
+
 		// Check if comment is outdated
 		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
-		
+
 		// Check if comment is resolved using the resolved map
 		isResolved := resolvedMap[rc.ID]
 
@@ -355,25 +359,25 @@ func (pr *PullRequest) fetchReviewComments(workingDir string, resolvedMap map[in
 		}
 
 		comment := &PRComment{
-			ID:                 rc.ID,
-			Body:               rc.Body,
-			Path:               rc.Path,
-			Line:               line,
-			OriginalLine:       rc.OriginalLine,
-			Author:             rc.User.Login,
-			CreatedAt:          createdAt,
-			UpdatedAt:          updatedAt,
-			State:              "pending",
-			Type:               "review_comment",
-			CommitID:           rc.CommitID,
-			OriginalCommitID:   rc.OriginalCommitID,
-			Position:           rc.Position,
-			OriginalPosition:   rc.OriginalPosition,
+			ID:                  rc.ID,
+			Body:                rc.Body,
+			Path:                rc.Path,
+			Line:                line,
+			OriginalLine:        rc.OriginalLine,
+			Author:              rc.User.Login,
+			CreatedAt:           createdAt,
+			UpdatedAt:           updatedAt,
+			State:               "pending",
+			Type:                "review_comment",
+			CommitID:            rc.CommitID,
+			OriginalCommitID:    rc.OriginalCommitID,
+			Position:            rc.Position,
+			OriginalPosition:    rc.OriginalPosition,
 			PullRequestReviewID: rc.PullRequestReviewID,
-			IsOutdated:         isOutdated,
-			IsResolved:         isResolved,
-			IsGeminiReview:     strings.Contains(rc.Body, GeminiReviewCommand),
-			Accepted:           false,
+			IsOutdated:          isOutdated,
+			IsResolved:          isResolved,
+			IsGeminiReview:      strings.Contains(rc.Body, GeminiReviewCommand),
+			Accepted:            false,
 		}
 		pr.AllComments = append(pr.AllComments, comment)
 	}
@@ -390,9 +394,11 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 	}
 
 	var issueComments []struct {
-		ID        int    `json:"id"`
-		Body      string `json:"body"`
-		User      struct{ Login string `json:"login"` } `json:"user"`
+		ID   int    `json:"id"`
+		Body string `json:"body"`
+		User struct {
+			Login string `json:"login"`
+		} `json:"user"`
 		CreatedAt string `json:"created_at"`
 		UpdatedAt string `json:"updated_at"`
 	}
@@ -415,7 +421,7 @@ func (pr *PullRequest) fetchIssueComments(workingDir string) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse updatedAt for issue comment ID %d: %w", ic.ID, err)
 		}
-		
+
 		comment := &PRComment{
 			ID:             ic.ID,
 			Body:           ic.Body,
@@ -554,9 +560,9 @@ func (pr *PullRequest) GetAllCommentStats(workingDir string) (total, shown, outd
 	}
 
 	var reviewComments []struct {
-		ID               int     `json:"id"`
-		Position         *int    `json:"position"`
-		CommitID         string  `json:"commit_id"`
+		ID       int    `json:"id"`
+		Position *int   `json:"position"`
+		CommitID string `json:"commit_id"`
 	}
 
 	if err := json.Unmarshal(output, &reviewComments); err != nil {
@@ -567,7 +573,7 @@ func (pr *PullRequest) GetAllCommentStats(workingDir string) (total, shown, outd
 		total++
 		isOutdated := rc.Position == nil || rc.CommitID != pr.HeadSHA
 		isResolved := resolvedMap[rc.ID]
-		
+
 		if isOutdated {
 			outdated++
 		}
@@ -766,7 +772,7 @@ func looksLikeBulletList(lines []string) bool {
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") ||
-		   strings.HasPrefix(trimmed, "• ") || matchesNumberedList(trimmed) {
+			strings.HasPrefix(trimmed, "• ") || matchesNumberedList(trimmed) {
 			bulletCount++
 		}
 	}
