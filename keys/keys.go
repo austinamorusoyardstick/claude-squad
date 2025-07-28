@@ -23,6 +23,7 @@ const (
 	KeyPRReview
 
 	KeyTab        // Tab is a special keybinding for switching between panes.
+	KeyShiftTab   // ShiftTab is a special keybinding for switching between panes in reverse.
 	KeySubmitName // SubmitName is a special keybinding for submitting the name of a new instance.
 
 	KeyCheckout
@@ -95,6 +96,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"D":          KeyKill,
 	"q":          KeyQuit,
 	"tab":        KeyTab,
+	"shift+tab":  KeyShiftTab,
 	"c":          KeyCheckout,
 	"r":          KeyResume,
 	"p":          KeySubmit,
@@ -222,6 +224,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyTab: key.NewBinding(
 		key.WithKeys("tab"),
 		key.WithHelp("tab", "switch tab"),
+	),
+	KeyShiftTab: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "switch tab (reverse)"),
 	),
 	KeyResume: key.NewBinding(
 		key.WithKeys("r"),
@@ -364,6 +370,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			// Actions
 			{Command: "enter", Keys: []string{"enter", "o"}, Help: "↵/o"},
 			{Command: "tab", Keys: []string{"tab"}, Help: "tab"},
+			{Command: "shift_tab", Keys: []string{"shift+tab"}, Help: "shift+tab"},
 			{Command: "help", Keys: []string{"?"}, Help: "?"},
 			{Command: "quit", Keys: []string{"q"}, Help: "q"},
 			{Command: "error_log", Keys: []string{"l"}, Help: "l"},
@@ -514,6 +521,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"open_ide":         KeyOpenIDE,
 		"rebase":           KeyRebase,
 		"tab":              KeyTab,
+		"shift_tab":        KeyShiftTab,
 		"scroll_up":        KeyShiftUp,
 		"scroll_down":      KeyShiftDown,
 		"home":             KeyHome,
@@ -571,6 +579,7 @@ func getHelpText(command string) string {
 		"open_ide":         "open IDE",
 		"rebase":           "rebase",
 		"tab":              "switch tab",
+		"shift_tab":        "switch tab (reverse)",
 		"scroll_up":        "scroll",
 		"scroll_down":      "scroll",
 		"home":             "scroll to top",
