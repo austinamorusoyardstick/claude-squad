@@ -466,6 +466,14 @@ func (g *GitWorktree) CreateRebasePollingCommand(tempDir string, mainBranch stri
 			}
 		}
 		
+		// Double-check the branch status in the clone
+		status, err := g.runGitCommand(tempDir, "status", "--porcelain")
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get status in clone: %v", err)
+		} else {
+			log.InfoLog.Printf("Clone status (should be empty): '%s'", status)
+		}
+		
 		// Rebase appears to be complete - sync back to worktree
 		log.InfoLog.Printf("Rebase completed in clone, syncing back to worktree")
 		
