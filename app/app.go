@@ -173,18 +173,23 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 		os.Exit(1)
 	}
 
+	// Create update checker
+	updateChecker := NewUpdateChecker()
+	updateChecker.StartBackgroundCheck()
+
 	h := &home{
-		ctx:          ctx,
-		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		menu:         ui.NewMenu(),
-		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
-		errBox:       ui.NewErrBox(),
-		storage:      storage,
-		appConfig:    appConfig,
-		program:      program,
-		autoYes:      autoYes,
-		state:        stateDefault,
-		appState:     appState,
+		ctx:           ctx,
+		spinner:       spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		menu:          ui.NewMenu(),
+		tabbedWindow:  ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
+		errBox:        ui.NewErrBox(),
+		storage:       storage,
+		appConfig:     appConfig,
+		program:       program,
+		autoYes:       autoYes,
+		state:         stateDefault,
+		appState:      appState,
+		updateChecker: updateChecker,
 	}
 	h.list = ui.NewList(&h.spinner, autoYes)
 
