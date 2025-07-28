@@ -474,9 +474,60 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Success
 		return m, m.instanceChanged()
 		
-	case git.RebasePollingMsg:
-		// Handle rebase polling updates
-		return m.handleRebasePolling(msg)
+	case remotePollingMsg:
+		// Check if rebase is still in progress
+		if !m.rebaseInProgress || m.rebaseInstance == nil {
+			return m, nil
+		}
+		
+		// Get the worktree to check remote
+		worktree, err := m.rebaseInstance.GetGitWorktree()
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get worktree for polling: %v", err)
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		// Fetch latest from remote
+		if _, err := worktree.FetchBranch(msg.branchName); err != nil {
+			log.WarningLog.Printf("Failed to fetch branch %s: %v", msg.branchName, err)
+			// Continue polling even if fetch fails
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		// Check if remote SHA has changed
+		remoteSHA, err := worktree.GetRemoteBranchSHA(msg.branchName)
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get remote SHA: %v", err)
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		log.InfoLog.Printf("Polling rebase: original=%s, remote=%s", msg.originalSHA, remoteSHA)
+		
+		if remoteSHA != msg.originalSHA {
+			// Remote has changed, pull the changes
+			log.InfoLog.Printf("Remote branch updated, pulling changes")
+			
+			// Reset to the remote branch
+			if err := worktree.ResetToRemote(msg.branchName); err != nil {
+				m.rebaseInProgress = false
+				return m, m.handleError(fmt.Errorf("failed to sync rebased changes: %w", err))
+			}
+			
+			// Clear rebase state
+			m.rebaseInProgress = false
+			m.rebaseInstance = nil
+			m.rebaseBranchName = ""
+			m.rebaseOriginalSHA = ""
+			
+			// Show success
+			timestamp := time.Now().Format("15:04:05")
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Rebase completed successfully", timestamp))
+			
+			return m, m.instanceChanged()
+		}
+		
+		// Continue polling
+		return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
