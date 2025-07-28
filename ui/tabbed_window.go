@@ -35,6 +35,7 @@ const (
 	DiffTab
 	TerminalTab
 	JestTab
+	LogTab
 )
 
 type Tab struct {
@@ -56,6 +57,7 @@ type TabbedWindow struct {
 	instance *session.Instance
 	terminal *TerminalPane
 	jest     *JestPane
+	logPane  *LogPane
 }
 
 func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPane, jest *JestPane) *TabbedWindow {
@@ -65,11 +67,13 @@ func NewTabbedWindow(preview *PreviewPane, diff *DiffPane, terminal *TerminalPan
 			"Diff",
 			"Terminal",
 			"Jest",
+			"Log",
 		},
 		preview:  preview,
 		diff:     diff,
 		terminal: terminal,
 		jest:     jest,
+		logPane:  NewLogPane(),
 	}
 }
 
@@ -100,6 +104,7 @@ func (w *TabbedWindow) SetSize(width, height int) {
 	w.diff.SetSize(contentWidth, contentHeight)
 	w.terminal.SetSize(contentWidth, contentHeight)
 	w.jest.SetSize(contentWidth, contentHeight)
+	w.logPane.SetSize(contentWidth, contentHeight)
 }
 
 func (w *TabbedWindow) GetPreviewSize() (width, height int) {
@@ -194,6 +199,8 @@ func (w *TabbedWindow) ScrollUp() {
 		}
 	case JestTab:
 		w.jest.ScrollUp()
+	case LogTab:
+		w.logPane.ScrollUp()
 	}
 }
 
@@ -213,6 +220,8 @@ func (w *TabbedWindow) ScrollDown() {
 		}
 	case JestTab:
 		w.jest.ScrollDown()
+	case LogTab:
+		w.logPane.ScrollDown()
 	}
 }
 
@@ -280,6 +289,16 @@ func (w *TabbedWindow) IsInTerminalTab() bool {
 // IsInJestTab returns true if the Jest tab is currently active
 func (w *TabbedWindow) IsInJestTab() bool {
 	return w.activeTab == JestTab
+}
+
+// IsInLogTab returns true if the Log tab is currently active
+func (w *TabbedWindow) IsInLogTab() bool {
+	return w.activeTab == LogTab
+}
+
+// GetLogPane returns the log pane
+func (w *TabbedWindow) GetLogPane() *LogPane {
+	return w.logPane
 }
 
 // UpdateJest updates the Jest pane with test results
@@ -380,6 +399,8 @@ func (w *TabbedWindow) String() string {
 		content = w.terminal.String()
 	case JestTab:
 		content = w.jest.String()
+	case LogTab:
+		content = w.logPane.String()
 	}
 	window := windowStyle.Render(
 		lipgloss.Place(
