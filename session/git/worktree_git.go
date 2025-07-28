@@ -6,7 +6,6 @@ import (
 	"claude-squad/util"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
