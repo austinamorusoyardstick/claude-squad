@@ -140,6 +140,9 @@ type home struct {
 	
 	// rebasePollingInfo stores info for ongoing rebase polling
 	rebasePollingInfo *rebasePollingInfo
+	
+	// pendingRebaseInstance stores the instance to rebase after confirmation
+	pendingRebaseInstance *session.Instance
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
