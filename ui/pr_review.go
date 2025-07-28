@@ -318,6 +318,40 @@ func (m PRReviewModel) resetViewAfterFilterChange() PRReviewModel {
 	return m
 }
 
+// buildFilterStatus builds the filter status string
+func (m PRReviewModel) buildFilterStatus() string {
+	var filterParts []string
+	if m.filterEnabled {
+		filterParts = append(filterParts, "Filter: ON")
+	} else {
+		filterParts = append(filterParts, "Filter: OFF")
+	}
+
+	// Show comment/review filter status
+	if m.showOnlyLineComments {
+		filterParts = append(filterParts, "showing only line comments")
+	} else if !m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "hiding all")
+	} else if !m.showComments && m.showReviews {
+		filterParts = append(filterParts, "showing only reviews")
+	} else if m.showComments && !m.showReviews {
+		filterParts = append(filterParts, "showing only comments")
+	}
+
+	// Show line comments filter status (only if not in "show only line comments" mode)
+	if !m.showOnlyLineComments && !m.showLineComments {
+		filterParts = append(filterParts, "hiding line comments")
+	}
+
+	filterStatus := "(" + strings.Join(filterParts, " - ")
+	if m.filterEnabled {
+		filterStatus += " - hiding outdated/resolved/gemini"
+	}
+	filterStatus += ")"
+
+	return filterStatus
+}
+
 // getActiveComments returns the comments based on filter state
 func (m PRReviewModel) getActiveComments() []*git.PRComment {
 	var comments []*git.PRComment
