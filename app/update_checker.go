@@ -226,3 +226,27 @@ func getCommitCount(gitRoot, ref string) (int, error) {
 	
 	return count, nil
 }
+
+// isClaudeSquadRepo checks if the given directory is a claude-squad repository
+func isClaudeSquadRepo(gitRoot string) bool {
+	// Check for claude-squad specific files
+	requiredFiles := []string{
+		"main.go",
+		"go.mod",
+		"app/app.go",
+	}
+	
+	for _, file := range requiredFiles {
+		if _, err := os.Stat(gitRoot + "/" + file); os.IsNotExist(err) {
+			return false
+		}
+	}
+	
+	// Additionally check if go.mod contains claude-squad
+	goModContent, err := os.ReadFile(gitRoot + "/go.mod")
+	if err != nil {
+		return false
+	}
+	
+	return strings.Contains(string(goModContent), "claude-squad")
+}
