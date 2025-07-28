@@ -122,8 +122,15 @@ func (h helpTypeInstanceAttach) toContent() string {
 	content := lipgloss.JoinVertical(lipgloss.Left,
 		titleStyle.Render("Attaching to Instance"),
 		"",
-		descStyle.Render("To detach from a session, press ")+keyStyle.Render("ctrl-q"),
-		descStyle.Render("To reload the session, press ")+keyStyle.Render("ctrl-r"),
+		descStyle.Render("You are now attached to the tmux session."),
+		"",
+		headerStyle.Render("Session Control:"),
+		keyStyle.Render("ctrl-q")+descStyle.Render("    - Detach from session"),
+		keyStyle.Render("ctrl-r")+descStyle.Render("    - Reload the session"),
+		"",
+		dimStyle.Render("Note: When attached, you're directly interacting with the"),
+		dimStyle.Render("Claude Code session. Use the detach command to return"),
+		dimStyle.Render("to Claude Squad's interface."),
 	)
 	return content
 }
