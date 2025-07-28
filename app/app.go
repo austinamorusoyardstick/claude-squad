@@ -1090,7 +1090,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get current PR info from the worktree (always fresh)
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
-			return m, m.handleError(fmt.Errorf("no pull request found for this branch. Push the branch with 'p' first to create a PR"))
+			return m, m.handleError(fmt.Errorf("no pull request found for this branch. Push the branch with 'p' first to create a PR: %w", err))
 		}
 
 		// Fetch PR comments (always fresh - includes resolved status detection)
