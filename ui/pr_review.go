@@ -17,6 +17,8 @@ type PRReviewModel struct {
 	height        int
 	showHelp      bool
 	filterEnabled bool
+	showComments  bool
+	showReviews   bool
 	err           error
 	viewport      viewport.Model
 	ready         bool
