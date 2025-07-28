@@ -393,6 +393,11 @@ func (m PRReviewModel) View() string {
 		filterParts = append(filterParts, "hiding reviews")
 	}
 	
+	// Show line comments filter status
+	if !m.showLineComments {
+		filterParts = append(filterParts, "hiding line comments")
+	}
+	
 	filterStatus := "(" + strings.Join(filterParts, " - ")
 	if m.filterEnabled {
 		filterStatus += " - hiding outdated/resolved/gemini"
@@ -687,6 +692,11 @@ func (m PRReviewModel) simpleView() string {
 		filterParts = append(filterParts, "hiding comments")
 	} else if !m.showReviews {
 		filterParts = append(filterParts, "hiding reviews")
+	}
+	
+	// Show line comments filter status
+	if !m.showLineComments {
+		filterParts = append(filterParts, "hiding line comments")
 	}
 	
 	filterStatus := "(" + strings.Join(filterParts, " - ")
