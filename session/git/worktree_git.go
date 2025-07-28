@@ -287,8 +287,8 @@ func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 	return nil
 }
 
-// rebaseWithCloneFallback attempts to perform a rebase in a fresh clone of the repository
-func (g *GitWorktree) rebaseWithCloneFallback(mainBranch, backupBranch string) error {
+// rebaseWithClone attempts to perform a rebase in a fresh clone of the repository
+func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
 	// Create a temporary directory for the clone
 	tempDir, err := os.MkdirTemp("", fmt.Sprintf("claude-squad-rebase-%s-*", g.branchName))
 	if err != nil {
