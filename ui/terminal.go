@@ -52,7 +52,7 @@ func (t *TerminalPane) setFallbackState(message string) {
 func (t *TerminalPane) UpdateContent(instance *session.Instance) error {
 	switch {
 	case instance == nil:
-		t.setFallbackState("No instance selected.")
+		t.setFallbackState("No instance selected.\n\nCreate a new instance with 'n' or select an existing one.")
 		return nil
 	case instance.Status == session.Paused:
 		t.setFallbackState("Session is paused. Press 'r' to resume.")
