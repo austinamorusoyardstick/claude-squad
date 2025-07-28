@@ -65,35 +65,62 @@ func (uc *UpdateChecker) CheckNow() {
 
 // checkForUpdates performs the actual update check
 func (uc *UpdateChecker) checkForUpdates() {
-	// Get the current executable path to find the git repository
-	execPath, err := exec.LookPath("csa")
-	if err != nil {
-		log.WarningLog.Printf("Failed to find csa executable: %v", err)
-		return
-	}
+	// Try different methods to find the claude-squad git repository
+	gitRoot := ""
 	
-	// Resolve symlinks to get the actual path
-	resolvedPath, err := exec.Command("readlink", "-f", execPath).Output()
-	if err != nil {
-		// Try alternative for macOS
-		resolvedPath, err = exec.Command("realpath", execPath).Output()
-		if err != nil {
-			log.WarningLog.Printf("Failed to resolve executable path: %v", err)
-			return
+	// Method 1: Check if we're already in a git repository (development mode)
+	if currentRoot := findGitRoot("."); currentRoot != "" {
+		// Verify this is claude-squad by checking for specific files
+		if isClaudeSquadRepo(currentRoot) {
+			gitRoot = currentRoot
 		}
 	}
 	
-	// Extract the directory containing the executable
-	execDir := strings.TrimSpace(string(resolvedPath))
-	if idx := strings.LastIndex(execDir, "/"); idx != -1 {
-		execDir = execDir[:idx]
+	// Method 2: Check common installation locations
+	if gitRoot == "" {
+		commonPaths := []string{
+			"/usr/local/src/claude-squad",
+			"/opt/claude-squad",
+			"~/src/claude-squad",
+			"~/claude-squad",
+		}
+		
+		for _, path := range commonPaths {
+			expandedPath := os.ExpandEnv(strings.Replace(path, "~", "$HOME", 1))
+			if root := findGitRoot(expandedPath); root != "" && isClaudeSquadRepo(root) {
+				gitRoot = root
+				break
+			}
+		}
 	}
 	
-	// Try to find the git repository root
-	// The executable might be in a subdirectory, so we'll search up
-	gitRoot := findGitRoot(execDir)
+	// Method 3: Try to find via the executable path if csa is in PATH
 	if gitRoot == "" {
-		log.WarningLog.Printf("Failed to find git repository for update check")
+		if execPath, err := exec.LookPath("csa"); err == nil {
+			// Resolve symlinks to get the actual path
+			resolvedPath, err := exec.Command("readlink", "-f", execPath).Output()
+			if err != nil {
+				// Try alternative for macOS
+				resolvedPath, err = exec.Command("realpath", execPath).Output()
+			}
+			
+			if err == nil {
+				// Extract the directory containing the executable
+				execDir := strings.TrimSpace(string(resolvedPath))
+				if idx := strings.LastIndex(execDir, "/"); idx != -1 {
+					execDir = execDir[:idx]
+				}
+				
+				// Search up from the executable location
+				if root := findGitRoot(execDir); root != "" && isClaudeSquadRepo(root) {
+					gitRoot = root
+				}
+			}
+		}
+	}
+	
+	if gitRoot == "" {
+		// Silently return - this is normal for binary distributions
 		return
 	}
 	
