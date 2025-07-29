@@ -285,6 +285,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("U"),
 		key.WithHelp("U", "check for updates"),
 	),
+	KeyGitReset: key.NewBinding(
+		key.WithKeys("h"),
+		key.WithHelp("h", "git reset --hard"),
+	),
 
 	// -- Special keybindings --
 
