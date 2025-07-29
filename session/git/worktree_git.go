@@ -536,8 +536,45 @@ func (g *GitWorktree) GetRemoteBranchSHA(branchName string) (string, error) {
 	return strings.TrimSpace(sha), nil
 }
 
+// GetRemoteName returns the name of the remote (usually "origin")
+func (g *GitWorktree) GetRemoteName() (string, error) {
+	output, err := g.runGitCommand(g.worktreePath, "remote")
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote name: %w", err)
+	}
+	
+	// Usually the first remote is what we want
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 {
+		return "", fmt.Errorf("no remote found")
+	}
+	
+	// Default to "origin" if it exists, otherwise use the first one
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "origin" {
+			return "origin", nil
+		}
+	}
+	
+	return strings.TrimSpace(lines[0]), nil
+}
+
+// FetchFromRemote fetches the latest changes from the remote
+func (g *GitWorktree) FetchFromRemote() error {
+	remote, err := g.GetRemoteName()
+	if err != nil {
+		return err
+	}
+	
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", remote); err != nil {
+		return fmt.Errorf("failed to fetch from remote: %w", err)
+	}
+	
+	return nil
+}
+
 // ResetToRemote resets the current branch to match the remote
-func (g *GitWorktree) ResetToRemote(branchName string) error {
+func (g *GitWorktree) ResetToRemote(remote, branchName string) error {
 	// First ensure we're on the right branch
 	currentBranch, err := g.runGitCommand(g.worktreePath, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
@@ -552,7 +589,7 @@ func (g *GitWorktree) ResetToRemote(branchName string) error {
 	}
 	
 	// Reset to remote
-	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", branchName)); err != nil {
+	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("%s/%s", remote, branchName)); err != nil {
 		return fmt.Errorf("failed to reset to remote: %w", err)
 	}
 	
