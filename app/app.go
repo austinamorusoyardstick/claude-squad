@@ -143,6 +143,9 @@ type home struct {
 	// pendingRebaseInstance stores the instance to rebase after confirmation
 	pendingRebaseInstance *session.Instance
 	
+	// pendingResetInstance stores the instance to reset after confirmation
+	pendingResetInstance *session.Instance
+	
 	// rebaseInProgress indicates if a rebase is currently in progress
 	rebaseInProgress bool
 	// rebaseInstance is the instance being rebased
