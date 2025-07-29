@@ -205,6 +205,14 @@ func (g *GitWorktree) isCommitBackedUp(commitHash string) (bool, string, error) 
 			continue
 		}
 
+		// Handle symbolic references like "origin/HEAD -> origin/main"
+		if strings.Contains(branch, " -> ") {
+			parts := strings.Split(branch, " -> ")
+			if len(parts) == 2 {
+				branch = strings.TrimSpace(parts[1])
+			}
+		}
+
 		// Skip only if this is exactly the current branch (not a backup of it)
 		if branch == currentRemoteBranch {
 			continue
