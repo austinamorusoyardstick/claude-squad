@@ -205,13 +205,13 @@ func (g *GitWorktree) isCommitBackedUp(commitHash string) (bool, string, error) 
 			continue
 		}
 		
-		// Skip the current branch
-		if strings.Contains(branch, currentRemoteBranch) {
+		// Skip only if this is exactly the current branch (not a backup of it)
+		if branch == currentRemoteBranch {
 			continue
 		}
 		
 		// Check if this is a backup branch for our current branch
-		if strings.Contains(branch, fmt.Sprintf("%s-backup-", g.branchName)) {
+		if strings.Contains(branch, fmt.Sprintf("origin/%s-backup-", g.branchName)) {
 			// Extract just the branch name without "origin/" prefix
 			branchName := strings.TrimPrefix(branch, "origin/")
 			branchName = strings.TrimSpace(branchName)
