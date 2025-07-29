@@ -511,12 +511,22 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(err)
 		}
 		
-		// Show success
-		timestamp := time.Now().Format("15:04:05")
-		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Git reset completed successfully for branch %s", timestamp, branchName))
+		// Show success message in the status bar
+		successMsg := fmt.Sprintf("✓ Git reset for branch %s completed successfully", branchName)
+		m.errBox.SetError(fmt.Errorf(successMsg))
 		
-		// Refresh instances after successful reset
-		return m, m.instanceChanged()
+		// Also add to log for history
+		timestamp := time.Now().Format("15:04:05")
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] %s", timestamp, successMsg))
+		
+		// Refresh instances and hide message after a delay
+		return m, tea.Batch(
+			m.instanceChanged(),
+			func() tea.Msg {
+				time.Sleep(3 * time.Second)
+				return hideErrMsg{}
+			},
+		)
 		
 	case remotePollingMsg:
 		// Check if rebase is still in progress
