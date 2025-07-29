@@ -1318,6 +1318,11 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+		}
+
 		// Get the worktree to get branch name
 		worktree, err := selected.GetGitWorktree()
 		if err != nil {
