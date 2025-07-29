@@ -487,6 +487,36 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Success
 		return m, m.instanceChanged()
+	case startGitResetMsg:
+		// Handle the actual git reset after confirmation
+		if m.pendingResetInstance == nil {
+			return m, nil
+		}
+		
+		// Clear the pending instance
+		instance := m.pendingResetInstance
+		m.pendingResetInstance = nil
+		
+		// Execute reset synchronously here to handle the result immediately
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(err)
+		}
+		
+		// Get branch name before reset
+		branchName := worktree.GetBranchName()
+		
+		// Perform the reset
+		if err := worktree.ResetToOrigin(); err != nil {
+			return m, m.handleError(err)
+		}
+		
+		// Show success
+		timestamp := time.Now().Format("15:04:05")
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Git reset completed successfully for branch %s", timestamp, branchName))
+		
+		// Refresh instances after successful reset
+		return m, m.instanceChanged()
 		
 	case remotePollingMsg:
 		// Check if rebase is still in progress
