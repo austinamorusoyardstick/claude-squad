@@ -1269,6 +1269,31 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// For now, we'll just return without showing a message
 		// The update indicator will appear in the menu when the check completes
 		return m, nil
+	case keys.KeyReset:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+		}
+		// Get the worktree
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		// Get current branch name
+		branchName, err := worktree.GetCurrentBranch()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get current branch: %w", err))
+		}
+		// Show confirmation modal
+		message := fmt.Sprintf("[!] Reset branch '%s' to remote head? This will discard all local commits.", branchName)
+		resetAction := func() tea.Cmd {
+			return m.resetBranchToRemote(selected)
+		}
+		return m, m.confirmAction(message, resetAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
