@@ -352,7 +352,11 @@ func (g *GitWorktree) ResetToOrigin() error {
 		return fmt.Errorf("failed to reset to origin/%s. Backup branch created: %s. Error: %w", g.branchName, backupBranch, err)
 	}
 
-	log.InfoLog.Printf("Successfully reset branch %s to origin/%s. Backup branch: %s", g.branchName, g.branchName, backupBranch)
+	if isBackedUp {
+		log.InfoLog.Printf("Successfully reset branch %s to origin/%s. Using existing backup: %s", g.branchName, g.branchName, backupBranch)
+	} else {
+		log.InfoLog.Printf("Successfully reset branch %s to origin/%s. New backup branch: %s", g.branchName, g.branchName, backupBranch)
+	}
 	return nil
 }
 
