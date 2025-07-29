@@ -53,6 +53,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("c")+descStyle.Render("         - Checkout: commit changes and pause session"),
 		keyStyle.Render("r")+descStyle.Render("         - Resume a paused session"),
 		keyStyle.Render("b")+descStyle.Render("         - Rebase with main branch"),
+		keyStyle.Render("h")+descStyle.Render("         - Git reset --hard to origin/branch"),
 		keyStyle.Render("B")+descStyle.Render("         - Create bookmark commit"),
 		keyStyle.Render("g")+descStyle.Render("         - Show git status"),
 		keyStyle.Render("G")+descStyle.Render("         - Show git status bookmarks"),
