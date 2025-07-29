@@ -183,6 +183,46 @@ func (g *GitWorktree) OpenBranchURL() error {
 	return nil
 }
 
+// isCommitBackedUp checks if the given commit is already backed up on any remote branch
+// other than the current branch
+func (g *GitWorktree) isCommitBackedUp(commitHash string) (bool, string, error) {
+	// Get list of remote branches that contain this commit
+	output, err := g.runGitCommand(g.worktreePath, "branch", "-r", "--contains", commitHash)
+	if err != nil {
+		// If the command fails, it might be because the commit doesn't exist
+		// In this case, we should create a backup
+		return false, "", nil
+	}
+
+	// Parse the output to find backup branches
+	branches := strings.Split(strings.TrimSpace(output), "\n")
+	currentRemoteBranch := fmt.Sprintf("origin/%s", g.branchName)
+	
+	for _, branch := range branches {
+		branch = strings.TrimSpace(branch)
+		// Skip empty lines
+		if branch == "" {
+			continue
+		}
+		
+		// Skip the current branch
+		if strings.Contains(branch, currentRemoteBranch) {
+			continue
+		}
+		
+		// Check if this is a backup branch for our current branch
+		if strings.Contains(branch, fmt.Sprintf("%s-backup-", g.branchName)) {
+			// Extract just the branch name without "origin/" prefix
+			branchName := strings.TrimPrefix(branch, "origin/")
+			branchName = strings.TrimSpace(branchName)
+			log.InfoLog.Printf("Found existing backup branch: %s", branchName)
+			return true, branchName, nil
+		}
+	}
+	
+	return false, "", nil
+}
+
 // RebaseWithMain rebases the current branch with the main branch
 func (g *GitWorktree) RebaseWithMain() error {
 	// First, create a backup branch with a unique name.
