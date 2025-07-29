@@ -137,6 +137,18 @@ type home struct {
 
 	// errorLog stores all error messages for display
 	errorLog []string
+	
+	// pendingRebaseInstance stores the instance to rebase after confirmation
+	pendingRebaseInstance *session.Instance
+	
+	// rebaseInProgress indicates if a rebase is currently in progress
+	rebaseInProgress bool
+	// rebaseInstance is the instance being rebased
+	rebaseInstance *session.Instance
+	// rebaseBranchName is the branch being rebased
+	rebaseBranchName string
+	// rebaseOriginalSHA is the commit SHA before rebase started
+	rebaseOriginalSHA string
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -404,6 +416,119 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.handleError(msg.err)
 		}
 		return m, m.instanceChanged()
+	case startRebaseMsg:
+		// Handle the actual rebase after confirmation
+		if m.pendingRebaseInstance == nil {
+			return m, nil
+		}
+		
+		// Clear the pending instance
+		instance := m.pendingRebaseInstance
+		m.pendingRebaseInstance = nil
+		
+		// Execute rebase synchronously here to handle the result immediately
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(err)
+		}
+
+		// Check if there are uncommitted changes
+		isDirty, err := worktree.IsDirty()
+		if err != nil {
+			return m, m.handleError(err)
+		}
+
+		if isDirty {
+			return m, m.handleError(fmt.Errorf(cannotRebaseUncommittedChangesError))
+		}
+		
+		// Get current commit SHA before rebase
+		currentSHA, err := worktree.GetCurrentCommitSHA()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get current commit: %w", err))
+		}
+
+		// Perform the rebase
+		if err := worktree.RebaseWithMain(); err != nil {
+			// Check if this is a rebase conflict error that needs polling
+			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
+				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
+				
+				// Display the error with instructions
+				errorCmd := m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
+				
+				// Set rebase in progress state
+				m.rebaseInProgress = true
+				m.rebaseInstance = instance
+				m.rebaseBranchName = worktree.GetBranchName()
+				m.rebaseOriginalSHA = currentSHA
+				
+				// Start polling the remote for changes
+				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
+				
+				// Return both commands so error displays AND polling starts
+				return m, tea.Batch(errorCmd, pollingCmd)
+			}
+			return m, m.handleError(err)
+		}
+
+		// Success
+		return m, m.instanceChanged()
+		
+	case remotePollingMsg:
+		// Check if rebase is still in progress
+		if !m.rebaseInProgress || m.rebaseInstance == nil {
+			return m, nil
+		}
+		
+		// Get the worktree to check remote
+		worktree, err := m.rebaseInstance.GetGitWorktree()
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get worktree for polling: %v", err)
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		// Fetch latest from remote
+		if _, err := worktree.FetchBranch(msg.branchName); err != nil {
+			log.WarningLog.Printf("Failed to fetch branch %s: %v", msg.branchName, err)
+			// Continue polling even if fetch fails
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		// Check if remote SHA has changed
+		remoteSHA, err := worktree.GetRemoteBranchSHA(msg.branchName)
+		if err != nil {
+			log.ErrorLog.Printf("Failed to get remote SHA: %v", err)
+			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
+		}
+		
+		log.InfoLog.Printf("Polling rebase: original=%s, remote=%s", msg.originalSHA, remoteSHA)
+		
+		if remoteSHA != msg.originalSHA {
+			// Remote has changed, pull the changes
+			log.InfoLog.Printf("Remote branch updated, pulling changes")
+			
+			// Reset to the remote branch
+			if err := worktree.ResetToRemote(msg.branchName); err != nil {
+				m.rebaseInProgress = false
+				return m, m.handleError(fmt.Errorf("failed to sync rebased changes: %w", err))
+			}
+			
+			// Clear rebase state
+			m.rebaseInProgress = false
+			m.rebaseInstance = nil
+			m.rebaseBranchName = ""
+			m.rebaseOriginalSHA = ""
+			
+			// Show success
+			timestamp := time.Now().Format("15:04:05")
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Rebase completed successfully", timestamp))
+			
+			return m, m.instanceChanged()
+		}
+		
+		// Continue polling
+		return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -1035,33 +1160,17 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 
-		// Create the rebase action as a tea.Cmd
-		rebaseAction := func() tea.Msg {
-			worktree, err := selected.GetGitWorktree()
-			if err != nil {
-				return err
-			}
-
-			// Check if there are uncommitted changes
-			isDirty, err := worktree.IsDirty()
-			if err != nil {
-				return err
-			}
-
-			if isDirty {
-				return fmt.Errorf(cannotRebaseUncommittedChangesError)
-			}
-
-			// Perform the rebase
-			if err := worktree.RebaseWithMain(); err != nil {
-				return err
-			}
-
-			return instanceChangedMsg{}
-		}
-
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
+		
+		// Store the selected instance for the rebase
+		m.pendingRebaseInstance = selected
+		
+		// Create a simple action that just returns a message to trigger the actual rebase
+		rebaseAction := func() tea.Msg {
+			return startRebaseMsg{}
+		}
+		
 		return m, m.confirmAction(message, rebaseAction)
 	case keys.KeyPRReview:
 		selected := m.list.GetSelectedInstance()
@@ -1463,6 +1572,15 @@ type tickUpdateMetadataMessage struct{}
 
 type instanceChangedMsg struct{}
 
+// startRebaseMsg is sent to trigger the actual rebase after confirmation
+type startRebaseMsg struct{}
+
+// remotePollingMsg is sent to check if the remote branch has been updated
+type remotePollingMsg struct {
+	branchName  string
+	originalSHA string
+}
+
 // instanceCreatedMsg is sent when an instance has been created successfully
 type instanceCreatedMsg struct {
 	instance *session.Instance
@@ -1604,6 +1722,21 @@ func (m *home) handleError(err error) tea.Cmd {
 	}
 }
 
+
+
+// createRemotePollingCmd creates a command that polls the remote for branch changes
+func (m *home) createRemotePollingCmd(branchName string, originalSHA string) tea.Cmd {
+	return func() tea.Msg {
+		// Wait a bit before polling
+		time.Sleep(3 * time.Second)
+		
+		return remotePollingMsg{
+			branchName:  branchName,
+			originalSHA: originalSHA,
+		}
+	}
+}
+
 // confirmAction shows a confirmation modal and stores the action to execute on confirm
 func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
 	m.state = stateConfirm
@@ -1634,8 +1767,20 @@ func (m *home) View() string {
 	previewWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.tabbedWindow.String())
 	listAndPreview := lipgloss.JoinHorizontal(lipgloss.Top, listWithPadding, previewWithPadding)
 
+	// Add rebase loading indicator if rebase is in progress
+	var rebaseIndicator string
+	if m.rebaseInProgress {
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")).
+			Bold(true).
+			Padding(1, 2)
+		rebaseIndicator = loadingStyle.Render(fmt.Sprintf("%s Rebase in progress for branch %s... Waiting for remote update",
+			m.spinner.View(), m.rebaseBranchName))
+	}
+
 	mainView := lipgloss.JoinVertical(
 		lipgloss.Center,
+		rebaseIndicator,
 		listAndPreview,
 		m.menu.String(),
 		m.errBox.String(),
