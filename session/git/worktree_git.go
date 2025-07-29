@@ -231,6 +231,44 @@ func (g *GitWorktree) isCommitBackedUp(commitHash string) (bool, string, error) 
 	return false, "", nil
 }
 
+// ensureBackupBranch checks if the current commit is backed up, creates a backup branch if not,
+// and returns the name of the backup branch.
+func (g *GitWorktree) ensureBackupBranch() (backupBranchName string, isNew bool, err error) {
+	currentCommit, err := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get current commit: %w", err)
+	}
+	currentCommit = strings.TrimSpace(currentCommit)
+
+	isBackedUp, existingBackup, err := g.isCommitBackedUp(currentCommit)
+	if err != nil {
+		// Log as a warning and proceed to create a new backup.
+		log.WarningLog.Printf("Failed to check for existing backups: %v", err)
+		isBackedUp = false
+	}
+
+	if isBackedUp {
+		log.InfoLog.Printf("Current commit already backed up in branch: %s", existingBackup)
+		return existingBackup, false, nil
+	}
+
+	// Create a new backup branch.
+	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, time.Now().UnixNano())
+	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
+		return "", true, fmt.Errorf("failed to create backup branch: %w", err)
+	}
+
+	// Push the backup branch.
+	if _, err := g.runGitCommand(g.worktreePath, "push", "origin", backupBranch, "--no-verify"); err != nil {
+		// If push fails, just log it but continue as the local backup exists.
+		log.WarningLog.Printf("failed to push backup branch %s: %v", backupBranch, err)
+	} else {
+		log.InfoLog.Printf("Created and pushed new backup branch: %s", backupBranch)
+	}
+
+	return backupBranch, true, nil
+}
+
 // RebaseWithMain rebases the current branch with the main branch
 func (g *GitWorktree) RebaseWithMain() error {
 	// Get current commit hash to check if we need a backup
