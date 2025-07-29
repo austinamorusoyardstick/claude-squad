@@ -455,7 +455,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
 				
 				// Display the error with instructions
-				m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
+				errorCmd := m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
 				
 				// Set rebase in progress state
 				m.rebaseInProgress = true
@@ -466,7 +466,8 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Start polling the remote for changes
 				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
 				
-				return m, pollingCmd
+				// Return both commands so error displays AND polling starts
+				return m, tea.Batch(errorCmd, pollingCmd)
 			}
 			return m, m.handleError(err)
 		}
