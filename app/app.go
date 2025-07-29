@@ -1308,8 +1308,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 
+		// Get the worktree to get branch name
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		
 		// Show confirmation modal
-		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, selected.BranchName)
+		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, worktree.GetBranchName())
 		
 		// Store the selected instance for the reset
 		m.pendingResetInstance = selected
