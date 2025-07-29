@@ -1269,6 +1269,24 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// For now, we'll just return without showing a message
 		// The update indicator will appear in the menu when the check completes
 		return m, nil
+	case keys.KeyGitReset:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Show confirmation modal
+		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, selected.BranchName)
+		
+		// Store the selected instance for the reset
+		m.pendingResetInstance = selected
+		
+		// Create a simple action that just returns a message to trigger the actual reset
+		resetAction := func() tea.Msg {
+			return startGitResetMsg{}
+		}
+		
+		return m, m.confirmAction(message, resetAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
