@@ -108,6 +108,7 @@ func (h helpTypeInstanceStart) toContent() string {
 		keyStyle.Render("c")+descStyle.Render("     - Checkout this instance's branch"),
 		keyStyle.Render("p")+descStyle.Render("     - Commit and push branch to GitHub"),
 		keyStyle.Render("b")+descStyle.Render("     - Rebase with main branch"),
+		keyStyle.Render("h")+descStyle.Render("     - Git reset --hard to origin/branch"),
 		keyStyle.Render("B")+descStyle.Render("     - Create bookmark commit"),
 		keyStyle.Render("g")+descStyle.Render("     - Show git status"),
 		"",
