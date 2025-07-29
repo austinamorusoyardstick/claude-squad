@@ -143,6 +143,9 @@ type home struct {
 	// pendingRebaseInstance stores the instance to rebase after confirmation
 	pendingRebaseInstance *session.Instance
 	
+	// pendingResetInstance stores the instance to reset after confirmation
+	pendingResetInstance *session.Instance
+	
 	// rebaseInProgress indicates if a rebase is currently in progress
 	rebaseInProgress bool
 	// rebaseInstance is the instance being rebased
@@ -484,6 +487,46 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Success
 		return m, m.instanceChanged()
+	case startGitResetMsg:
+		// Handle the actual git reset after confirmation
+		if m.pendingResetInstance == nil {
+			return m, nil
+		}
+		
+		// Clear the pending instance
+		instance := m.pendingResetInstance
+		m.pendingResetInstance = nil
+		
+		// Execute reset synchronously here to handle the result immediately
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(err)
+		}
+		
+		// Get branch name before reset
+		branchName := worktree.GetBranchName()
+		
+		// Perform the reset
+		if err := worktree.ResetToOrigin(); err != nil {
+			return m, m.handleError(err)
+		}
+		
+		// Show success message in the status bar
+		successMsg := fmt.Sprintf("✓ Git reset for branch %s completed successfully", branchName)
+		m.errBox.SetError(fmt.Errorf(successMsg))
+		
+		// Also add to log for history
+		timestamp := time.Now().Format("15:04:05")
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] %s", timestamp, successMsg))
+		
+		// Refresh instances and hide message after a delay
+		return m, tea.Batch(
+			m.instanceChanged(),
+			func() tea.Msg {
+				time.Sleep(3 * time.Second)
+				return hideErrMsg{}
+			},
+		)
 		
 	case remotePollingMsg:
 		// Check if rebase is still in progress
@@ -1269,6 +1312,35 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// For now, we'll just return without showing a message
 		// The update indicator will appear in the menu when the check completes
 		return m, nil
+	case keys.KeyGitReset:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+		}
+
+		// Get the worktree to get branch name
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		
+		// Show confirmation modal
+		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, worktree.GetBranchName())
+		
+		// Store the selected instance for the reset
+		m.pendingResetInstance = selected
+		
+		// Create a simple action that just returns a message to trigger the actual reset
+		resetAction := func() tea.Msg {
+			return startGitResetMsg{}
+		}
+		
+		return m, m.confirmAction(message, resetAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1589,6 +1661,9 @@ type instanceChangedMsg struct{}
 
 // startRebaseMsg is sent to trigger the actual rebase after confirmation
 type startRebaseMsg struct{}
+
+// startGitResetMsg is sent to trigger the actual git reset after confirmation
+type startGitResetMsg struct{}
 
 // remotePollingMsg is sent to check if the remote branch has been updated
 type remotePollingMsg struct {

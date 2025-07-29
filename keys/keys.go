@@ -64,6 +64,7 @@ const (
 	KeyGitStatus         // Key for showing git status overlay
 	KeyGitStatusBookmark // Key for showing git status overlay in bookmark mode
 	KeyCheckUpdate       // Key for checking for updates
+	KeyGitReset          // Key for git reset --hard origin/branch
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -115,6 +116,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"g":          KeyGitStatus,
 	"G":          KeyGitStatusBookmark,
 	"U":          KeyCheckUpdate,
+	"h":          KeyGitReset,
 
 	// Jest navigation - these are only active in Jest tab
 	// "n" and "p" are already taken globally, so we'll handle them contextually
@@ -283,6 +285,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("U"),
 		key.WithHelp("U", "check for updates"),
 	),
+	KeyGitReset: key.NewBinding(
+		key.WithKeys("h"),
+		key.WithHelp("h", "git reset --hard"),
+	),
 
 	// -- Special keybindings --
 
@@ -386,6 +392,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "git_status", Keys: []string{"g"}, Help: "g"},
 			{Command: "git_status_bookmark", Keys: []string{"G"}, Help: "G"},
 			{Command: "check_update", Keys: []string{"U"}, Help: "U"},
+			{Command: "git_reset", Keys: []string{"h"}, Help: "h"},
 		},
 	}
 }
@@ -548,6 +555,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"git_status":          KeyGitStatus,
 		"git_status_bookmark": KeyGitStatusBookmark,
 		"check_update":        KeyCheckUpdate,
+		"git_reset":           KeyGitReset,
 	}
 }
 
@@ -606,6 +614,7 @@ func getHelpText(command string) string {
 		"git_status":          "git status",
 		"git_status_bookmark": "git status bookmarks",
 		"check_update":        "check for updates",
+		"git_reset":           "git reset --hard",
 	}
 
 	if text, ok := helpTexts[command]; ok {
