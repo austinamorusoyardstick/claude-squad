@@ -428,16 +428,6 @@ func (g *GitWorktree) hasMergeConflictsInPath(path string) bool {
 	return false
 }
 
-
-// RebasePollingMsg represents the status of rebase polling
-type RebasePollingMsg struct {
-	Status     string // "in_progress", "completed", "sync_failed", "cancelled"
-	Error      error
-	TempDir    string
-	MainBranch string
-	Worktree   *GitWorktree
-}
-
 // isRebaseInProgressAtPath checks if a rebase is in progress at a specific path
 func (g *GitWorktree) isRebaseInProgressAtPath(path string) bool {
 	// Check if .git/rebase-merge or .git/rebase-apply directories exist
