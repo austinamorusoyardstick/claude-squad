@@ -2203,7 +2203,13 @@ func (m *home) startRebase(instance *session.Instance) tea.Cmd {
 		// Mark rebase as in progress
 		m.rebaseInProgress = true
 		m.rebaseInstance = instance
-		m.rebaseBranchName = worktree.GetCurrentBranch()
+		
+		// Get current branch name
+		branchName, err := worktree.GetCurrentBranch()
+		if err != nil {
+			return rebaseUpdateMsg{err: fmt.Errorf("failed to get current branch: %w", err)}
+		}
+		m.rebaseBranchName = branchName
 
 		// Get current SHA before rebase
 		sha, err := worktree.GetCurrentCommitSHA()
