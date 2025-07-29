@@ -285,6 +285,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("U"),
 		key.WithHelp("U", "check for updates"),
 	),
+	KeyReset: key.NewBinding(
+		key.WithKeys("S"),
+		key.WithHelp("S", "reset to remote"),
+	),
 
 	// -- Special keybindings --
 
