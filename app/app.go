@@ -199,443 +199,481 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 	// Load saved instances
 	instances, err := storage.LoadInstances()
 	if err != nil {
-		fmt.Printf("Failed to load instances: %v\n", err)
-		os.Exit(1)
+		h.errBox.Set("Failed to load instances: " + err.Error())
+	} else {
+		h.list.SetInstances(instances)
 	}
 
-	// Add loaded instances to the list
-	for _, instance := range instances {
-		// Call the finalizer immediately.
-		h.list.AddInstance(instance)()
-		if autoYes {
-			instance.AutoYes = true
-		}
-	}
+	// Set initial update status from the checker
+	menu.SetUpdateStatus(updateChecker.GetStatus())
 
 	return h
 }
 
-// updateHandleWindowSizeEvent sets the sizes of the components.
-// The components will try to render inside their bounds.
-func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
-	// Store window dimensions
-	m.windowWidth = msg.Width
-	m.windowHeight = msg.Height
-
-	// List takes 30% of width, preview takes 70%
-	listWidth := int(float32(msg.Width) * 0.3)
-	tabsWidth := msg.Width - listWidth
-
-	// Menu takes 10% of height, list and window take 90%
-	contentHeight := int(float32(msg.Height) * 0.9)
-	menuHeight := msg.Height - contentHeight - 1     // minus 1 for error box
-	m.errBox.SetSize(int(float32(msg.Width)*0.9), 1) // error box takes 1 row
-
-	m.tabbedWindow.SetSize(tabsWidth, contentHeight)
-	m.list.SetSize(listWidth, contentHeight)
-
-	if m.textInputOverlay != nil {
-		m.textInputOverlay.SetSize(int(float32(msg.Width)*0.6), int(float32(msg.Height)*0.4))
-	}
-	if m.textOverlay != nil {
-		width, height := m.calculateOverlayDimensions()
-		m.textOverlay.SetSize(width, height)
-	}
-	if m.historyOverlay != nil {
-		m.historyOverlay.SetSize(int(float32(msg.Width)*0.9), int(float32(msg.Height)*0.9))
-	}
-
-	previewWidth, previewHeight := m.tabbedWindow.GetPreviewSize()
-	if err := m.list.SetSessionPreviewSize(previewWidth, previewHeight); err != nil {
-		log.ErrorLog.Print(err)
-	}
-	m.menu.SetSize(msg.Width, menuHeight)
-}
-
+// Init initializes the model.
 func (m *home) Init() tea.Cmd {
-	// Upon starting, we want to start the spinner. Whenever we get a spinner.TickMsg, we
-	// update the spinner, which sends a new spinner.TickMsg. I think this lasts forever lol.
 	return tea.Batch(
 		m.spinner.Tick,
+		m.tabbedWindow.Init(),
+		m.instanceChanged(),
+		m.checkForRunningInstances(),
+		m.checkGitHooks(),
+		// Check for update results immediately
 		func() tea.Msg {
-			time.Sleep(100 * time.Millisecond)
-			return previewTickMsg{}
+			// This will be handled in Update to refresh the update status
+			return struct{}{}
 		},
-		tickUpdateMetadataCmd,
 	)
 }
 
-func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle branch selector updates when in that state
-	if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
-		if _, ok := msg.(tea.KeyMsg); ok {
-			// Update the branch selector
-			_, cmd := m.branchSelectorOverlay.Update(msg)
-
-			// Check if selection is complete
-			if m.branchSelectorOverlay.IsSelected() {
-				selectedBranch := m.branchSelectorOverlay.SelectedBranch()
-				if selectedBranch == "" {
-					// User cancelled
-					m.state = stateDefault
-					m.menu.SetState(ui.StateDefault)
-					m.branchSelectorOverlay = nil
-					return m, nil
-				}
-
-				// Create instance with selected branch
-				return m.createInstanceWithBranch(selectedBranch)
-			}
-
-			return m, cmd
+// checkGitHooks checks if git hooks are installed and returns a message if they need to be installed
+func (m *home) checkGitHooks() tea.Cmd {
+	return func() tea.Msg {
+		// Get the git root directory
+		gitRoot, err := git.FindRepoRoot(".")
+		if err != nil {
+			// Not in a git repo, skip hook check
+			return nil
 		}
+
+		// Check if the claude-squad git hooks are installed
+		hookPath := filepath.Join(gitRoot, ".git", "hooks", "prepare-commit-msg")
+		
+		// Check if hook exists
+		if _, err := os.Stat(hookPath); os.IsNotExist(err) {
+			// Hook doesn't exist, suggest installation
+			return fmt.Errorf("Git hooks not installed. Run 'claude-squad install-hooks' to enable commit message generation")
+		}
+
+		// Check if it's our hook by looking for our marker
+		content, err := os.ReadFile(hookPath)
+		if err != nil {
+			return nil
+		}
+
+		if !strings.Contains(string(content), "claude-squad-hook") {
+			return fmt.Errorf("Custom git hooks detected. Run 'claude-squad install-hooks --force' to replace with claude-squad hooks")
+		}
+
+		return nil
+	}
+}
+
+// checkForRunningInstances checks if any instances are already running
+func (m *home) checkForRunningInstances() tea.Cmd {
+	return func() tea.Msg {
+		// Check each instance to see if it's running
+		for _, instance := range m.list.GetInstances() {
+			if instance.TmuxAlive() && !instance.Started() {
+				// Mark the instance as started since tmux session exists
+				instance.SetStarted(true)
+			}
+		}
+		return nil
+	}
+}
+
+// confirmAction shows a confirmation modal and executes the given command if confirmed
+func (m *home) confirmAction(message string, action func() tea.Cmd) tea.Cmd {
+	m.state = stateConfirm
+	m.confirmationOverlay = overlay.NewConfirmationOverlay(message)
+	m.confirmationOverlay.OnConfirm = func() {
+		m.state = stateDefault
+		m.confirmationOverlay = nil
+		// Execute the action to get a tea.Cmd
+		m.pendingCmd = action()
+	}
+	m.confirmationOverlay.OnCancel = func() {
+		m.state = stateDefault
+		m.confirmationOverlay = nil
+		m.pendingCmd = nil
+	}
+	return nil
+}
+
+func (m *home) resize(w, h int) {
+	m.windowWidth = w
+	m.windowHeight = h
+
+	// Preserve menu height
+	menuHeight := m.menu.Height()
+
+	// Calculate heights
+	errBoxHeight := 0
+	if m.errBox.HasError() {
+		errBoxHeight = 3 // Error box takes 3 lines when shown
 	}
 
-	// Handle PR review updates when in that state
-	if m.state == statePRReview && m.prReviewOverlay != nil {
-		// Always pass window size messages to ensure the overlay initializes
-		if _, ok := msg.(tea.WindowSizeMsg); ok {
-			updatedModel, cmd := m.prReviewOverlay.Update(msg)
-			*m.prReviewOverlay = updatedModel
-			return m, cmd
+	// Update list width and calculate its actual height
+	m.list.SetWidth(m.windowWidth)
+	listHeight := m.list.CalculateHeight(m.windowHeight - menuHeight - errBoxHeight)
+	m.list.SetHeight(listHeight)
+
+	// The tabbed window gets everything else
+	tabbedHeight := m.windowHeight - listHeight - menuHeight - errBoxHeight
+	m.tabbedWindow.SetSize(m.windowWidth, tabbedHeight)
+
+	// Update other components
+	m.menu.SetWidth(m.windowWidth)
+	m.errBox.SetSize(m.windowWidth, errBoxHeight)
+
+	// Resize overlays
+	if m.textInputOverlay != nil {
+		m.textInputOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.textOverlay != nil {
+		m.textOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.confirmationOverlay != nil {
+		m.confirmationOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.branchSelectorOverlay != nil {
+		m.branchSelectorOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.prReviewOverlay != nil {
+		_, cmd := m.prReviewOverlay.Update(tea.WindowSizeMsg{Width: m.windowWidth, Height: m.windowHeight})
+		if cmd != nil {
+			// Handle any commands from resize if needed
 		}
+	}
+	if m.historyOverlay != nil {
+		m.historyOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.commentDetailOverlay != nil {
+		m.commentDetailOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.keybindingEditorOverlay != nil {
+		m.keybindingEditorOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+	if m.gitStatusOverlay != nil {
+		m.gitStatusOverlay.SetSize(m.windowWidth, m.windowHeight)
+	}
+}
 
-		updatedModel, cmd := m.prReviewOverlay.Update(msg)
-		*m.prReviewOverlay = updatedModel
+// Update updates the model based on the message received.
+func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
 
-		// Check for completion or cancellation messages
-		switch msg.(type) {
-		case ui.PRReviewCompleteMsg:
-			// Handle accepted comments
-			acceptedComments := msg.(ui.PRReviewCompleteMsg).AcceptedComments
-			m.state = stateDefault
-			m.prReviewOverlay = nil
-
-			// Process accepted comments with Claude
-			if len(acceptedComments) > 0 {
-				return m, m.processAcceptedComments(acceptedComments)
-			}
-			return m, nil
-		case ui.PRReviewCancelMsg:
-			// User cancelled
-			m.state = stateDefault
-			m.prReviewOverlay = nil
-			return m, nil
-		case ui.PRReviewShowCommentMsg:
-			// Show comment detail overlay
-			showMsg := msg.(ui.PRReviewShowCommentMsg)
-			m.commentDetailOverlay = overlay.NewCommentDetailOverlay(showMsg.Comment)
-			// We'll set the size in the next WindowSizeMsg
-			m.state = stateCommentDetail
-			return m, tea.WindowSize()
-		}
-
+	// Check for pending command execution
+	if m.pendingCmd != nil {
+		cmd := m.pendingCmd
+		m.pendingCmd = nil
 		return m, cmd
 	}
 
-	switch msg := msg.(type) {
-	case hideErrMsg:
-		m.errBox.Clear()
-	case previewTickMsg:
-		cmd := m.instanceChanged()
-		return m, tea.Batch(
-			cmd,
-			func() tea.Msg {
-				time.Sleep(100 * time.Millisecond)
-				return previewTickMsg{}
-			},
-		)
-	case keyupMsg:
-		m.menu.ClearKeydown()
-		return m, nil
-	case tickUpdateMetadataMessage:
-		for _, instance := range m.list.GetInstances() {
-			if !instance.Started() || instance.Paused() {
-				continue
-			}
-			updated, prompt := instance.HasUpdated()
-			if updated {
-				instance.SetStatus(session.Running)
-			} else {
-				if prompt {
-					instance.TapEnter()
-				} else {
-					instance.SetStatus(session.Ready)
-				}
-			}
-			if err := instance.UpdateDiffStats(); err != nil {
-				log.WarningLog.Printf("could not update diff stats: %v", err)
-			}
-		}
-		return m, tickUpdateMetadataCmd
-	case tea.MouseMsg:
-		// Handle mouse wheel events for scrolling the diff/preview pane
-		if msg.Action == tea.MouseActionPress {
-			if msg.Button == tea.MouseButtonWheelDown || msg.Button == tea.MouseButtonWheelUp {
-				selected := m.list.GetSelectedInstance()
-				if selected == nil || selected.Status == session.Paused {
-					return m, nil
-				}
+	// Always update the update status
+	m.menu.SetUpdateStatus(m.updateChecker.GetStatus())
 
-				switch msg.Button {
-				case tea.MouseButtonWheelUp:
-					m.tabbedWindow.ScrollUp()
-				case tea.MouseButtonWheelDown:
-					m.tabbedWindow.ScrollDown()
-				}
+	switch msg := msg.(type) {
+	case startRebaseMsg:
+		// Execute the actual rebase
+		if m.pendingRebaseInstance != nil {
+			cmd := m.startRebase(m.pendingRebaseInstance)
+			m.pendingRebaseInstance = nil
+			return m, cmd
+		}
+		return m, nil
+	case tea.WindowSizeMsg:
+		m.resize(msg.Width, msg.Height)
+		return m, nil
+	case ui.SelectedTabChangedMsg:
+		// Update menu state based on active tab
+		m.menu.SetInDiffTab(m.tabbedWindow.IsInDiffTab())
+		return m, nil
+	case tea.KeyMsg:
+		// Handle special keys first based on state
+		if m.state == stateConfirm && m.confirmationOverlay != nil {
+			// Let the confirmation overlay handle the key
+			handled := m.confirmationOverlay.HandleKey(msg)
+			if handled {
 				return m, nil
 			}
 		}
-		return m, nil
-	case tea.KeyMsg:
+
+		// Convert tea.KeyMsg to our KeyName
+		keyName, ok := keys.GetKeyName(msg.String())
+		if !ok {
+			// If key is not mapped, check for special navigation keys in different states
+			if m.state == stateHistory && m.historyOverlay != nil {
+				m.historyOverlay.Update(msg)
+				return m, nil
+			}
+			// Pass through to components that might handle unmapped keys
+			if m.state == stateNew && m.textInputOverlay != nil {
+				m.textInputOverlay.Update(msg)
+				return m, nil
+			}
+			if m.state == statePrompt && m.textInputOverlay != nil {
+				m.textInputOverlay.Update(msg)
+				return m, nil
+			}
+			if m.state == stateBookmark && m.textInputOverlay != nil {
+				m.textInputOverlay.Update(msg)
+				return m, nil
+			}
+			if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
+				updated, cmd := m.branchSelectorOverlay.Update(msg)
+				if u, ok := updated.(*overlay.BranchSelectorOverlay); ok {
+					m.branchSelectorOverlay = u
+				}
+				return m, cmd
+			}
+			if m.state == statePRReview && m.prReviewOverlay != nil {
+				// Handle PR review navigation
+				updatedModel, cmd := m.prReviewOverlay.Update(msg)
+				if u, ok := updatedModel.(*ui.PRReviewModel); ok {
+					m.prReviewOverlay = u
+				}
+				return m, cmd
+			}
+			if m.state == stateCommentDetail && m.commentDetailOverlay != nil {
+				m.commentDetailOverlay.Update(msg)
+				return m, nil
+			}
+			if m.state == stateKeybindingEditor && m.keybindingEditorOverlay != nil {
+				updated, cmd := m.keybindingEditorOverlay.Update(msg)
+				if u, ok := updated.(*overlay.KeybindingEditorOverlay); ok {
+					m.keybindingEditorOverlay = u
+				}
+				return m, cmd
+			}
+			if m.state == stateGitStatus && m.gitStatusOverlay != nil {
+				m.gitStatusOverlay.Update(msg)
+				return m, nil
+			}
+			return m, nil
+		}
+
+		// Handle key press
 		return m.handleKeyPress(msg)
-	case tea.WindowSizeMsg:
-		m.updateHandleWindowSizeEvent(msg)
 
-		// Also update PR review overlay if it's active
-		if m.state == statePRReview && m.prReviewOverlay != nil {
-			updatedModel, _ := m.prReviewOverlay.Update(msg)
-			*m.prReviewOverlay = updatedModel
+	case overlay.BranchSelectedMsg:
+		m.state = stateDefault
+		m.branchSelectorOverlay = nil
+		// Create instance from the selected branch
+		return m, m.createInstanceFromBranch(string(msg))
+
+	case ui.OpenPRCommentDetailMsg:
+		// Show the comment detail overlay
+		m.state = stateCommentDetail
+		m.commentDetailOverlay = overlay.NewCommentDetailOverlay(msg.Comment)
+		m.commentDetailOverlay.OnDismiss = func() {
+			m.state = statePRReview
+			m.commentDetailOverlay = nil
 		}
-
-		// Also update comment detail overlay if it's active
-		if m.state == stateCommentDetail && m.commentDetailOverlay != nil {
-			m.commentDetailOverlay.SetSize(msg.Width, msg.Height)
-		}
-
 		return m, nil
+
+	case ui.PRReviewCompleteMsg:
+		// Return to default state
+		m.state = stateDefault
+		m.prReviewOverlay = nil
+		return m, nil
+
+	case ui.NavigateToDiffMsg:
+		// Close PR review and navigate to diff
+		m.state = stateDefault
+		m.prReviewOverlay = nil
+		
+		// Switch to diff tab
+		m.tabbedWindow.ActivateDiffTab()
+		m.menu.SetInDiffTab(true)
+		
+		// Navigate to the file and line
+		return m, m.tabbedWindow.NavigateToFileAndLine(msg.FilePath, msg.LineNumber)
+
+	case ui.OpenFileInIDEMsg:
+		// Open the file in IDE at the specific line
+		selected := m.list.GetSelectedInstance()
+		if selected != nil {
+			return m, m.openFileInIDEAtLine(selected, msg.FilePath, msg.LineNumber)
+		}
+		return m, nil
+
 	case error:
-		// Handle errors from confirmation actions
-		return m, m.handleError(msg)
-	case instanceChangedMsg:
-		// Handle instance changed after confirmation action
+		// Don't add errors to the log while showing error log
+		if m.state != stateErrorLog {
+			m.errorLog = append(m.errorLog, msg.Error())
+		}
+		m.errBox.Set(msg.Error())
+		return m, nil
+	case string:
+		// Success message - show in error box with different styling
+		m.errBox.SetSuccess(msg)
+		return m, tea.Tick(3*time.Second, func(time.Time) tea.Msg {
+			return clearSuccessMsg{}
+		})
+	case clearSuccessMsg:
+		// Clear success message after timeout
+		m.errBox.Clear()
+		return m, nil
+	case instanceUpdatedMsg:
+		// Update the instance in the list
+		m.list.UpdateInstance(msg.instance)
+		// Save instances to disk
+		if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
+			log.ErrorLog.Printf("Failed to save instances: %v", err)
+		}
+		// Update displays
 		return m, m.instanceChanged()
-	case instanceCreatedMsg:
-		// Handle instance creation completion
+	case rebaseUpdateMsg:
+		// Handle rebase progress updates
 		if msg.err != nil {
-			// Remove the instance on error
-			m.list.Kill()
-			return m, m.handleError(msg.err)
-		}
-		// Show help screen on successful creation
-		m.showHelpScreen(helpStart(msg.instance), nil)
-		return m, m.instanceChanged()
-	case instanceDeletedMsg:
-		// Handle instance deletion completion
-		if msg.err != nil {
-			return m, m.handleError(msg.err)
-		}
-		return m, m.instanceChanged()
-	case startRebaseMsg:
-		// Handle the actual rebase after confirmation
-		if m.pendingRebaseInstance == nil {
-			return m, nil
-		}
-		
-		// Clear the pending instance
-		instance := m.pendingRebaseInstance
-		m.pendingRebaseInstance = nil
-		
-		// Execute rebase synchronously here to handle the result immediately
-		worktree, err := instance.GetGitWorktree()
-		if err != nil {
-			return m, m.handleError(err)
-		}
-
-		// Check if there are uncommitted changes
-		isDirty, err := worktree.IsDirty()
-		if err != nil {
-			return m, m.handleError(err)
-		}
-
-		if isDirty {
-			return m, m.handleError(fmt.Errorf(cannotRebaseUncommittedChangesError))
-		}
-		
-		// Get current commit SHA before rebase
-		currentSHA, err := worktree.GetCurrentCommitSHA()
-		if err != nil {
-			return m, m.handleError(fmt.Errorf("failed to get current commit: %w", err))
-		}
-
-		// Perform the rebase
-		if err := worktree.RebaseWithMain(); err != nil {
-			// Check if this is a rebase conflict error that needs polling
-			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
-				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
-				
-				// Display the error with instructions
-				errorCmd := m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
-				
-				// Set rebase in progress state
-				m.rebaseInProgress = true
-				m.rebaseInstance = instance
-				m.rebaseBranchName = worktree.GetBranchName()
-				m.rebaseOriginalSHA = currentSHA
-				
-				// Start polling the remote for changes
-				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
-				
-				// Return both commands so error displays AND polling starts
-				return m, tea.Batch(errorCmd, pollingCmd)
-			}
-			return m, m.handleError(err)
-		}
-
-		// Success
-		return m, m.instanceChanged()
-		
-	case remotePollingMsg:
-		// Check if rebase is still in progress
-		if !m.rebaseInProgress || m.rebaseInstance == nil {
-			return m, nil
-		}
-		
-		// Get the worktree to check remote
-		worktree, err := m.rebaseInstance.GetGitWorktree()
-		if err != nil {
-			log.ErrorLog.Printf("Failed to get worktree for polling: %v", err)
-			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
-		}
-		
-		// Fetch latest from remote
-		if _, err := worktree.FetchBranch(msg.branchName); err != nil {
-			log.WarningLog.Printf("Failed to fetch branch %s: %v", msg.branchName, err)
-			// Continue polling even if fetch fails
-			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
-		}
-		
-		// Check if remote SHA has changed
-		remoteSHA, err := worktree.GetRemoteBranchSHA(msg.branchName)
-		if err != nil {
-			log.ErrorLog.Printf("Failed to get remote SHA: %v", err)
-			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
-		}
-		
-		log.InfoLog.Printf("Polling rebase: original=%s, remote=%s", msg.originalSHA, remoteSHA)
-		
-		if remoteSHA != msg.originalSHA {
-			// Remote has changed, pull the changes
-			log.InfoLog.Printf("Remote branch updated, pulling changes")
-			
-			// Reset to the remote branch
-			if err := worktree.ResetToRemote(msg.branchName); err != nil {
-				m.rebaseInProgress = false
-				return m, m.handleError(fmt.Errorf("failed to sync rebased changes: %w", err))
-			}
-			
-			// Clear rebase state
 			m.rebaseInProgress = false
 			m.rebaseInstance = nil
 			m.rebaseBranchName = ""
 			m.rebaseOriginalSHA = ""
-			
-			// Show success
-			timestamp := time.Now().Format("15:04:05")
-			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Rebase completed successfully", timestamp))
-			
-			return m, m.instanceChanged()
-		}
-		
-		// Continue polling
-		return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
-	case allCommentsProcessedMsg:
-		// Comments have been processed, return to default state
-		m.state = stateDefault
-		m.textOverlay = nil
-
-		// Show success message
-		// Note: Using error box for now to show success message
-		successErr := fmt.Errorf("✓ PR comments processed successfully!")
-		m.errBox.SetError(successErr)
-		return m, func() tea.Msg {
-			time.Sleep(3 * time.Second)
-			return hideErrMsg{}
-		}
-	case testStartedMsg:
-		// Show non-obtrusive message that tests are running
-		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
-		return m, nil
-	case testProgressMsg:
-		// Update test progress
-		var status string
-		if msg.running {
-			status = fmt.Sprintf("Running tests: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
-		} else {
-			status = fmt.Sprintf("Tests complete: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
-		}
-		m.errBox.SetError(fmt.Errorf(status))
-		return m, nil
-	case testResultsMsg:
-		// Handle test results
-		if msg.err != nil {
 			return m, m.handleError(msg.err)
 		}
-
-		// Parse final stats from output
-		finalStats := parseJestFinalStats(msg.output)
-
-		// Open failed test files in IDE if any
-		if len(msg.failedFiles) > 0 {
-			// Get the IDE command from configuration - use the first failed file's directory for context
-			globalConfig := m.appConfig
-			fileDir := filepath.Dir(msg.failedFiles[0])
-			ideCommand := config.GetEffectiveIdeCommand(fileDir, globalConfig)
-
-			for _, file := range msg.failedFiles {
-				cmd := exec.Command(ideCommand, file)
-				cmd.Start()
-			}
-			// Show brief status about failed tests with counts
-			m.errBox.SetError(fmt.Errorf("Tests completed: %d/%d passed, %d failed. Opening failed files in IDE (%s)",
-				finalStats.passed, finalStats.total, finalStats.failed, ideCommand))
-		} else {
-			// All tests passed
-			m.errBox.SetError(fmt.Errorf("All tests passed! %d/%d test suites completed",
-				finalStats.passed, finalStats.total))
+		
+		if msg.message != "" {
+			// Show progress message
+			m.errBox.SetSuccess(msg.message)
 		}
+		
+		if msg.complete {
+			m.rebaseInProgress = false
+			m.rebaseInstance = nil
+			m.rebaseBranchName = ""
+			m.rebaseOriginalSHA = ""
+			m.errBox.SetSuccess("Rebase completed successfully!")
+			
+			// Clear success message after a delay
+			return m, tea.Tick(3*time.Second, func(time.Time) tea.Msg {
+				return clearSuccessMsg{}
+			})
+		}
+		
+		return m, nil
+	}
 
-		// Auto-hide the message after 5 seconds (give more time to read the stats)
-		return m, func() tea.Msg {
-			select {
-			case <-time.After(5 * time.Second):
+	// Update spinner
+	var cmd tea.Cmd
+	m.spinner, cmd = m.spinner.Update(msg)
+	cmds = append(cmds, cmd)
+
+	// Update the list (which contains instances)
+	m.list, cmd = m.list.Update(msg)
+	cmds = append(cmds, cmd)
+
+	// Update the tabbed window
+	m.tabbedWindow, cmd = m.tabbedWindow.Update(msg)
+	cmds = append(cmds, cmd)
+
+	// Update overlays based on state
+	switch m.state {
+	case stateNew, statePrompt, stateBookmark:
+		if m.textInputOverlay != nil {
+			var overlayCmd tea.Cmd
+			m.textInputOverlay, overlayCmd = m.textInputOverlay.Update(msg)
+			cmds = append(cmds, overlayCmd)
+		}
+	case stateHelp:
+		if m.textOverlay != nil {
+			m.textOverlay.Update(msg)
+		}
+	case stateErrorLog:
+		if m.textOverlay != nil {
+			m.textOverlay.Update(msg)
+		}
+	case stateHistory:
+		if m.historyOverlay != nil {
+			m.historyOverlay.Update(msg)
+		}
+	case stateKeybindingEditor:
+		if m.keybindingEditorOverlay != nil {
+			updated, overlayCmd := m.keybindingEditorOverlay.Update(msg)
+			if u, ok := updated.(*overlay.KeybindingEditorOverlay); ok {
+				m.keybindingEditorOverlay = u
 			}
-			return hideErrMsg{}
+			cmds = append(cmds, overlayCmd)
+		}
+	case stateGitStatus:
+		if m.gitStatusOverlay != nil {
+			m.gitStatusOverlay.Update(msg)
 		}
 	}
-	return m, nil
+
+	return m, tea.Batch(cmds...)
 }
 
-func (m *home) handleQuit() (tea.Model, tea.Cmd) {
-	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
-		return m, m.handleError(err)
+// View renders the UI.
+func (m *home) View() string {
+	var sections []string
+
+	// Add the list
+	sections = append(sections, m.list.View())
+
+	// Add the tabbed window
+	sections = append(sections, m.tabbedWindow.View())
+
+	// Add error box if there's an error
+	if m.errBox.HasError() {
+		sections = append(sections, m.errBox.View())
 	}
-	return m, tea.Quit
+
+	// Add the menu
+	sections = append(sections, m.menu.View())
+
+	// Render overlays based on state
+	content := strings.Join(sections, "\n")
+
+	switch m.state {
+	case stateNew, statePrompt, stateBookmark:
+		if m.textInputOverlay != nil {
+			return m.textInputOverlay.View(content)
+		}
+	case stateHelp, stateErrorLog:
+		if m.textOverlay != nil {
+			return m.textOverlay.View(content)
+		}
+	case stateConfirm:
+		if m.confirmationOverlay != nil {
+			return m.confirmationOverlay.View(content)
+		}
+	case stateBranchSelect:
+		if m.branchSelectorOverlay != nil {
+			return m.branchSelectorOverlay.View()
+		}
+	case statePRReview:
+		if m.prReviewOverlay != nil {
+			return m.prReviewOverlay.View()
+		}
+	case stateHistory:
+		if m.historyOverlay != nil {
+			return m.historyOverlay.View(content)
+		}
+	case stateCommentDetail:
+		if m.commentDetailOverlay != nil {
+			return m.commentDetailOverlay.View(content)
+		}
+	case stateKeybindingEditor:
+		if m.keybindingEditorOverlay != nil {
+			return m.keybindingEditorOverlay.View()
+		}
+	case stateGitStatus:
+		if m.gitStatusOverlay != nil {
+			return m.gitStatusOverlay.View(content)
+		}
+	}
+
+	return content
 }
 
-func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (cmd tea.Cmd, returnEarly bool) {
-	// Handle menu highlighting when you press a button. We intercept it here and immediately return to
-	// update the ui while re-sending the keypress. Then, on the next call to this, we actually handle the keypress.
-	if m.keySent {
-		m.keySent = false
-		return nil, false
-	}
-	if m.state == statePrompt || m.state == stateHelp || m.state == stateConfirm {
-		return nil, false
-	}
-	// If it's in the global keymap, we should try to highlight it.
+// -- Handlers --
+
+// handleMenuHighlighting handles menu highlighting based on key presses
+func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (tea.Cmd, bool) {
+	// Reset the keySent flag on any key press
+	m.keySent = false
+
+	// Convert tea.KeyMsg to our KeyName
 	name, ok := keys.GetKeyName(msg.String())
 	if !ok {
+		// Key is not mapped, don't highlight anything
 		return nil, false
 	}
 
-	if m.list.GetSelectedInstance() != nil && m.list.GetSelectedInstance().Paused() && name == keys.KeyEnter {
-		return nil, false
-	}
+	// Skip the menu highlighting if we're using scrolling keys
 	if name == keys.KeyShiftDown || name == keys.KeyShiftUp {
 		return nil, false
 	}
@@ -645,6 +683,7 @@ func (m *home) handleMenuHighlighting(msg tea.KeyMsg) (cmd tea.Cmd, returnEarly 
 	if name == keys.KeyEnter && m.state == stateNew {
 		name = keys.KeySubmitName
 	}
+
 	m.keySent = true
 	return tea.Batch(
 		func() tea.Msg { return msg },
@@ -682,431 +721,170 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	}
 
 	if m.state == stateNew {
-		// Handle quit commands first. Don't handle q because the user might want to type that.
-		if msg.String() == "ctrl+c" {
-			m.state = stateDefault
-			m.promptAfterName = false
-			m.list.Kill()
-			return m, tea.Sequence(
-				tea.WindowSize(),
-				func() tea.Msg {
-					m.menu.SetState(ui.StateDefault)
-					return nil
-				},
-			)
-		}
-
-		instance := m.list.GetInstances()[m.list.NumInstances()-1]
-		switch msg.Type {
-		// Start the instance (enable previews etc) and go back to the main menu state.
-		case tea.KeyEnter:
-			if len(instance.Title) == 0 {
-				return m, m.handleError(fmt.Errorf("title cannot be empty"))
-			}
-
-			// Start the instance asynchronously
-			cmd := m.startInstanceAsync(instance)
-
-			// Save after adding new instance
-			if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
-				return m, m.handleError(err)
-			}
-
-			// Instance added successfully, call the finalizer.
-			m.newInstanceFinalizer()
-			if m.autoYes {
-				instance.AutoYes = true
-			}
-
-			m.state = stateDefault
-			if m.promptAfterName {
-				m.state = statePrompt
-				m.menu.SetState(ui.StatePrompt)
-				// Initialize the text input overlay
-				m.textInputOverlay = overlay.NewTextInputOverlay("Enter prompt", "")
-				m.promptAfterName = false
-			} else {
-				m.menu.SetState(ui.StateDefault)
-			}
-
-			return m, tea.Batch(tea.WindowSize(), m.instanceChanged(), cmd)
-		case tea.KeyRunes:
-			if len(instance.Title) >= 32 {
-				return m, m.handleError(fmt.Errorf("title cannot be longer than 32 characters"))
-			}
-			if err := instance.SetTitle(instance.Title + string(msg.Runes)); err != nil {
-				return m, m.handleError(err)
-			}
-		case tea.KeyBackspace:
-			if len(instance.Title) == 0 {
-				return m, nil
-			}
-			if err := instance.SetTitle(instance.Title[:len(instance.Title)-1]); err != nil {
-				return m, m.handleError(err)
-			}
-		case tea.KeySpace:
-			if err := instance.SetTitle(instance.Title + " "); err != nil {
-				return m, m.handleError(err)
-			}
-		case tea.KeyEsc:
-			m.list.Kill()
-			m.state = stateDefault
-			m.instanceChanged()
-
-			return m, tea.Sequence(
-				tea.WindowSize(),
-				func() tea.Msg {
-					m.menu.SetState(ui.StateDefault)
-					return nil
-				},
-			)
-		default:
-		}
-		return m, nil
-	} else if m.state == statePrompt {
-		// Use the new TextInputOverlay component to handle all key events
-		shouldClose := m.textInputOverlay.HandleKeyPress(msg)
-
-		// Check if the form was submitted or canceled
-		if shouldClose {
-			selected := m.list.GetSelectedInstance()
-			// TODO: this should never happen since we set the instance in the previous state.
-			if selected == nil {
-				return m, nil
-			}
-			if m.textInputOverlay.IsSubmitted() {
-				if err := selected.SendPrompt(m.textInputOverlay.GetValue()); err != nil {
-					// TODO: we probably end up in a bad state here.
-					return m, m.handleError(err)
-				}
-			}
-
-			// Close the overlay and reset state
-			m.textInputOverlay = nil
-			m.state = stateDefault
-			return m, tea.Sequence(
-				tea.WindowSize(),
-				func() tea.Msg {
-					m.menu.SetState(ui.StateDefault)
-					m.showHelpScreen(helpStart(selected), nil)
-					return nil
-				},
-			)
-		}
-
-		return m, nil
-	} else if m.state == stateBookmark {
-		// Handle bookmark state
-		shouldClose := m.textInputOverlay.HandleKeyPress(msg)
-
-		if shouldClose {
-			selected := m.list.GetSelectedInstance()
-			if selected == nil {
-				return m, nil
-			}
-
-			var finalCmd tea.Cmd = tea.WindowSize()
-			if m.textInputOverlay.IsSubmitted() {
-				// Create bookmark commit
-				commitMsg := m.textInputOverlay.GetValue()
-				cmd := m.createBookmarkCommit(selected, commitMsg)
-				finalCmd = tea.Batch(tea.WindowSize(), cmd)
-			}
-
-			// Common state reset logic
-			m.textInputOverlay = nil
-			m.state = stateDefault
-			m.menu.SetState(ui.StateDefault)
-
-			return m, finalCmd
-		}
-
-		return m, nil
+		return m.handleNewState(msg)
 	}
 
-	// Handle confirmation state
-	if m.state == stateConfirm {
-		shouldClose := m.confirmationOverlay.HandleKeyPress(msg)
-		if shouldClose {
-			// Capture confirmation state before clearing overlay
-			wasConfirmed := m.confirmationOverlay.IsConfirmed()
-			m.state = stateDefault
-			m.confirmationOverlay = nil
-
-			// Execute pending command if confirmed
-			if wasConfirmed && m.pendingCmd != nil {
-				cmd := m.pendingCmd
-				m.pendingCmd = nil
-				// Execute the action and get the result
-				result := cmd()
-				// If result is a tea.Cmd, return it to be executed
-				if resultCmd, ok := result.(tea.Cmd); ok {
-					return m, resultCmd
-				}
-				// Otherwise handle as a message
-				return m.Update(result)
-			}
-			m.pendingCmd = nil
-			return m, nil
-		}
-		return m, nil
+	if m.state == statePrompt {
+		return m.handlePromptState(msg)
 	}
 
-	// Exit scrolling mode when ESC is pressed and preview or terminal pane is in scrolling mode
-	// Check if Escape key was pressed
-	// Always check for escape key first to ensure it doesn't get intercepted elsewhere
-	if msg.Type == tea.KeyEsc {
-		// Use the selected instance from the list
-		selected := m.list.GetSelectedInstance()
-
-		// If in preview tab and in scroll mode, exit scroll mode
-		if !m.tabbedWindow.IsInDiffTab() && !m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsPreviewInScrollMode() {
-			err := m.tabbedWindow.ResetPreviewToNormalMode(selected)
-			if err != nil {
-				return m, m.handleError(err)
-			}
-			return m, m.instanceChanged()
-		}
-
-		// If in terminal tab and in scroll mode, exit scroll mode
-		if m.tabbedWindow.IsInTerminalTab() && m.tabbedWindow.IsTerminalInScrollMode() {
-			err := m.tabbedWindow.ResetTerminalToNormalMode(selected)
-			if err != nil {
-				return m, m.handleError(err)
-			}
-			return m, m.instanceChanged()
-		}
+	if m.state == stateBookmark {
+		return m.handleBookmarkState(msg)
 	}
 
-	// Handle quit commands first
-	if msg.String() == "ctrl+c" || msg.String() == "q" {
-		return m.handleQuit()
+	if m.state == stateBranchSelect {
+		return m.handleBranchSelectState(msg)
 	}
 
-	// Handle Jest-specific keybindings when in Jest tab
-	if m.tabbedWindow.IsInJestTab() {
-		switch msg.String() {
-		case "r":
-			m.tabbedWindow.JestRerunTests()
-			return m, nil
-		}
+	if m.state == statePRReview {
+		return m.handlePRReviewState(msg)
 	}
 
-	name, ok := keys.GetKeyName(msg.String())
+	// Convert tea.KeyMsg to our KeyName
+	keyName, ok := keys.GetKeyName(msg.String())
 	if !ok {
 		return m, nil
 	}
 
-	switch name {
-	case keys.KeyHelp:
-		return m.showHelpScreen(helpTypeGeneral{}, nil)
-	case keys.KeyErrorLog:
-		return m.showErrorLog()
-	case keys.KeyEditKeybindings:
-		m.state = stateKeybindingEditor
-		m.keybindingEditorOverlay = overlay.NewKeybindingEditorOverlay()
+	// Check if we should handle keys in diff view specially
+	if m.tabbedWindow.IsInDiffTab() && m.scrollLocked {
+		// When scroll lock is on, up/down keys scroll without shift
+		switch keyName {
+		case keys.KeyUp:
+			keyName = keys.KeyShiftUp
+		case keys.KeyDown:
+			keyName = keys.KeyShiftDown
+		}
+	}
+
+	switch keyName {
+	case keys.KeyShiftUp, keys.KeyShiftDown, keys.KeyHome, keys.KeyEnd,
+		keys.KeyPageUp, keys.KeyPageDown, keys.KeyAltUp, keys.KeyAltDown,
+		keys.KeyDiffAll, keys.KeyDiffLastCommit, keys.KeyLeft, keys.KeyRight:
+		// These keys are only for diff navigation
+		if m.tabbedWindow.IsInDiffTab() {
+			return m, m.handleDiffNavigation(keyName)
+		}
 		return m, nil
-	case keys.KeyPrompt:
-		if m.list.NumInstances() >= GlobalInstanceLimit {
-			return m, m.handleError(
-				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
+	case keys.KeyScrollLock:
+		// Toggle scroll lock
+		m.scrollLocked = !m.scrollLocked
+		statusMsg := "Scroll lock OFF"
+		if m.scrollLocked {
+			statusMsg = "Scroll lock ON"
 		}
-		instance, err := session.NewInstance(session.InstanceOptions{
-			Title:   "",
-			Path:    ".",
-			Program: m.program,
-		})
-		if err != nil {
-			return m, m.handleError(err)
+		return m, m.handleError(fmt.Errorf(statusMsg))
+	case keys.KeyOpenInIDE:
+		// Open file in IDE (only in diff view)
+		if m.tabbedWindow.IsInDiffTab() {
+			selected := m.list.GetSelectedInstance()
+			if selected != nil {
+				filePath := m.tabbedWindow.GetCurrentFile()
+				if filePath != "" {
+					return m, m.openFileInIDE(selected, filePath)
+				}
+			}
 		}
-
-		m.newInstanceFinalizer = m.list.AddInstance(instance)
-		m.list.SetSelectedInstance(m.list.NumInstances() - 1)
-		m.state = stateNew
-		m.menu.SetState(ui.StateNewInstance)
-		m.promptAfterName = true
-
 		return m, nil
-	case keys.KeyNew:
-		if m.list.NumInstances() >= GlobalInstanceLimit {
-			return m, m.handleError(
-				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
+	case keys.KeyExternalDiff:
+		// Open file in external diff tool (only in diff view)
+		if m.tabbedWindow.IsInDiffTab() {
+			selected := m.list.GetSelectedInstance()
+			if selected != nil {
+				filePath := m.tabbedWindow.GetCurrentFile()
+				if filePath != "" {
+					return m, m.openFileInExternalDiff(selected, filePath)
+				}
+			}
 		}
-		instance, err := session.NewInstance(session.InstanceOptions{
-			Title:   "",
-			Path:    ".",
-			Program: m.program,
-		})
-		if err != nil {
-			return m, m.handleError(err)
-		}
-
-		m.newInstanceFinalizer = m.list.AddInstance(instance)
-		m.list.SetSelectedInstance(m.list.NumInstances() - 1)
-		m.state = stateNew
-		m.menu.SetState(ui.StateNewInstance)
-
 		return m, nil
-	case keys.KeyExistingBranch:
-		if m.list.NumInstances() >= GlobalInstanceLimit {
-			return m, m.handleError(
-				fmt.Errorf("you can't create more than %d instances", GlobalInstanceLimit))
-		}
+	}
 
-		// Show branch selector
-		m.state = stateBranchSelect
-		m.menu.SetState(ui.StateNewInstance)
-
-		// Get list of remote branches
-		branches, err := git.ListRemoteBranchesFromRepo(".")
-		if err != nil {
-			return m, m.handleError(fmt.Errorf("failed to list remote branches: %w", err))
-		}
-
-		// Check if there are any branches
-		if len(branches) == 0 {
-			m.state = stateDefault
-			m.menu.SetState(ui.StateDefault)
-			return m, m.handleError(fmt.Errorf("no remote branches found"))
-		}
-
-		// Create branch selector overlay
-		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(branches)
-
-		// Initialize the branch selector
-		return m, m.branchSelectorOverlay.Init()
+	// Handle navigation keys that work in both views
+	switch keyName {
 	case keys.KeyUp:
-		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.ScrollUp()
-		} else {
-			m.list.Up()
+		if m.list.NumInstances() == 0 {
+			return m, nil
 		}
+		m.list.Previous()
 		return m, m.instanceChanged()
 	case keys.KeyDown:
-		if m.scrollLocked && m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.ScrollDown()
-		} else {
-			m.list.Down()
+		if m.list.NumInstances() == 0 {
+			return m, nil
 		}
-		return m, m.instanceChanged()
-	case keys.KeyShiftUp:
-		m.tabbedWindow.ScrollUp()
-		return m, nil
-	case keys.KeyShiftDown:
-		m.tabbedWindow.ScrollDown()
-		return m, nil
-	case keys.KeyHome:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.ScrollToTop()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyEnd:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.ScrollToBottom()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyPageUp:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.PageUp()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyPageDown:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.PageDown()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyAltUp:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.JumpToPrevFile()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyAltDown:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.JumpToNextFile()
-		}
+		m.list.Next()
 		return m, m.instanceChanged()
 	case keys.KeyTab:
 		return m.handleTabSwitch(false)
 	case keys.KeyShiftTab:
 		return m.handleTabSwitch(true)
-	case keys.KeyDiffAll:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.SetDiffModeAll()
+	case keys.KeyQuit:
+		return m, tea.Quit
+	case keys.KeyHelp:
+		// Show help screen
+		m.showHelpScreen(helpTypeGeneral{}, nil)
+		return m, nil
+	case keys.KeyEditKeybindings:
+		// Show keybinding editor
+		m.state = stateKeybindingEditor
+		m.keybindingEditorOverlay = overlay.NewKeybindingEditorOverlay()
+		m.keybindingEditorOverlay.OnSave = func(config *keys.KeyBindingsConfig) {
+			// Save the keybindings
+			if err := config.Save(); err != nil {
+				m.handleError(fmt.Errorf("failed to save keybindings: %w", err))
+			} else {
+				// Reinitialize keybindings
+				if err := keys.InitializeCustomKeyBindings(); err != nil {
+					m.handleError(fmt.Errorf("failed to reload keybindings: %w", err))
+				} else {
+					m.handleError(fmt.Errorf("keybindings saved successfully"))
+				}
+			}
+			m.state = stateDefault
+			m.keybindingEditorOverlay = nil
 		}
-		return m, m.instanceChanged()
-	case keys.KeyDiffLastCommit:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.SetDiffModeLastCommit()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyLeft:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.NavigateToPrevCommit()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyRight:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.tabbedWindow.NavigateToNextCommit()
-		}
-		return m, m.instanceChanged()
-	case keys.KeyScrollLock:
-		if m.tabbedWindow.IsInDiffTab() {
-			m.scrollLocked = !m.scrollLocked
-			m.menu.SetScrollLocked(m.scrollLocked)
+		m.keybindingEditorOverlay.OnCancel = func() {
+			m.state = stateDefault
+			m.keybindingEditorOverlay = nil
 		}
 		return m, nil
-	case keys.KeyOpenInIDE:
-		// Only handle 'i' when in diff view
-		if m.tabbedWindow.IsInDiffTab() {
-			selected := m.list.GetSelectedInstance()
-			if selected == nil {
-				return m, nil
-			}
-			// Get the current file from diff view
-			currentFile := m.tabbedWindow.GetCurrentDiffFile()
-			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
-			}
-			// Open the file in IDE
-			cmd := m.openFileInIDE(selected, currentFile)
-			return m, cmd
-		}
+	case keys.KeyErrorLog:
+		// Show error log
+		m.showErrorLog()
 		return m, nil
-	case keys.KeyExternalDiff:
-		// Only handle 'x' when in diff view
-		if m.tabbedWindow.IsInDiffTab() {
-			selected := m.list.GetSelectedInstance()
-			if selected == nil {
-				return m, nil
-			}
-			// Get the current file from diff view
-			currentFile := m.tabbedWindow.GetCurrentDiffFile()
-			if currentFile == "" {
-				return m, m.handleError(fmt.Errorf("no file selected. Navigate to a file in the diff view first"))
-			}
-			// Open the file in external diff tool
-			cmd := m.openFileInExternalDiff(selected, currentFile)
-			return m, cmd
-		}
+	case keys.KeyNew:
+		// Show help screen before creating new instance
+		m.showHelpScreen(helpTypeInstanceCreation{}, func() {
+			m.startNewInstance(false)
+		})
 		return m, nil
+	case keys.KeyPrompt:
+		// Show help screen before creating new instance with prompt
+		m.showHelpScreen(helpTypeInstanceCreation{}, func() {
+			m.startNewInstance(true)
+		})
+		return m, nil
+	case keys.KeyExistingBranch:
+		// Show branch selector
+		return m, m.showBranchSelector()
 	case keys.KeyKill:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
 			return m, nil
 		}
-
-		// Create the kill action as a tea.Cmd
-		killAction := func() tea.Msg {
-			// Delete from storage first
-			if err := m.storage.DeleteInstance(selected.Title); err != nil {
-				return err
+		// Create the kill action
+		killAction := func() tea.Cmd {
+			return func() tea.Msg {
+				if err := m.storage.DeleteInstance(selected); err != nil {
+					return err
+				}
+				if err := selected.Kill(); err != nil {
+					return err
+				}
+				m.list.RemoveSelectedInstance()
+				return nil
 			}
-
-			// Start async kill and return a command
-			// The kill logic will handle checked out branches
-			return m.killInstanceAsync(selected)
 		}
-
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Kill session '%s'?", selected.Title)
 		return m, m.confirmAction(message, killAction)
@@ -1115,7 +893,6 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if selected == nil {
 			return m, nil
 		}
-
 		// Create the push action as a tea.Cmd
 		pushAction := func() tea.Msg {
 			// Default commit message with timestamp
@@ -1129,7 +906,6 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			}
 			return nil
 		}
-
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Push changes from session '%s'?", selected.Title)
 		return m, m.confirmAction(message, pushAction)
@@ -1138,7 +914,6 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if selected == nil {
 			return m, nil
 		}
-
 		// Show help screen before pausing
 		m.showHelpScreen(helpTypeInstanceCheckout{}, func() {
 			if err := selected.Pause(); err != nil {
@@ -1155,7 +930,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if err := selected.Resume(); err != nil {
 			return m, m.handleError(err)
 		}
-		return m, tea.WindowSize()
+		return m, m.instanceChanged()
 	case keys.KeyOpenIDE:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -1169,16 +944,35 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if selected == nil {
 			return m, nil
 		}
-
+		
+		// Check if instance is paused
+		if selected.Paused() {
+			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+		}
+		
+		// Get the worktree
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+		
+		// Get main branch name
+		mainBranch, err := worktree.GetMainBranch()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to determine main branch: %w", err))
+		}
+		
 		// Show confirmation modal
-		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
+		message := fmt.Sprintf("[!] Rebase session '%s' with %s?", selected.Title, mainBranch)
 		
 		// Store the selected instance for the rebase
 		m.pendingRebaseInstance = selected
 		
 		// Create a simple action that just returns a message to trigger the actual rebase
-		rebaseAction := func() tea.Msg {
-			return startRebaseMsg{}
+		rebaseAction := func() tea.Cmd {
+			return func() tea.Msg {
+				return startRebaseMsg{}
+			}
 		}
 		
 		return m, m.confirmAction(message, rebaseAction)
@@ -1422,680 +1216,786 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 		diffCommand := config.GetEffectiveDiffCommand(worktreePath, globalConfig)
 
 		if diffCommand == "" {
-			return fmt.Errorf(noExternalDiffToolConfiguredError)
+			return fmt.Errorf("no diff command configured")
+		}
+
+		// Split the diff command to handle cases like "code --diff"
+		parts := strings.Fields(diffCommand)
+		if len(parts) == 0 {
+			return fmt.Errorf("invalid diff command")
+		}
+
+		// Get the file at HEAD for comparison
+		fullPath := filepath.Join(worktreePath, filePath)
+		
+		// Create a temporary file for the HEAD version
+		headContent, err := gitWorktree.GetFileAtHead(filePath)
+		if err != nil {
+			// If file doesn't exist at HEAD, just open the current file
+			cmd := exec.Command(parts[0], append(parts[1:], fullPath)...)
+			if err := cmd.Start(); err != nil {
+				return fmt.Errorf("failed to open file in diff tool: %w", err)
+			}
+			return nil
+		}
+
+		// Write HEAD content to temp file
+		tempFile, err := os.CreateTemp("", "claude-squad-*."+filepath.Base(filePath))
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		defer tempFile.Close()
+
+		if _, err := tempFile.Write([]byte(headContent)); err != nil {
+			return fmt.Errorf("failed to write temp file: %w", err)
+		}
+
+		// Build command arguments
+		args := append(parts[1:], tempFile.Name(), fullPath)
+		
+		// Open diff tool with both files
+		cmd := exec.Command(parts[0], args...)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("failed to open external diff tool: %w", err)
+		}
+
+		// Clean up temp file after a delay (give the tool time to open)
+		go func() {
+			time.Sleep(5 * time.Second)
+			os.Remove(tempFile.Name())
+		}()
+
+		return nil
+	}
+}
+
+func (m *home) openFileInIDEAtLine(instance *session.Instance, filePath string, lineNumber int) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
 		}
 
 		// Construct the full path to the file using the worktree path
+		worktreePath := gitWorktree.GetWorktreePath()
 		fullPath := filepath.Join(worktreePath, filePath)
 
-		// Check if file exists
-		if _, err := os.Stat(fullPath); err != nil {
-			return fmt.Errorf("file not found: %s", fullPath)
+		// Get the IDE command from configuration
+		globalConfig := m.appConfig
+		ideCommand := config.GetEffectiveIdeCommand(worktreePath, globalConfig)
+
+		// Different IDEs have different ways to open at a specific line
+		// VS Code: code file:line
+		// WebStorm/IntelliJ: idea file:line
+		// Sublime: subl file:line
+		// Vim: vim +line file
+		
+		var cmd *exec.Cmd
+		
+		// Check which IDE we're using
+		if strings.Contains(ideCommand, "vim") || strings.Contains(ideCommand, "nvim") {
+			// Vim-style: +line file
+			cmd = exec.Command(ideCommand, fmt.Sprintf("+%d", lineNumber), fullPath)
+		} else {
+			// Most modern IDEs support file:line format
+			cmd = exec.Command(ideCommand, fmt.Sprintf("%s:%d", fullPath, lineNumber))
 		}
 
-		// Split command and args to handle commands like "code --diff"
-		parts := strings.Fields(diffCommand)
-		if len(parts) == 0 {
-			return fmt.Errorf("empty diff command")
-		}
-		cmd := exec.Command(parts[0], append(parts[1:], fullPath)...)
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("failed to open file in external diff tool (%s): %w", diffCommand, err)
+			// Fallback to just opening the file without line number
+			cmd = exec.Command(ideCommand, fullPath)
+			if err := cmd.Start(); err != nil {
+				return fmt.Errorf("failed to open file in IDE (%s): %w", ideCommand, err)
+			}
 		}
 
 		return nil
 	}
 }
 
-const (
-	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
-	maxBookmarkSummaryLen = 100
+// runJestTests runs Jest tests for the selected instance
+func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree to access the worktree path
+		gitWorktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
 
-	// Overlay dimension ratios
-	overlayWidthRatio  = 0.8
-	overlayHeightRatio = 0.9
+		// Get the worktree path
+		worktreePath := gitWorktree.GetWorktreePath()
 
-	// Error messages
-	cannotRebaseUncommittedChangesError = "cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first"
-	instancePausedError                 = "instance '%s' is paused. Press 'r' to resume it first"
-	noPullRequestFoundError             = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
-	noExternalDiffToolConfiguredError   = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
-)
+		// Check if web directory exists
+		webDir := filepath.Join(worktreePath, "web")
+		if _, err := os.Stat(webDir); os.IsNotExist(err) {
+			return fmt.Errorf("no 'web' directory found in worktree")
+		}
 
-func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
+		// Clear previous Jest results
+		m.tabbedWindow.ClearJestResults()
+
+		// Run npm test in the web directory
+		cmd := exec.Command("npm", "test", "--", "--json", "--outputFile=jest-results.json")
+		cmd.Dir = webDir
+
+		// Capture output
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// Jest returns non-zero exit code when tests fail, which is expected
+			// Check if we at least got the results file
+			resultsPath := filepath.Join(webDir, "jest-results.json")
+			if _, statErr := os.Stat(resultsPath); statErr != nil {
+				// No results file, this is a real error
+				return fmt.Errorf("jest command failed: %w\nOutput: %s", err, string(output))
+			}
+		}
+
+		// Read the Jest results
+		resultsPath := filepath.Join(webDir, "jest-results.json")
+		resultsData, err := os.ReadFile(resultsPath)
+		if err != nil {
+			return fmt.Errorf("failed to read jest results: %w", err)
+		}
+
+		// Update the Jest pane with results
+		if err := m.tabbedWindow.UpdateJestResults(resultsData); err != nil {
+			return fmt.Errorf("failed to parse jest results: %w", err)
+		}
+
+		// Switch to Jest tab
+		m.tabbedWindow.ActivateJestTab()
+		m.menu.SetInDiffTab(false)
+
+		// Clean up the results file
+		os.Remove(resultsPath)
+
+		return "Jest tests completed"
+	}
+}
+
+// handleDiffNavigation handles navigation keys specific to the diff view
+func (m *home) handleDiffNavigation(keyName keys.KeyName) tea.Cmd {
+	switch keyName {
+	case keys.KeyShiftUp:
+		m.tabbedWindow.ScrollUp()
+	case keys.KeyShiftDown:
+		m.tabbedWindow.ScrollDown()
+	case keys.KeyHome:
+		m.tabbedWindow.ScrollToTop()
+	case keys.KeyEnd:
+		m.tabbedWindow.ScrollToBottom()
+	case keys.KeyPageUp:
+		m.tabbedWindow.PageUp()
+	case keys.KeyPageDown:
+		m.tabbedWindow.PageDown()
+	case keys.KeyAltUp:
+		m.tabbedWindow.PreviousFile()
+	case keys.KeyAltDown:
+		m.tabbedWindow.NextFile()
+	case keys.KeyDiffAll:
+		return m.showAllChanges()
+	case keys.KeyDiffLastCommit:
+		return m.showLastCommitDiff()
+	case keys.KeyLeft:
+		m.tabbedWindow.PreviousCommit()
+		return m.updateDiffForCommit()
+	case keys.KeyRight:
+		m.tabbedWindow.NextCommit()
+		return m.updateDiffForCommit()
+	}
+	return nil
+}
+
+// showAllChanges updates the diff pane to show all changes
+func (m *home) showAllChanges() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return err
+		}
+
+		diff, err := worktree.GetDiff("")
+		if err != nil {
+			return err
+		}
+
+		m.tabbedWindow.SetDiffContent(diff, "All Changes")
+		m.tabbedWindow.SetDiffMode(ui.DiffModeAll)
+		return nil
+	}
+}
+
+// showLastCommitDiff updates the diff pane to show the last commit
+func (m *home) showLastCommitDiff() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return err
+		}
+
+		// Get the last commit SHA
+		lastCommit, err := worktree.GetLastCommitSHA()
+		if err != nil {
+			return err
+		}
+
+		// Get the diff for the last commit
+		diff, err := worktree.GetCommitDiff(lastCommit)
+		if err != nil {
+			return err
+		}
+
+		// Get commit info
+		info, err := worktree.GetCommitInfo(lastCommit)
+		if err != nil {
+			return err
+		}
+
+		title := fmt.Sprintf("Commit: %s - %s", lastCommit[:7], info.Subject)
+		m.tabbedWindow.SetDiffContent(diff, title)
+		m.tabbedWindow.SetDiffMode(ui.DiffModeCommit)
+		
+		// Load commit history
+		history, err := worktree.GetCommitHistory(20)
+		if err != nil {
+			return err
+		}
+		m.tabbedWindow.SetCommitHistory(history, 0)
+		
+		return nil
+	}
+}
+
+// updateDiffForCommit updates the diff view for the currently selected commit
+func (m *home) updateDiffForCommit() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return nil
+	}
+
+	commitIndex := m.tabbedWindow.GetCurrentCommitIndex()
+	if commitIndex < 0 {
+		return nil
+	}
+
+	return func() tea.Msg {
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return err
+		}
+
+		// Get commit history
+		history, err := worktree.GetCommitHistory(20)
+		if err != nil {
+			return err
+		}
+
+		if commitIndex >= len(history) {
+			return nil
+		}
+
+		commit := history[commitIndex]
+		
+		// Get the diff for this commit
+		diff, err := worktree.GetCommitDiff(commit.SHA)
+		if err != nil {
+			return err
+		}
+
+		title := fmt.Sprintf("Commit: %s - %s", commit.SHA[:7], commit.Subject)
+		m.tabbedWindow.SetDiffContent(diff, title)
+		
+		return nil
+	}
+}
+
+// handleNewState handles key presses when in the new instance state
+func (m *home) handleNewState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, ok := keys.GetKeyName(msg.String())
+	if !ok {
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+
+	switch keyName {
+	case keys.KeySubmitName:
+		value := m.textInputOverlay.Value()
+		if value == "" {
+			return m, nil
+		}
+		
+		// Check if we should go to prompt mode after naming
+		if m.promptAfterName {
+			// Reset the flag
+			m.promptAfterName = false
+			// Store the name and switch to prompt mode
+			m.textInputOverlay = overlay.NewTextInputOverlay("Enter a prompt for the AI (or press Escape to skip)", "")
+			m.state = statePrompt
+			m.menu.SetState(ui.StatePrompt)
+			// Store the instance name for later
+			m.textInputOverlay.SetMetadata("instanceName", value)
+			return m, nil
+		}
+		
+		// Normal flow - create instance immediately
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		return m, m.createInstance(value, "")
+	case keys.KeyQuit:
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		return m, nil
+	default:
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+}
+
+// handlePromptState handles key presses when in the prompt state
+func (m *home) handlePromptState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, ok := keys.GetKeyName(msg.String())
+	if !ok {
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+
+	switch keyName {
+	case keys.KeyEnter:
+		prompt := m.textInputOverlay.Value()
+		instanceName := m.textInputOverlay.GetMetadata("instanceName")
+		
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		
+		// Create instance with prompt (even if empty)
+		return m, m.createInstance(instanceName, prompt)
+	case keys.KeyQuit:
+		// If escape is pressed, create instance without prompt
+		instanceName := m.textInputOverlay.GetMetadata("instanceName")
+		
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		
+		// Create instance without prompt
+		return m, m.createInstance(instanceName, "")
+	default:
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+}
+
+// handleBookmarkState handles key presses when in the bookmark state
+func (m *home) handleBookmarkState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, ok := keys.GetKeyName(msg.String())
+	if !ok {
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+
+	switch keyName {
+	case keys.KeyEnter:
+		message := m.textInputOverlay.Value()
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		
+		// Create bookmark commit
+		selected := m.list.GetSelectedInstance()
+		if selected != nil {
+			return m, m.createBookmark(selected, message)
+		}
+		return m, nil
+	case keys.KeyQuit:
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.textInputOverlay = nil
+		return m, nil
+	default:
+		// Pass through to text input
+		updated, cmd := m.textInputOverlay.Update(msg)
+		m.textInputOverlay = updated.(*overlay.TextInputOverlay)
+		return m, cmd
+	}
+}
+
+// handleBranchSelectState handles key presses when in the branch select state
+func (m *home) handleBranchSelectState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, ok := keys.GetKeyName(msg.String())
+	if ok && keyName == keys.KeyQuit {
+		m.state = stateDefault
+		m.branchSelectorOverlay = nil
+		return m, nil
+	}
+
+	// Pass through to branch selector
+	updated, cmd := m.branchSelectorOverlay.Update(msg)
+	if u, ok := updated.(*overlay.BranchSelectorOverlay); ok {
+		m.branchSelectorOverlay = u
+	}
+	return m, cmd
+}
+
+// handlePRReviewState handles key presses when in the PR review state
+func (m *home) handlePRReviewState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, ok := keys.GetKeyName(msg.String())
+	if ok && keyName == keys.KeyQuit {
+		m.state = stateDefault
+		m.prReviewOverlay = nil
+		return m, nil
+	}
+
+	// Pass through to PR review overlay
+	updatedModel, cmd := m.prReviewOverlay.Update(msg)
+	if u, ok := updatedModel.(*ui.PRReviewModel); ok {
+		m.prReviewOverlay = u
+	}
+	return m, cmd
+}
+
+// handleHelpState handles key presses when in the help state
+func (m *home) handleHelpState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, _ := keys.GetKeyName(msg.String())
+	if keyName == keys.KeyQuit || keyName == keys.KeyHelp || keyName == keys.KeyEnter {
+		m.state = stateDefault
+		m.textOverlay = nil
+		// Execute any pending callback
+		if callback := m.textOverlay.GetCallback(); callback != nil {
+			callback()
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleErrorLogState handles key presses when in the error log state
+func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, _ := keys.GetKeyName(msg.String())
+	if keyName == keys.KeyQuit || keyName == keys.KeyErrorLog || keyName == keys.KeyEnter {
+		m.state = stateDefault
+		m.textOverlay = nil
+		return m, nil
+	}
+	// Allow scrolling in error log
+	if m.textOverlay != nil {
+		m.textOverlay.Update(msg)
+	}
+	return m, nil
+}
+
+// handleHistoryState handles key presses when in the history state
+func (m *home) handleHistoryState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, _ := keys.GetKeyName(msg.String())
+	if keyName == keys.KeyQuit || keyName == keys.KeyHistory || keyName == keys.KeyEnter {
+		m.state = stateDefault
+		m.menu.SetState(ui.StateDefault)
+		m.historyOverlay = nil
+		return m, nil
+	}
+	// Pass through to history overlay for scrolling
+	if m.historyOverlay != nil {
+		m.historyOverlay.Update(msg)
+	}
+	return m, nil
+}
+
+// handleKeybindingEditorState handles key presses when in the keybinding editor state
+func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// The keybinding editor handles all its own keys
+	updated, cmd := m.keybindingEditorOverlay.Update(msg)
+	if u, ok := updated.(*overlay.KeybindingEditorOverlay); ok {
+		m.keybindingEditorOverlay = u
+	}
+	return m, cmd
+}
+
+// handleGitStatusState handles key presses when in the git status state
+func (m *home) handleGitStatusState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, _ := keys.GetKeyName(msg.String())
+	if keyName == keys.KeyQuit || keyName == keys.KeyGitStatus || keyName == keys.KeyEnter {
+		m.state = stateDefault
+		m.gitStatusOverlay = nil
+		return m, nil
+	}
+	// Pass through to git status overlay for navigation
+	if m.gitStatusOverlay != nil {
+		m.gitStatusOverlay.Update(msg)
+	}
+	return m, nil
+}
+
+// handleCommentDetailState handles key presses when in the comment detail state
+func (m *home) handleCommentDetailState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyName, _ := keys.GetKeyName(msg.String())
+	if keyName == keys.KeyQuit || keyName == keys.KeyEnter {
+		// Return to PR review state
+		m.state = statePRReview
+		m.commentDetailOverlay = nil
+		return m, nil
+	}
+	// Pass through to comment detail overlay for scrolling
+	if m.commentDetailOverlay != nil {
+		m.commentDetailOverlay.Update(msg)
+	}
+	return m, nil
+}
+
+// startNewInstance starts the process of creating a new instance
+func (m *home) startNewInstance(withPrompt bool) {
+	if m.list.NumInstances() >= GlobalInstanceLimit {
+		m.handleError(fmt.Errorf("session limit reached (%d)", GlobalInstanceLimit))
+		return
+	}
+	
+	m.state = stateNew
+	m.menu.SetState(ui.StateNew)
+	m.textInputOverlay = overlay.NewTextInputOverlay("Enter instance name", "")
+	m.promptAfterName = withPrompt
+}
+
+// showBranchSelector shows the branch selector overlay
+func (m *home) showBranchSelector() tea.Cmd {
+	return func() tea.Msg {
+		// Get the git root directory
+		gitRoot, err := git.FindRepoRoot(".")
+		if err != nil {
+			return fmt.Errorf("not in a git repository")
+		}
+
+		// Get list of branches
+		branches, err := git.ListBranches(gitRoot)
+		if err != nil {
+			return err
+		}
+
+		if len(branches) == 0 {
+			return fmt.Errorf("no branches found")
+		}
+
+		// Get current branch to filter it out
+		currentBranch, err := git.GetCurrentBranch(gitRoot)
+		if err != nil {
+			return err
+		}
+
+		// Filter out current branch
+		var availableBranches []string
+		for _, branch := range branches {
+			if branch != currentBranch {
+				availableBranches = append(availableBranches, branch)
+			}
+		}
+
+		if len(availableBranches) == 0 {
+			return fmt.Errorf("no other branches available")
+		}
+
+		// Show branch selector
+		m.state = stateBranchSelect
+		m.branchSelectorOverlay = overlay.NewBranchSelectorOverlay(availableBranches)
+		return nil
+	}
+}
+
+// createInstanceFromBranch creates a new instance from an existing branch
+func (m *home) createInstanceFromBranch(branchName string) tea.Cmd {
+	// Generate instance name from branch name
+	instanceName := branchNameToInstanceName(branchName)
+	
+	// Create the instance with the branch
+	return m.createInstanceWithBranch(instanceName, "", branchName)
+}
+
+// branchNameToInstanceName converts a branch name to a suitable instance name
+func branchNameToInstanceName(branchName string) string {
+	// Remove common prefixes
+	name := branchName
+	prefixes := []string{"feature/", "bugfix/", "hotfix/", "release/", "feat/", "fix/"}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(name, prefix) {
+			name = strings.TrimPrefix(name, prefix)
+			break
+		}
+	}
+	
+	// Replace special characters with underscores
+	name = regexp.MustCompile(`[^a-zA-Z0-9_-]`).ReplaceAllString(name, "_")
+	
+	// Trim underscores from start and end
+	name = strings.Trim(name, "_")
+	
+	// Limit length
+	if len(name) > 30 {
+		name = name[:30]
+	}
+	
+	return name
+}
+
+// createInstance creates a new instance with the given name and optional prompt
+func (m *home) createInstance(name string, prompt string) tea.Cmd {
+	return m.createInstanceWithBranch(name, prompt, "")
+}
+
+// createInstanceWithBranch creates a new instance with the given name, prompt, and optional branch
+func (m *home) createInstanceWithBranch(name string, prompt string, branchName string) tea.Cmd {
+	return func() tea.Msg {
+		// Find git root
+		gitRoot, err := git.FindRepoRoot(".")
+		if err != nil {
+			return err
+		}
+
+		// Get the current branch name if not specified
+		if branchName == "" {
+			currentBranch, err := git.GetCurrentBranch(gitRoot)
+			if err != nil {
+				return err
+			}
+			branchName = currentBranch
+		}
+
+		// Generate a unique branch name for the instance
+		timestamp := time.Now().Format("20060102_150405")
+		instanceBranchName := fmt.Sprintf("%s/%s_%s", m.storage.BranchPrefix, name, timestamp)
+
+		// Create the instance
+		instance, err := session.CreateAndStartInstance(name, gitRoot, m.storage.BasePath, instanceBranchName, branchName, m.program)
+		if err != nil {
+			return err
+		}
+
+		// Save the instance
+		if err := m.storage.SaveInstance(instance); err != nil {
+			instance.Kill()
+			return err
+		}
+
+		// Add to the list
+		m.list.AddInstance(instance)
+
+		// If a prompt was provided, send it to the AI pane
+		if prompt != "" {
+			// Wait a bit for the instance to fully start
+			time.Sleep(500 * time.Millisecond)
+			
+			// Send the prompt to the AI pane
+			if err := instance.SendToAIPane(prompt); err != nil {
+				log.ErrorLog.Printf("Failed to send prompt to AI pane: %v", err)
+			}
+		}
+
+		return instanceUpdatedMsg{instance: instance}
+	}
+}
+
+// createBookmark creates a bookmark commit for the instance
+func (m *home) createBookmark(instance *session.Instance, message string) tea.Cmd {
 	return func() tea.Msg {
 		worktree, err := instance.GetGitWorktree()
 		if err != nil {
 			return fmt.Errorf("failed to get git worktree: %w", err)
 		}
 
-		// Get current branch name
-		currentBranch, err := worktree.GetCurrentBranch()
-		if err != nil {
-			return fmt.Errorf("failed to get current branch: %w", err)
+		// Create bookmark commit
+		if err := worktree.CreateBookmark(message); err != nil {
+			return fmt.Errorf("failed to create bookmark: %w", err)
 		}
 
-		var commitMessage string
-		if userMessage != "" {
-			// Use user-provided message
-			commitMessage = fmt.Sprintf("[BOOKMARK] %s", userMessage)
-		} else {
-			// Generate message from commits since last bookmark
-			lastBookmarkSHA, err := worktree.FindLastBookmarkCommit(currentBranch)
-			if err != nil {
-				return fmt.Errorf("failed to find last bookmark: %w", err)
-			}
-
-			// Get commit messages since last bookmark
-			messages, err := worktree.GetCommitMessagesSince(lastBookmarkSHA, currentBranch)
-			if err != nil {
-				return fmt.Errorf("failed to get commit messages: %w", err)
-			}
-
-			if len(messages) == 0 {
-				commitMessage = "[BOOKMARK] No changes since last bookmark"
-			} else {
-				// Generate a summary by concatenating the commit messages
-				summary := strings.Join(messages, "; ")
-				if len(summary) > maxBookmarkSummaryLen {
-					summary = summary[:maxBookmarkSummaryLen-len("...")] + "..."
-				}
-				commitMessage = fmt.Sprintf("[BOOKMARK] %s", summary)
-			}
-		}
-
-		// Create the bookmark commit (allow empty)
-		if err := worktree.CreateBookmarkCommit(commitMessage); err != nil {
-			return fmt.Errorf("failed to create bookmark commit: %w", err)
-		}
-
-		return instanceChangedMsg{}
+		return "Bookmark created successfully"
 	}
 }
 
-func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
-	return tea.Sequence(
-		// First, switch to Jest tab
-		func() tea.Msg {
-			// Set the active tab to JestTab directly
-			m.tabbedWindow.SetTab(ui.JestTab)
-			m.menu.SetInDiffTab(false)
-			return nil
-		},
-		// Then update the Jest pane with test results
-		func() tea.Msg {
-			m.tabbedWindow.UpdateJest(instance)
-			return nil
-		},
-	)
-}
-
-// testStats holds test statistics
-type testStats struct {
-	passed int
-	failed int
-	total  int
-}
-
-// parseJestFinalStats parses the final test summary from Jest output
-func parseJestFinalStats(output string) testStats {
-	stats := testStats{}
-
-	// Look for the test suites summary line
-	// Example: "Test Suites: 1 passed, 1 failed, 2 total"
-	re := regexp.MustCompile(`Test Suites:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?.*?,\s*(\d+)\s*total`)
-	matches := re.FindStringSubmatch(output)
-
-	if len(matches) >= 4 {
-		if passed, err := strconv.Atoi(matches[1]); err == nil {
-			stats.passed = passed
+// showHelpScreen shows a help screen and optionally executes a callback when dismissed
+func (m *home) showHelpScreen(helpType interface{}, callback func()) {
+	// Check if this help screen has been seen before
+	helpKey := getHelpKey(helpType)
+	if m.appState.HasSeenHelp(helpKey) && !m.autoYes {
+		// User has seen this help before, execute callback immediately
+		if callback != nil {
+			callback()
 		}
-		if len(matches) > 2 && matches[2] != "" {
-			if failed, err := strconv.Atoi(matches[2]); err == nil {
-				stats.failed = failed
-			}
-		}
-		if total, err := strconv.Atoi(matches[3]); err == nil {
-			stats.total = total
-		}
+		return
 	}
 
-	// If no failed count was found, calculate it
-	if stats.failed == 0 && stats.total > stats.passed {
-		stats.failed = stats.total - stats.passed
-	}
+	// Mark this help as seen
+	m.appState.MarkHelpSeen(helpKey)
+	config.SaveState(m.appState)
 
-	return stats
+	// Show the help screen
+	m.state = stateHelp
+	helpContent := getHelpContent(helpType)
+	m.textOverlay = overlay.NewTextOverlay("Help", helpContent, callback)
 }
 
-func (m *home) instanceChanged() tea.Cmd {
-	// selected may be nil
-	selected := m.list.GetSelectedInstance()
-
-	// Update the tabbed window with the current instance
-	m.tabbedWindow.SetInstance(selected)
-
-	m.tabbedWindow.UpdateDiff(selected)
-	m.tabbedWindow.UpdateTerminal(selected)
-	// Update menu with current instance
-	m.menu.SetInstance(selected)
-
-	// If there's no selected instance, we don't need to update the preview.
-	if err := m.tabbedWindow.UpdatePreview(selected); err != nil {
-		return m.handleError(err)
-	}
-	return nil
-}
-
-type keyupMsg struct{}
-
-// keydownCallback clears the menu option highlighting after 500ms.
-func (m *home) keydownCallback(name keys.KeyName) tea.Cmd {
-	m.menu.Keydown(name)
-	return func() tea.Msg {
-		select {
-		case <-m.ctx.Done():
-		case <-time.After(500 * time.Millisecond):
-		}
-
-		return keyupMsg{}
-	}
-}
-
-// hideErrMsg implements tea.Msg and clears the error text from the screen.
-type hideErrMsg struct{}
-
-// previewTickMsg implements tea.Msg and triggers a preview update
-type previewTickMsg struct{}
-
-type tickUpdateMetadataMessage struct{}
-
-type instanceChangedMsg struct{}
-
-// startRebaseMsg is sent to trigger the actual rebase after confirmation
-type startRebaseMsg struct{}
-
-// remotePollingMsg is sent to check if the remote branch has been updated
-type remotePollingMsg struct {
-	branchName  string
-	originalSHA string
-}
-
-// instanceCreatedMsg is sent when an instance has been created successfully
-type instanceCreatedMsg struct {
-	instance *session.Instance
-	err      error
-}
-
-// instanceDeletedMsg is sent when an instance has been deleted successfully
-type instanceDeletedMsg struct {
-	title string
-	err   error
-}
-
-// testResultsMsg is sent when test results are available
-type testResultsMsg struct {
-	output      string
-	failedFiles []string
-	err         error
-}
-
-// testStartedMsg is sent when tests start running
-type testStartedMsg struct{}
-
-// testProgressMsg is sent with test progress updates
-type testProgressMsg struct {
-	passed  int
-	failed  int
-	total   int
-	running bool
-}
-
-// tickUpdateMetadataCmd is the callback to update the metadata of the instances every 500ms. Note that we iterate
-// overall the instances and capture their output. It's a pretty expensive operation. Let's do it 2x a second only.
-var tickUpdateMetadataCmd = func() tea.Msg {
-	time.Sleep(500 * time.Millisecond)
-	return tickUpdateMetadataMessage{}
-}
-
-// startInstanceAsync starts an instance asynchronously and returns a tea.Cmd
-func (m *home) startInstanceAsync(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		var resultErr error
-		done := make(chan struct{})
-
-		instance.StartAsync(true, func(err error) {
-			resultErr = err
-			close(done)
-		})
-
-		// Wait for completion
-		<-done
-
-		return instanceCreatedMsg{
-			instance: instance,
-			err:      resultErr,
-		}
-	}
-}
-
-// killInstanceAsync kills an instance asynchronously and returns a tea.Cmd
-func (m *home) killInstanceAsync(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		var resultErr error
-		done := make(chan struct{})
-		title := instance.Title
-
-		instance.KillAsync(func(err error) {
-			if err != nil {
-				// If normal kill fails, try force kill
-				log.InfoLog.Printf("Normal kill failed for %s: %v. Attempting force kill...", title, err)
-				forceDone := make(chan struct{})
-				var forceErr error
-
-				instance.ForceKillAsync(func(err error) {
-					forceErr = err
-					close(forceDone)
-				})
-
-				<-forceDone
-
-				if forceErr != nil {
-					// Log the error but don't fail - we still want to remove the instance
-					log.ErrorLog.Printf("Force kill encountered errors for %s: %v", title, forceErr)
-					resultErr = nil // Set to nil so instance is removed from UI
-				} else {
-					// Force kill succeeded
-					resultErr = nil
-					log.InfoLog.Printf("Force kill succeeded for %s", title)
-				}
-			} else {
-				resultErr = nil
-			}
-			close(done)
-		})
-
-		// Wait for completion
-		<-done
-
-		// Always remove from UI list after kill attempt
-		// Even if there were errors, the instance should be considered gone
-		m.list.Kill()
-
-		return instanceDeletedMsg{
-			title: title,
-			err:   resultErr,
-		}
-	}
-}
-
-// calculateOverlayDimensions returns the width and height for overlay components
-func (m *home) calculateOverlayDimensions() (width, height int) {
-	width = int(float32(m.windowWidth) * overlayWidthRatio)
-	height = int(float32(m.windowHeight) * overlayHeightRatio)
-	return width, height
-}
-
-// handleError handles all errors which get bubbled up to the app. sets the error message. We return a callback tea.Cmd that returns a hideErrMsg message
-// which clears the error message after 3 seconds.
-func (m *home) handleError(err error) tea.Cmd {
-	log.ErrorLog.Printf("%v", err)
-	m.errBox.SetError(err)
-
-	// Store error in the error log with timestamp
-	timestamp := time.Now().Format("15:04:05")
-	errorMsg := fmt.Sprintf("[%s] %v", timestamp, err)
-	m.errorLog = append(m.errorLog, errorMsg)
-
-	// Keep only the last 100 errors to prevent memory issues
-	if len(m.errorLog) > 100 {
-		m.errorLog = m.errorLog[len(m.errorLog)-100:]
-	}
-
-	return func() tea.Msg {
-		select {
-		case <-m.ctx.Done():
-		case <-time.After(3 * time.Second):
-		}
-
-		return hideErrMsg{}
-	}
-}
-
-
-
-// createRemotePollingCmd creates a command that polls the remote for branch changes
-func (m *home) createRemotePollingCmd(branchName string, originalSHA string) tea.Cmd {
-	return func() tea.Msg {
-		// Wait a bit before polling
-		time.Sleep(3 * time.Second)
-		
-		return remotePollingMsg{
-			branchName:  branchName,
-			originalSHA: originalSHA,
-		}
-	}
-}
-
-// confirmAction shows a confirmation modal and stores the action to execute on confirm
-func (m *home) confirmAction(message string, action tea.Cmd) tea.Cmd {
-	m.state = stateConfirm
-
-	// Create and show the confirmation overlay using ConfirmationOverlay
-	m.confirmationOverlay = overlay.NewConfirmationOverlay(message)
-	// Set a fixed width for consistent appearance
-	m.confirmationOverlay.SetWidth(50)
-
-	// Store the pending command
-	m.pendingCmd = action
-
-	// Set callbacks for confirmation and cancellation
-	m.confirmationOverlay.OnConfirm = func() {
-		m.state = stateDefault
-	}
-
-	m.confirmationOverlay.OnCancel = func() {
-		m.state = stateDefault
-		m.pendingCmd = nil
-	}
-
-	return nil
-}
-
-func (m *home) View() string {
-	listWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.list.String())
-	previewWithPadding := lipgloss.NewStyle().PaddingTop(1).Render(m.tabbedWindow.String())
-	listAndPreview := lipgloss.JoinHorizontal(lipgloss.Top, listWithPadding, previewWithPadding)
-
-	// Add rebase loading indicator if rebase is in progress
-	var rebaseIndicator string
-	if m.rebaseInProgress {
-		loadingStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("205")).
-			Bold(true).
-			Padding(1, 2)
-		rebaseIndicator = loadingStyle.Render(fmt.Sprintf("%s Rebase in progress for branch %s... Waiting for remote update",
-			m.spinner.View(), m.rebaseBranchName))
-	}
-
-	mainView := lipgloss.JoinVertical(
-		lipgloss.Center,
-		rebaseIndicator,
-		listAndPreview,
-		m.menu.String(),
-		m.errBox.String(),
-	)
-
-	if m.state == statePrompt {
-		if m.textInputOverlay == nil {
-			log.ErrorLog.Printf("text input overlay is nil")
-		}
-		return overlay.PlaceOverlay(0, 0, m.textInputOverlay.Render(), mainView, true, true)
-	} else if m.state == stateHelp {
-		if m.textOverlay == nil {
-			log.ErrorLog.Printf("text overlay is nil")
-		}
-		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
-	} else if m.state == stateConfirm {
-		if m.confirmationOverlay == nil {
-			log.ErrorLog.Printf("confirmation overlay is nil")
-		}
-		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
-	} else if m.state == stateBranchSelect {
-		if m.branchSelectorOverlay == nil {
-			log.ErrorLog.Printf("branch selector overlay is nil")
-			// Return to default state if overlay is nil
-			m.state = stateDefault
-			m.menu.SetState(ui.StateDefault)
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.branchSelectorOverlay.View(), mainView, true, true)
-	} else if m.state == stateErrorLog {
-		if m.textOverlay == nil {
-			log.ErrorLog.Printf("error log overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
-	} else if m.state == statePRReview {
-		if m.prReviewOverlay == nil {
-			log.ErrorLog.Printf("PR review overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		// Return PR review directly - it manages its own full-screen layout
-		return m.prReviewOverlay.View()
-	} else if m.state == stateBookmark {
-		if m.textInputOverlay == nil {
-			log.ErrorLog.Printf("text input overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.textInputOverlay.Render(), mainView, true, true)
-	} else if m.state == stateHistory {
-		if m.historyOverlay == nil {
-			log.ErrorLog.Printf("history overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.historyOverlay.Render(), mainView, true, true)
-	} else if m.state == stateKeybindingEditor {
-		if m.keybindingEditorOverlay == nil {
-			log.ErrorLog.Printf("keybinding editor overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.keybindingEditorOverlay.Render(), mainView, true, true)
-	} else if m.state == stateGitStatus {
-		if m.gitStatusOverlay == nil {
-			log.ErrorLog.Printf("git status overlay is nil")
-			m.state = stateDefault
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.gitStatusOverlay.Render(), mainView, true, true)
-	} else if m.state == stateCommentDetail {
-		if m.commentDetailOverlay == nil {
-			log.ErrorLog.Printf("comment detail overlay is nil")
-			m.state = statePRReview
-			return mainView
-		}
-		return overlay.PlaceOverlay(0, 0, m.commentDetailOverlay.Render(), mainView, true, true)
-	}
-
-	return mainView
-}
-
-func (m *home) handleErrorLogState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Any key press closes the error log
-	m.state = stateDefault
-	m.textOverlay = nil
-	return m, nil
-}
-
-// handleHistoryState handles key events when in history state
-func (m *home) handleHistoryState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Let the history overlay handle the key press
-	shouldClose := m.historyOverlay.HandleKeyPress(msg)
-	if shouldClose {
-		m.state = stateDefault
-		m.menu.SetState(ui.StateDefault)
-		m.historyOverlay = nil
-		return m, tea.WindowSize()
-	}
-
-	// Update the viewport
-	_, cmd := m.historyOverlay.Update(msg)
-	return m, cmd
-}
-
-func (m *home) handleCommentDetailState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.commentDetailOverlay == nil {
-		m.state = statePRReview
-		return m, nil
-	}
-
-	// Let the comment detail overlay handle the key press
-	shouldClose := m.commentDetailOverlay.HandleKeyPress(msg)
-	if shouldClose {
-		m.state = statePRReview
-		m.commentDetailOverlay = nil
-		return m, nil
-	}
-
-	// Update the viewport
-	_, cmd := m.commentDetailOverlay.Update(msg)
-	return m, cmd
-}
-
-func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.keybindingEditorOverlay == nil {
-		m.state = stateDefault
-		return m, nil
-	}
-
-	// Let the overlay handle the key press
-	if m.keybindingEditorOverlay.HandleKeyPress(msg) {
-		// Overlay was dismissed, reload keybindings
-		m.state = stateDefault
-		m.keybindingEditorOverlay = nil
-
-		// Reload keybindings
-		if err := keys.InitializeCustomKeyBindings(); err != nil {
-			log.ErrorLog.Printf("Failed to reload custom keybindings: %v", err)
-		}
-
-		// Update menu to reflect new keybindings
-		m.menu = ui.NewMenu()
-
-		return m, nil
-	}
-
-	return m, nil
-}
-
-func (m *home) handleGitStatusState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.gitStatusOverlay == nil {
-		m.state = stateDefault
-		return m, nil
-	}
-
-	// Let the overlay handle the key press
-	if m.gitStatusOverlay.HandleKeyPress(msg) {
-		// Overlay was dismissed, and the OnDismiss callback has already cleaned up.
-		return m, nil
-	}
-
-	return m, nil
-}
-
-func (m *home) showTestResults(output string) {
-	// Create text overlay with test results
-	m.textOverlay = overlay.NewTextOverlay(output)
-	m.state = stateHelp // Use help state since it handles text overlay display
-	m.menu.SetState(ui.StateDefault)
-}
-
-func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
-	// Create content for error log
-	var content string
+// showErrorLog shows the error log overlay
+func (m *home) showErrorLog() {
 	if len(m.errorLog) == 0 {
-		content = "No errors have been logged."
-	} else {
-		content = lipgloss.JoinVertical(lipgloss.Left,
-			titleStyle.Render("Error Log"),
-			"",
-			"Recent errors (newest first):",
-			"")
-
-		// Show errors in reverse order (newest first)
-		for i := len(m.errorLog) - 1; i >= 0; i-- {
-			content = lipgloss.JoinVertical(lipgloss.Left,
-				content,
-				m.errorLog[i])
-		}
-
-		content = lipgloss.JoinVertical(lipgloss.Left,
-			content,
-			"",
-			dimStyle.Render("Press any key to close"))
+		m.handleError(fmt.Errorf("no errors logged"))
+		return
 	}
 
-	// Create text overlay
-	m.textOverlay = overlay.NewTextOverlay(content)
+	// Format error log with timestamps
+	var content strings.Builder
+	content.WriteString("Error Log (newest first):\n\n")
+	
+	// Show errors in reverse order (newest first)
+	for i := len(m.errorLog) - 1; i >= 0; i-- {
+		content.WriteString(fmt.Sprintf("[%d] %s\n\n", len(m.errorLog)-i, m.errorLog[i]))
+	}
+
 	m.state = stateErrorLog
-	m.menu.SetState(ui.StateDefault)
-
-	return m, nil
+	m.textOverlay = overlay.NewTextOverlay("Error Log", content.String(), nil)
 }
 
-func (m *home) createInstanceWithBranch(branchName string) (tea.Model, tea.Cmd) {
-	// Create a unique title by adding a timestamp suffix
-	// This prevents tmux session name conflicts when checking out the same branch multiple times
-	timestamp := time.Now().Format("150405") // HHMMSS format
-	title := fmt.Sprintf("%s-%s", branchName, timestamp)
-
-	// Create a new instance with the selected branch
-	instance, err := session.NewInstanceWithBranch(session.InstanceOptions{
-		Title:      title,
-		Path:       ".",
-		Program:    m.program,
-		BranchName: branchName,
-	})
-	if err != nil {
-		m.state = stateDefault
-		m.menu.SetState(ui.StateDefault)
-		m.branchSelectorOverlay = nil
-		return m, m.handleError(err)
-	}
-
-	m.newInstanceFinalizer = m.list.AddInstance(instance)
-	m.list.SetSelectedInstance(m.list.NumInstances() - 1)
-	m.branchSelectorOverlay = nil
-
-	// Start the instance asynchronously
-	cmd := m.startInstanceAsync(instance)
-
-	// Save after adding new instance
-	if err := m.storage.SaveInstances(m.list.GetInstances()); err != nil {
-		return m, m.handleError(err)
-	}
-
-	// Instance added successfully, call the finalizer
-	m.newInstanceFinalizer()
-
-	// Set state back to default
-	m.state = stateDefault
-	m.menu.SetState(ui.StateDefault)
-
-	return m, tea.Batch(m.instanceChanged(), cmd)
-}
-
-// showHistoryView displays the history overlay for the current pane
+// showHistoryView shows the history overlay for the current pane
 func (m *home) showHistoryView() tea.Cmd {
 	selected := m.list.GetSelectedInstance()
 	if selected == nil {
 		return nil
 	}
 
-	var content string
-	var title string
-	var err error
+	// Check if instance is paused
+	if selected.Paused() {
+		return m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+	}
 
-	// Determine which pane's history to show based on the active tab
+	var content string
+	var err error
+	var title string
+
+	// Get history based on current tab
 	if m.tabbedWindow.IsInTerminalTab() {
-		// Show terminal pane history
+		// Get terminal history
 		content, err = selected.GetTerminalFullHistory()
 		if err != nil {
 			return m.handleError(fmt.Errorf("failed to get terminal history: %v", err))
 		}
 		title = fmt.Sprintf("Terminal History - %s", selected.Title)
-	} else if m.tabbedWindow.IsInAITab() {
-		// Show AI pane history
-		content, err = selected.GetAIFullHistory()
-		if err != nil {
-			return m.handleError(fmt.Errorf("failed to get AI history: %v", err))
-		}
-		title = fmt.Sprintf("AI History - %s", selected.Title)
 	} else {
 		// Default to AI pane if we're in diff view
 		content, err = selected.GetAIFullHistory()
@@ -2183,4 +2083,39 @@ func (m *home) showGitStatusOverlayBookmarkMode(instance *session.Instance) tea.
 	m.state = stateGitStatus
 
 	return tea.WindowSize()
+}
+
+// resetBranchToRemote resets the current branch to its remote head
+func (m *home) resetBranchToRemote(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the git worktree
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return fmt.Errorf("failed to get git worktree: %w", err)
+		}
+
+		// Get current branch name
+		branchName, err := worktree.GetCurrentBranch()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+
+		// Get the remote name (usually "origin")
+		remote, err := worktree.GetRemoteName()
+		if err != nil {
+			return fmt.Errorf("failed to get remote name: %w", err)
+		}
+
+		// Fetch latest from remote
+		if err := worktree.FetchFromRemote(); err != nil {
+			return fmt.Errorf("failed to fetch from remote: %w", err)
+		}
+
+		// Reset to remote head
+		if err := worktree.ResetToRemote(remote, branchName); err != nil {
+			return fmt.Errorf("failed to reset branch '%s' to remote: %w", branchName, err)
+		}
+
+		return fmt.Sprintf("Branch '%s' reset to %s/%s", branchName, remote, branchName)
+	}
 }
