@@ -2,6 +2,7 @@ package ui
 
 import (
 	"claude-squad/keys"
+	"strconv"
 	"strings"
 
 	"claude-squad/session"
@@ -53,6 +54,15 @@ type Menu struct {
 
 	// keyDown is the key which is pressed. The default is -1.
 	keyDown keys.KeyName
+
+	// updateChecker is used to check if updates are available
+	updateChecker UpdateChecker
+}
+
+// UpdateChecker interface for checking if updates are available
+type UpdateChecker interface {
+	IsUpdateAvailable() bool
+	GetCommitsBehind() int
 }
 
 var defaultMenuOptions = []keys.KeyName{keys.KeyNew, keys.KeyExistingBranch, keys.KeyPrompt, keys.KeyHelp, keys.KeyErrorLog, keys.KeyQuit}
@@ -66,6 +76,11 @@ func NewMenu() *Menu {
 		isInDiffTab: false,
 		keyDown:     -1,
 	}
+}
+
+// SetUpdateChecker sets the update checker for the menu
+func (m *Menu) SetUpdateChecker(uc UpdateChecker) {
+	m.updateChecker = uc
 }
 
 func (m *Menu) Keydown(name keys.KeyName) {
@@ -232,6 +247,20 @@ func (m *Menu) String() string {
 			Foreground(lipgloss.Color("220")).
 			Bold(true)
 		s.WriteString(scrollLockStyle.Render("[SCROLL LOCK]"))
+	}
+
+	// Add update indicator if updates are available
+	if m.updateChecker != nil && m.updateChecker.IsUpdateAvailable() {
+		s.WriteString(sepStyle.Render(verticalSeparator))
+		updateStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")). // Orange color
+			Bold(true)
+		commitsBehind := m.updateChecker.GetCommitsBehind()
+		if commitsBehind > 0 {
+			s.WriteString(updateStyle.Render("[UPDATE AVAILABLE - " + strconv.Itoa(commitsBehind) + " commits behind]"))
+		} else {
+			s.WriteString(updateStyle.Render("[UPDATE AVAILABLE]"))
+		}
 	}
 
 	centeredMenuText := menuStyle.Render(s.String())

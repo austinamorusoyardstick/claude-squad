@@ -1,10 +1,11 @@
+//go:build ignore
 // +build ignore
 
 package main
 
 import (
-	"fmt"
 	"claude-squad/ui"
+	"fmt"
 )
 
 func main() {

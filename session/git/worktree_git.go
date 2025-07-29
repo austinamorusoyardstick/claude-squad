@@ -288,7 +288,7 @@ func (g *GitWorktree) hasMergeConflicts() bool {
 func (g *GitWorktree) openIdeForConflicts(globalConfig *config.Config) error {
 	// Get the IDE command from configuration
 	ideCommand := config.GetEffectiveIdeCommand(g.repoPath, globalConfig)
-	
+
 	// Open IDE at the worktree path
 	cmd := exec.Command(ideCommand, g.worktreePath)
 	if err := cmd.Start(); err != nil {
@@ -674,7 +674,7 @@ func parseDiffNameStatus(diffOutput string) []GitFileStatus {
 		if line == "" {
 			continue
 		}
-		
+
 		// Parse the status line format: "M\tfile.go" or "A\tfile.go"
 		parts := strings.Split(line, "\t")
 		if len(parts) >= 2 {
@@ -776,18 +776,18 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 		for _, f := range files {
 			existingFiles[f.Path] = struct{}{}
 		}
-		
+
 		uncommittedLines := strings.Split(strings.TrimSpace(uncommittedOutput), "\n")
 		for _, line := range uncommittedLines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
-			
+
 			// Parse porcelain format: "MM file.go" or " M file.go" or "A  file.go"
 			if len(line) >= 3 {
 				statusChars := line[:2]
-				
+
 				// Handle renamed files specially
 				var filePath string
 				if statusChars[0] == 'R' || statusChars[1] == 'R' {
@@ -800,7 +800,7 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 				} else {
 					filePath = strings.TrimSpace(line[2:])
 				}
-				
+
 				// Convert porcelain status to diff status
 				var status string
 				switch {
@@ -819,7 +819,7 @@ func (g *GitWorktree) GetChangedFilesSinceCommit(fromCommit string) ([]GitFileSt
 				default:
 					status = "M" // Default to modified
 				}
-				
+
 				// Check if this file is already in our list (avoid duplicates)
 				if _, found := existingFiles[filePath]; !found {
 					files = append(files, GitFileStatus{

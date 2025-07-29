@@ -60,7 +60,7 @@ func (t *TextOverlay) HandleKeyPress(msg tea.KeyMsg) bool {
 			return false
 		}
 	}
-	
+
 	// Close on any other key
 	t.Dismissed = true
 	// Call the OnDismiss callback if it exists
@@ -82,7 +82,7 @@ func (t *TextOverlay) Render(opts ...WhitespaceOption) string {
 	if t.needsScrolling {
 		// Use viewport for scrollable content
 		content = t.viewport.View()
-		
+
 		// Add scroll indicator at bottom if needed
 		if t.viewport.TotalLineCount() > t.viewport.Height {
 			scrollInfo := lipgloss.NewStyle().
@@ -121,22 +121,22 @@ func (t *TextOverlay) updateViewport() {
 	if t.height == 0 || t.width == 0 {
 		return
 	}
-	
+
 	// Calculate viewport dimensions (account for borders, padding, and scroll info)
 	// Vertical overhead: 2 (border) + 2 (padding) + 2 (scroll info) = 6 lines
 	viewportHeight := t.height - 6
 	viewportWidth := t.width - 6 // Border and padding on sides
-	
+
 	if viewportHeight < 1 {
 		viewportHeight = 1
 	}
 	if viewportWidth < 1 {
 		viewportWidth = 1
 	}
-	
+
 	t.viewport.Width = viewportWidth
 	t.viewport.Height = viewportHeight
-	
+
 	// Determine if scrolling is needed
 	totalLines := lipgloss.Height(t.content)
 	t.needsScrolling = totalLines > viewportHeight

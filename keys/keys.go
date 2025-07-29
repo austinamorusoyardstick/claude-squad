@@ -37,7 +37,7 @@ const (
 	KeyBookmark       // Key for creating a bookmark commit
 	KeyTest           // Key for running Jest tests
 	KeyExternalDiff   // Key for opening in external diff tool
-	
+
 	// Jest keybindings
 	KeyJestNextFailure     // Key for navigating to next Jest failure
 	KeyJestPreviousFailure // Key for navigating to previous Jest failure
@@ -60,9 +60,10 @@ const (
 	KeyScrollLock
 	KeyOpenInIDE
 	KeyHistory
-	KeyEditKeybindings // Key for opening keybinding editor
-	KeyGitStatus       // Key for showing git status overlay
+	KeyEditKeybindings   // Key for opening keybinding editor
+	KeyGitStatus         // Key for showing git status overlay
 	KeyGitStatusBookmark // Key for showing git status overlay in bookmark mode
+	KeyCheckUpdate       // Key for checking for updates
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -113,7 +114,8 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"x":          KeyExternalDiff,
 	"g":          KeyGitStatus,
 	"G":          KeyGitStatusBookmark,
-	
+	"U":          KeyCheckUpdate,
+
 	// Jest navigation - these are only active in Jest tab
 	// "n" and "p" are already taken globally, so we'll handle them contextually
 	// "enter" and "r" will also be handled contextually in Jest tab
@@ -277,6 +279,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("G"),
 		key.WithHelp("G", "git status bookmarks"),
 	),
+	KeyCheckUpdate: key.NewBinding(
+		key.WithKeys("U"),
+		key.WithHelp("U", "check for updates"),
+	),
 
 	// -- Special keybindings --
 
@@ -379,6 +385,7 @@ func DefaultKeyBindings() *KeyBindingsConfig {
 			{Command: "edit_keybindings", Keys: []string{"K"}, Help: "K"},
 			{Command: "git_status", Keys: []string{"g"}, Help: "g"},
 			{Command: "git_status_bookmark", Keys: []string{"G"}, Help: "G"},
+			{Command: "check_update", Keys: []string{"U"}, Help: "U"},
 		},
 	}
 }
@@ -505,41 +512,42 @@ func (k *KeyBindingsConfig) ValidateBindings() map[string][]string {
 // getCommandToKeyNameMap returns the mapping of command names to KeyName constants
 func getCommandToKeyNameMap() map[string]KeyName {
 	return map[string]KeyName{
-		"up":               KeyUp,
-		"down":             KeyDown,
-		"enter":            KeyEnter,
-		"new":              KeyNew,
-		"new_with_prompt":  KeyPrompt,
-		"existing_branch":  KeyExistingBranch,
-		"kill":             KeyKill,
-		"quit":             KeyQuit,
-		"push":             KeySubmit,
-		"checkout":         KeyCheckout,
-		"resume":           KeyResume,
-		"help":             KeyHelp,
-		"error_log":        KeyErrorLog,
-		"open_ide":         KeyOpenIDE,
-		"rebase":           KeyRebase,
-		"tab":              KeyTab,
+		"up":                  KeyUp,
+		"down":                KeyDown,
+		"enter":               KeyEnter,
+		"new":                 KeyNew,
+		"new_with_prompt":     KeyPrompt,
+		"existing_branch":     KeyExistingBranch,
+		"kill":                KeyKill,
+		"quit":                KeyQuit,
+		"push":                KeySubmit,
+		"checkout":            KeyCheckout,
+		"resume":              KeyResume,
+		"help":                KeyHelp,
+		"error_log":           KeyErrorLog,
+		"open_ide":            KeyOpenIDE,
+		"rebase":              KeyRebase,
+		"tab":                 KeyTab,
 		"shift_tab":        KeyShiftTab,
-		"scroll_up":        KeyShiftUp,
-		"scroll_down":      KeyShiftDown,
-		"home":             KeyHome,
-		"end":              KeyEnd,
-		"page_up":          KeyPageUp,
-		"page_down":        KeyPageDown,
-		"prev_file":        KeyAltUp,
-		"next_file":        KeyAltDown,
-		"diff_all":         KeyDiffAll,
-		"diff_last_commit": KeyDiffLastCommit,
-		"prev_commit":      KeyLeft,
-		"next_commit":      KeyRight,
-		"scroll_lock":      KeyScrollLock,
-		"open_in_ide":      KeyOpenInIDE,
-		"edit_keybindings": KeyEditKeybindings,
-		"external_diff":    KeyExternalDiff,
-		"git_status":       KeyGitStatus,
+		"scroll_up":           KeyShiftUp,
+		"scroll_down":         KeyShiftDown,
+		"home":                KeyHome,
+		"end":                 KeyEnd,
+		"page_up":             KeyPageUp,
+		"page_down":           KeyPageDown,
+		"prev_file":           KeyAltUp,
+		"next_file":           KeyAltDown,
+		"diff_all":            KeyDiffAll,
+		"diff_last_commit":    KeyDiffLastCommit,
+		"prev_commit":         KeyLeft,
+		"next_commit":         KeyRight,
+		"scroll_lock":         KeyScrollLock,
+		"open_in_ide":         KeyOpenInIDE,
+		"edit_keybindings":    KeyEditKeybindings,
+		"external_diff":       KeyExternalDiff,
+		"git_status":          KeyGitStatus,
 		"git_status_bookmark": KeyGitStatusBookmark,
+		"check_update":        KeyCheckUpdate,
 	}
 }
 
@@ -563,40 +571,41 @@ func updateGlobalBindings(kbConfig *KeyBindingsConfig) {
 // getHelpText returns the help text for a command
 func getHelpText(command string) string {
 	helpTexts := map[string]string{
-		"up":               "up",
-		"down":             "down",
-		"enter":            "open",
-		"new":              "new",
-		"new_with_prompt":  "new with prompt",
-		"existing_branch":  "existing branch",
-		"kill":             "kill",
-		"quit":             "quit",
-		"push":             "push branch",
-		"checkout":         "checkout",
-		"resume":           "resume",
-		"help":             "help",
-		"error_log":        "error log",
-		"open_ide":         "open IDE",
-		"rebase":           "rebase",
-		"tab":              "switch tab",
+		"up":                  "up",
+		"down":                "down",
+		"enter":               "open",
+		"new":                 "new",
+		"new_with_prompt":     "new with prompt",
+		"existing_branch":     "existing branch",
+		"kill":                "kill",
+		"quit":                "quit",
+		"push":                "push branch",
+		"checkout":            "checkout",
+		"resume":              "resume",
+		"help":                "help",
+		"error_log":           "error log",
+		"open_ide":            "open IDE",
+		"rebase":              "rebase",
+		"tab":                 "switch tab",
 		"shift_tab":        "switch tab (reverse)",
-		"scroll_up":        "scroll",
-		"scroll_down":      "scroll",
-		"home":             "scroll to top",
-		"end":              "scroll to bottom",
-		"page_up":          "page up",
-		"page_down":        "page down",
-		"prev_file":        "prev file",
-		"next_file":        "next file",
-		"diff_all":         "all changes",
-		"diff_last_commit": "last commit diff",
-		"prev_commit":      "prev commit",
-		"next_commit":      "next commit",
-		"scroll_lock":      "toggle scroll lock",
-		"open_in_ide":      "open in IDE",
-		"external_diff":    "external diff",
-		"git_status":       "git status",
+		"scroll_up":           "scroll",
+		"scroll_down":         "scroll",
+		"home":                "scroll to top",
+		"end":                 "scroll to bottom",
+		"page_up":             "page up",
+		"page_down":           "page down",
+		"prev_file":           "prev file",
+		"next_file":           "next file",
+		"diff_all":            "all changes",
+		"diff_last_commit":    "last commit diff",
+		"prev_commit":         "prev commit",
+		"next_commit":         "next commit",
+		"scroll_lock":         "toggle scroll lock",
+		"open_in_ide":         "open in IDE",
+		"external_diff":       "external diff",
+		"git_status":          "git status",
 		"git_status_bookmark": "git status bookmarks",
+		"check_update":        "check for updates",
 	}
 
 	if text, ok := helpTexts[command]; ok {

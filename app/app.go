@@ -80,6 +80,8 @@ type home struct {
 	appConfig *config.Config
 	// appState stores persistent application state like seen help screens
 	appState config.AppState
+	// updateChecker checks for application updates
+	updateChecker *UpdateChecker
 
 	// -- State --
 
@@ -96,7 +98,7 @@ type home struct {
 
 	// keySent is used to manage underlining menu items
 	keySent bool
-	
+
 	// Window dimensions
 	windowWidth  int
 	windowHeight int
@@ -171,18 +173,26 @@ func newHome(ctx context.Context, program string, autoYes bool) *home {
 		os.Exit(1)
 	}
 
+	// Create update checker
+	updateChecker := NewUpdateChecker()
+	updateChecker.StartBackgroundCheck()
+
+	menu := ui.NewMenu()
+	menu.SetUpdateChecker(updateChecker)
+
 	h := &home{
-		ctx:          ctx,
-		spinner:      spinner.New(spinner.WithSpinner(spinner.MiniDot)),
-		menu:         ui.NewMenu(),
-		tabbedWindow: ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
-		errBox:       ui.NewErrBox(),
-		storage:      storage,
-		appConfig:    appConfig,
-		program:      program,
-		autoYes:      autoYes,
-		state:        stateDefault,
-		appState:     appState,
+		ctx:           ctx,
+		spinner:       spinner.New(spinner.WithSpinner(spinner.MiniDot)),
+		menu:          menu,
+		tabbedWindow:  ui.NewTabbedWindow(ui.NewPreviewPane(), ui.NewDiffPane(), ui.NewTerminalPane(), ui.NewJestPane(appConfig)),
+		errBox:        ui.NewErrBox(),
+		storage:       storage,
+		appConfig:     appConfig,
+		program:       program,
+		autoYes:       autoYes,
+		state:         stateDefault,
+		appState:      appState,
+		updateChecker: updateChecker,
 	}
 	h.list = ui.NewList(&h.spinner, autoYes)
 
@@ -211,7 +221,7 @@ func (m *home) updateHandleWindowSizeEvent(msg tea.WindowSizeMsg) {
 	// Store window dimensions
 	m.windowWidth = msg.Width
 	m.windowHeight = msg.Height
-	
+
 	// List takes 30% of width, preview takes 70%
 	listWidth := int(float32(msg.Width) * 0.3)
 	tabsWidth := msg.Width - listWidth
@@ -1253,6 +1263,12 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		}
 		// Show git status overlay in bookmark mode
 		return m, m.showGitStatusOverlayBookmarkMode(selected)
+	case keys.KeyCheckUpdate:
+		// Trigger an immediate update check
+		m.updateChecker.CheckNow()
+		// For now, we'll just return without showing a message
+		// The update indicator will appear in the menu when the check completes
+		return m, nil
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
 			return m, nil
@@ -1409,16 +1425,16 @@ func (m *home) openFileInExternalDiff(instance *session.Instance, filePath strin
 const (
 	// maxBookmarkSummaryLen is the maximum length for auto-generated bookmark commit message summaries
 	maxBookmarkSummaryLen = 100
-	
+
 	// Overlay dimension ratios
 	overlayWidthRatio  = 0.8
 	overlayHeightRatio = 0.9
-	
+
 	// Error messages
 	cannotRebaseUncommittedChangesError = "cannot rebase: you have uncommitted changes. Press 'c' to checkout and commit, or stash them first"
-	instancePausedError                  = "instance '%s' is paused. Press 'r' to resume it first"
-	noPullRequestFoundError              = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
-	noExternalDiffToolConfiguredError    = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
+	instancePausedError                 = "instance '%s' is paused. Press 'r' to resume it first"
+	noPullRequestFoundError             = "no pull request found for this branch. Push the branch with 'p' first to create a PR: %w"
+	noExternalDiffToolConfiguredError   = "no external diff tool configured. Set 'diff_command' in ~/.claude-squad/config.json or repository's CLAUDE.md"
 )
 
 func (m *home) createBookmarkCommit(instance *session.Instance, userMessage string) tea.Cmd {
@@ -1488,7 +1504,6 @@ func (m *home) runJestTests(instance *session.Instance) tea.Cmd {
 		},
 	)
 }
-
 
 // testStats holds test statistics
 type testStats struct {
