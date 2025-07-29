@@ -151,6 +151,7 @@ func (h helpTypeInstanceCheckout) toContent() string {
 		keyStyle.Render("r")+descStyle.Render(" - Resume a paused session"),
 		keyStyle.Render("p")+descStyle.Render(" - Commit and push branch to GitHub"),
 		keyStyle.Render("b")+descStyle.Render(" - Rebase with main branch"),
+		keyStyle.Render("h")+descStyle.Render(" - Git reset --hard to origin/branch"),
 		"",
 		dimStyle.Render("Note: The session is paused after checkout. Use 'r' to resume"),
 		dimStyle.Render("when you're ready to continue working with Claude Code."),
