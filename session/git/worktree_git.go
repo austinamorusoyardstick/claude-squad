@@ -225,18 +225,41 @@ func (g *GitWorktree) isCommitBackedUp(commitHash string) (bool, string, error) 
 
 // RebaseWithMain rebases the current branch with the main branch
 func (g *GitWorktree) RebaseWithMain() error {
-	// First, create a backup branch with a unique name.
-	// Using UnixNano is sufficient to avoid collisions and is more efficient than checking for existence.
-	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, time.Now().UnixNano())
+	// Get current commit hash to check if we need a backup
+	currentCommit, err := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
+	if err != nil {
+		return fmt.Errorf("failed to get current commit: %w", err)
+	}
+	currentCommit = strings.TrimSpace(currentCommit)
 
-	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
-		return fmt.Errorf("failed to create backup branch: %w", err)
+	// Check if the current commit is already backed up on a remote branch
+	isBackedUp, existingBackup, err := g.isCommitBackedUp(currentCommit)
+	if err != nil {
+		log.WarningLog.Printf("Failed to check for existing backups: %v", err)
+		// Continue with creating a new backup
+		isBackedUp = false
 	}
 
-	// Push the backup branch with --no-verify for speed
-	if _, err := g.runGitCommand(g.worktreePath, "push", "origin", backupBranch, "--no-verify"); err != nil {
-		// If push fails, just log it but continue
-		log.WarningLog.Printf("failed to push backup branch %s: %v", backupBranch, err)
+	var backupBranch string
+	if isBackedUp {
+		// Use the existing backup branch name
+		backupBranch = existingBackup
+		log.InfoLog.Printf("Current commit already backed up in branch: %s", backupBranch)
+	} else {
+		// Create a new backup branch with a unique name
+		backupBranch = fmt.Sprintf("%s-backup-%d", g.branchName, time.Now().UnixNano())
+
+		if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
+			return fmt.Errorf("failed to create backup branch: %w", err)
+		}
+
+		// Push the backup branch with --no-verify for speed
+		if _, err := g.runGitCommand(g.worktreePath, "push", "origin", backupBranch, "--no-verify"); err != nil {
+			// If push fails, just log it but continue
+			log.WarningLog.Printf("failed to push backup branch %s: %v", backupBranch, err)
+		} else {
+			log.InfoLog.Printf("Created and pushed new backup branch: %s", backupBranch)
+		}
 	}
 
 	// Fetch the latest from origin
