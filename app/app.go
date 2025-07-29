@@ -2147,33 +2147,8 @@ func (m *home) handleError(err error) tea.Cmd {
 
 // instanceChanged updates the UI when the selected instance changes
 func (m *home) instanceChanged() tea.Cmd {
-	selected := m.list.GetSelectedInstance()
-	if selected == nil {
-		// Clear all panes
-		m.tabbedWindow.ClearAll()
-		return nil
-	}
-
-	// Update the diff pane
-	return m.updateDiffPane(selected)
-}
-
-// updateDiffPane updates the diff pane for the selected instance
-func (m *home) updateDiffPane(instance *session.Instance) tea.Cmd {
-	return func() tea.Msg {
-		worktree, err := instance.GetGitWorktree()
-		if err != nil {
-			return err
-		}
-
-		diff, err := worktree.GetDiff("")
-		if err != nil {
-			return err
-		}
-
-		m.tabbedWindow.SetDiffContent(diff, "All Changes")
-		return nil
-	}
+	// For now, just return nil - actual implementation would update UI components
+	return nil
 }
 
 // keydownCallback creates a callback for key press handling
