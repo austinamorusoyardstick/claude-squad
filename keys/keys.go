@@ -614,6 +614,7 @@ func getHelpText(command string) string {
 		"git_status":          "git status",
 		"git_status_bookmark": "git status bookmarks",
 		"check_update":        "check for updates",
+		"git_reset":           "git reset --hard",
 	}
 
 	if text, ok := helpTexts[command]; ok {
