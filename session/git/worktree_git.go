@@ -261,6 +261,59 @@ func (g *GitWorktree) RebaseWithMain() error {
 	return nil
 }
 
+// ResetToOrigin performs git fetch origin and git reset --hard origin/branch
+func (g *GitWorktree) ResetToOrigin() error {
+	// First, create a backup branch with a unique name
+	timestamp := time.Now().Unix()
+	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+
+	// Ensure the backup branch name is unique by checking if it exists
+	for {
+		// Check if the branch already exists locally or remotely
+		localExists := false
+		remoteExists := false
+
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", backupBranch); err == nil {
+			localExists = true
+		}
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", fmt.Sprintf("origin/%s", backupBranch)); err == nil {
+			remoteExists = true
+		}
+
+		if !localExists && !remoteExists {
+			break
+		}
+
+		// If it exists, add a counter to make it unique
+		timestamp++
+		backupBranch = fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
+	}
+
+	// Create backup branch from current state
+	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
+		return fmt.Errorf("failed to create backup branch: %w", err)
+	}
+
+	// Push the backup branch with --no-verify for speed
+	if _, err := g.runGitCommand(g.worktreePath, "push", "origin", backupBranch, "--no-verify"); err != nil {
+		// If push fails, just log it but continue
+		log.WarningLog.Printf("failed to push backup branch %s: %v", backupBranch, err)
+	}
+
+	// Fetch the latest from origin
+	if _, err := g.runGitCommand(g.worktreePath, "fetch", "origin"); err != nil {
+		return fmt.Errorf("failed to fetch from origin: %w", err)
+	}
+
+	// Perform the reset to origin
+	if _, err := g.runGitCommand(g.worktreePath, "reset", "--hard", fmt.Sprintf("origin/%s", g.branchName)); err != nil {
+		return fmt.Errorf("failed to reset to origin/%s. Backup branch created: %s. Error: %w", g.branchName, backupBranch, err)
+	}
+
+	log.InfoLog.Printf("Successfully reset branch %s to origin/%s. Backup branch: %s", g.branchName, g.branchName, backupBranch)
+	return nil
+}
+
 // hasMergeConflicts checks if there are currently merge conflicts in the worktree
 func (g *GitWorktree) hasMergeConflicts() bool {
 	// Check git status for conflict markers
