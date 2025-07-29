@@ -554,6 +554,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"git_status":          KeyGitStatus,
 		"git_status_bookmark": KeyGitStatusBookmark,
 		"check_update":        KeyCheckUpdate,
+		"reset":               KeyReset,
 	}
 }
 
