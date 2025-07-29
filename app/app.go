@@ -2179,8 +2179,7 @@ func (m *home) updateDiffPane(instance *session.Instance) tea.Cmd {
 // keydownCallback creates a callback for key press handling
 func (m *home) keydownCallback(keyName keys.KeyName) tea.Cmd {
 	return func() tea.Msg {
-		// Handle menu item highlighting
-		m.menu.SetActiveKey(keyName)
+		// For now, just return nil - menu highlighting is handled elsewhere
 		return nil
 	}
 }
