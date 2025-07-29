@@ -2137,3 +2137,86 @@ func (m *home) resetBranchToRemote(instance *session.Instance) tea.Cmd {
 		return fmt.Sprintf("Branch '%s' reset to %s/%s", branchName, remote, branchName)
 	}
 }
+
+// handleError converts an error into a tea.Msg
+func (m *home) handleError(err error) tea.Cmd {
+	return func() tea.Msg {
+		return err
+	}
+}
+
+// instanceChanged updates the UI when the selected instance changes
+func (m *home) instanceChanged() tea.Cmd {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		// Clear all panes
+		m.tabbedWindow.ClearAll()
+		return nil
+	}
+
+	// Update the diff pane
+	return m.updateDiffPane(selected)
+}
+
+// updateDiffPane updates the diff pane for the selected instance
+func (m *home) updateDiffPane(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return err
+		}
+
+		diff, err := worktree.GetDiff("")
+		if err != nil {
+			return err
+		}
+
+		m.tabbedWindow.SetDiffContent(diff, "All Changes")
+		return nil
+	}
+}
+
+// keydownCallback creates a callback for key press handling
+func (m *home) keydownCallback(keyName keys.KeyName) tea.Cmd {
+	return func() tea.Msg {
+		// Handle menu item highlighting
+		m.menu.SetActiveKey(keyName)
+		return nil
+	}
+}
+
+// startRebase initiates a rebase operation for the given instance
+func (m *home) startRebase(instance *session.Instance) tea.Cmd {
+	return func() tea.Msg {
+		// Get the worktree
+		worktree, err := instance.GetGitWorktree()
+		if err != nil {
+			return rebaseUpdateMsg{err: fmt.Errorf("failed to get git worktree: %w", err)}
+		}
+
+		// Get main branch name
+		mainBranch, err := worktree.GetMainBranch()
+		if err != nil {
+			return rebaseUpdateMsg{err: fmt.Errorf("failed to determine main branch: %w", err)}
+		}
+
+		// Mark rebase as in progress
+		m.rebaseInProgress = true
+		m.rebaseInstance = instance
+		m.rebaseBranchName = worktree.GetCurrentBranch()
+
+		// Get current SHA before rebase
+		sha, err := worktree.GetCurrentCommitSHA()
+		if err != nil {
+			return rebaseUpdateMsg{err: fmt.Errorf("failed to get current commit SHA: %w", err)}
+		}
+		m.rebaseOriginalSHA = sha
+
+		// Perform the rebase
+		if err := worktree.RebaseWithMain(); err != nil {
+			return rebaseUpdateMsg{err: err}
+		}
+
+		return rebaseUpdateMsg{complete: true}
+	}
+}
