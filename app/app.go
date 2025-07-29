@@ -66,6 +66,24 @@ const (
 	stateCommentDetail
 )
 
+// Message types for tea.Cmd
+type clearSuccessMsg struct{}
+type startRebaseMsg struct{}
+type instanceUpdatedMsg struct {
+	instance *session.Instance
+}
+type rebaseUpdateMsg struct {
+	err      error
+	message  string
+	complete bool
+}
+
+// Error messages
+const (
+	instancePausedError = "instance '%s' is paused - please resume it first"
+	noPullRequestFoundError = "no pull request found for current branch: %w"
+)
+
 type home struct {
 	ctx context.Context
 
