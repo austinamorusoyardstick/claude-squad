@@ -509,6 +509,29 @@ func (g *GitWorktree) GetCurrentBranch() (string, error) {
 	return g.branchName, nil
 }
 
+// GetMainBranch determines and returns the main branch name (main, master, etc)
+func (g *GitWorktree) GetMainBranch() (string, error) {
+	// Determine the main branch name using git remote show origin
+	mainBranch := "main"
+	cmd := exec.Command("sh", "-c", "git remote show origin | sed -n '/HEAD branch/s/.*: //p'")
+	cmd.Dir = g.worktreePath
+	output, err := cmd.Output()
+	if err == nil && len(output) > 0 {
+		mainBranch = strings.TrimSpace(string(output))
+	} else {
+		// Fallback: Try common defaults if the command fails
+		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/main"); err != nil {
+			if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/master"); err == nil {
+				mainBranch = "master"
+			} else if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "origin/dev"); err == nil {
+				mainBranch = "dev"
+			}
+		}
+	}
+	
+	return mainBranch, nil
+}
+
 // GetCurrentCommitSHA returns the current commit SHA
 func (g *GitWorktree) GetCurrentCommitSHA() (string, error) {
 	sha, err := g.runGitCommand(g.worktreePath, "rev-parse", "HEAD")
