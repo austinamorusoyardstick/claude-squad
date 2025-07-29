@@ -350,12 +350,6 @@ func (g *GitWorktree) rebaseWithClone(mainBranch, backupBranch string) error {
 			}
 			
 			// Don't remove temp dir - user needs to resolve conflicts
-			// Create a marker file to help with completion detection
-			markerPath := fmt.Sprintf("%s/.claude-squad-rebase-in-progress", tempDir)
-			if err := os.WriteFile(markerPath, []byte("Remove this file after completing rebase to trigger sync\n"), 0644); err != nil {
-				log.WarningLog.Printf("Failed to create rebase marker file: %v", err)
-			}
-			
 			return &RebaseConflictError{
 				TempDir:    tempDir,
 				MainBranch: mainBranch,
