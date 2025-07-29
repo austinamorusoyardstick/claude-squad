@@ -185,31 +185,9 @@ func (g *GitWorktree) OpenBranchURL() error {
 
 // RebaseWithMain rebases the current branch with the main branch
 func (g *GitWorktree) RebaseWithMain() error {
-	// First, create a backup branch with a unique name
-	timestamp := time.Now().Unix()
-	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
-
-	// Ensure the backup branch name is unique by checking if it exists
-	for {
-		// Check if the branch already exists locally or remotely
-		localExists := false
-		remoteExists := false
-
-		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", backupBranch); err == nil {
-			localExists = true
-		}
-		if _, err := g.runGitCommand(g.worktreePath, "rev-parse", "--verify", fmt.Sprintf("origin/%s", backupBranch)); err == nil {
-			remoteExists = true
-		}
-
-		if !localExists && !remoteExists {
-			break
-		}
-
-		// If it exists, add a counter to make it unique
-		timestamp++
-		backupBranch = fmt.Sprintf("%s-backup-%d", g.branchName, timestamp)
-	}
+	// First, create a backup branch with a unique name.
+	// Using UnixNano is sufficient to avoid collisions and is more efficient than checking for existence.
+	backupBranch := fmt.Sprintf("%s-backup-%d", g.branchName, time.Now().UnixNano())
 
 	if _, err := g.runGitCommand(g.worktreePath, "branch", backupBranch); err != nil {
 		return fmt.Errorf("failed to create backup branch: %w", err)
