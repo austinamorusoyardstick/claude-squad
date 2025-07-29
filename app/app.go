@@ -1611,6 +1611,9 @@ type instanceChangedMsg struct{}
 // startRebaseMsg is sent to trigger the actual rebase after confirmation
 type startRebaseMsg struct{}
 
+// startGitResetMsg is sent to trigger the actual git reset after confirmation
+type startGitResetMsg struct{}
+
 // remotePollingMsg is sent to check if the remote branch has been updated
 type remotePollingMsg struct {
 	branchName  string
