@@ -501,7 +501,7 @@ func (m PRReviewModel) View() string {
 			"c/C:toggle/only comments",
 			"r/R:toggle/only reviews",
 			"l/L:toggle/only line comments",
-			"Ctrl+r:resolve all",
+			"Ctrl+c:resolve all",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
