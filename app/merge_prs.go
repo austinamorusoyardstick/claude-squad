@@ -99,10 +99,26 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		successfulMerges = append(successfulMerges, pr.Number)
 	}
 
+	// Only proceed if we have successful merges
+	if len(successfulMerges) == 0 {
+		return fmt.Errorf("no PRs were successfully merged")
+	}
+
 	// Create a commit message summarizing the merged PRs
-	commitMessage := fmt.Sprintf("Merge %d PRs\n\n", len(selectedPRs))
+	commitMessage := fmt.Sprintf("Merge %d PRs\n\n", len(successfulMerges))
 	for _, pr := range selectedPRs {
-		commitMessage += fmt.Sprintf("- PR #%d: %s\n", pr.Number, pr.Title)
+		prNum := pr.Number
+		// Check if this PR was successfully merged
+		wasSuccessful := false
+		for _, num := range successfulMerges {
+			if num == prNum {
+				wasSuccessful = true
+				break
+			}
+		}
+		if wasSuccessful {
+			commitMessage += fmt.Sprintf("- PR #%d: %s\n", pr.Number, pr.Title)
+		}
 	}
 
 	// Commit the merged changes
