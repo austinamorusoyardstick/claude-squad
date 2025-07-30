@@ -391,18 +391,6 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return ui.PRResolveAllConversationsMsg{}
 			}
 			return m, nil
-		case ui.PRResolveAllConversationsMsg:
-			// Resolve all conversations on the PR
-			m.state = stateHelp
-			m.prReviewOverlay = nil
-			m.confirmationOverlay = nil
-			m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
-			
-			// Log the start of resolution
-			timestamp := time.Now().Format("15:04:05")
-			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Starting to resolve all PR conversations...", timestamp))
-			
-			return m, m.resolveAllPRConversations()
 		}
 
 		return m, cmd
