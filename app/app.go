@@ -395,6 +395,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case hideErrMsg:
 		m.errBox.Clear()
+	case returnToPRReviewMsg:
+		// Return to PR review state after cancelling from confirmation
+		m.state = statePRReview
+		m.confirmationOverlay = nil
+		return m, nil
 	case previewTickMsg:
 		cmd := m.instanceChanged()
 		return m, tea.Batch(
