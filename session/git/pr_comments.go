@@ -164,10 +164,10 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 func paginatedGraphQLQuery(workingDir string, buildQuery func(cursor *string) string, processResponse func([]byte) (hasNextPage bool, endCursor string, err error)) error {
 	var cursor *string
 	hasNextPage := true
-	
+
 	for hasNextPage {
 		query := buildQuery(cursor)
-		
+
 		// Execute GraphQL query
 		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
 		cmd.Dir = workingDir
@@ -175,13 +175,13 @@ func paginatedGraphQLQuery(workingDir string, buildQuery func(cursor *string) st
 		if err != nil {
 			return fmt.Errorf("failed to execute GraphQL query (output: %s): %w", string(output), err)
 		}
-		
+
 		// Process the response
 		nextPage, endCursor, err := processResponse(output)
 		if err != nil {
 			return err
 		}
-		
+
 		// Update pagination state
 		hasNextPage = nextPage
 		if hasNextPage && endCursor != "" {
@@ -190,7 +190,7 @@ func paginatedGraphQLQuery(workingDir string, buildQuery func(cursor *string) st
 			hasNextPage = false
 		}
 	}
-	
+
 	return nil
 }
 
@@ -224,7 +224,7 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 		if cursor != nil {
 			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
 		}
-		
+
 		return fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
@@ -898,7 +898,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		if cursor != nil {
 			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
 		}
-		
+
 		return fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
@@ -976,7 +976,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 	if err := paginatedGraphQLQuery(workingDir, buildQuery, processResponse); err != nil {
 		return nil, fmt.Errorf("failed to fetch review threads: %w", err)
 	}
-	
+
 	return unresolvedThreads, nil
 }
 
@@ -1029,4 +1029,43 @@ mutation($threadId: ID!) {
 	}
 
 	return nil
+}
+
+// ListOpenPRs lists all open PRs for the current repository
+func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
+	cmd := exec.Command("gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list PRs: %w", err)
+	}
+
+	var prs []struct {
+		Number      int    `json:"number"`
+		Title       string `json:"title"`
+		State       string `json:"state"`
+		HeadRefName string `json:"headRefName"`
+		BaseRefName string `json:"baseRefName"`
+		URL         string `json:"url"`
+		HeadRefOid  string `json:"headRefOid"`
+	}
+
+	if err := json.Unmarshal(output, &prs); err != nil {
+		return nil, fmt.Errorf("failed to parse PR list: %w", err)
+	}
+
+	result := make([]*PullRequest, len(prs))
+	for i, pr := range prs {
+		result[i] = &PullRequest{
+			Number:  pr.Number,
+			Title:   pr.Title,
+			State:   pr.State,
+			HeadRef: pr.HeadRefName,
+			BaseRef: pr.BaseRefName,
+			URL:     pr.URL,
+			HeadSHA: pr.HeadRefOid,
+		}
+	}
+
+	return result, nil
 }
