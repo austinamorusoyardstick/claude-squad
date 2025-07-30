@@ -260,10 +260,6 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			}
 			return m, nil
 
-		case "R":
-			// Resolve all conversations
-			return m, func() tea.Msg { return PRResolveAllConversationsMsg{} }
-
 		case "enter":
 			acceptedComments := m.pr.GetAcceptedComments()
 			return m, func() tea.Msg { return PRReviewCompleteMsg{AcceptedComments: acceptedComments} }
