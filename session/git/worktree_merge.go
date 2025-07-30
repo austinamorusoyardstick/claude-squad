@@ -87,13 +87,13 @@ func (g *GitWorktree) PushBranch() error {
 // CreatePullRequest creates a new pull request using gh CLI
 func (g *GitWorktree) CreatePullRequest(title, body string) (int, error) {
 	// Create the PR using gh CLI
-	cmd := exec.Command("gh", "pr", "create", 
+	cmd := exec.Command("gh", "pr", "create",
 		"--title", title,
 		"--body", body,
 		"--head", g.branchName,
 	)
 	cmd.Dir = g.worktreePath
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("failed to create pull request: %w", err)

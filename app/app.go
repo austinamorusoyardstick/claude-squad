@@ -158,7 +158,7 @@ type home struct {
 	rebaseBranchName string
 	// rebaseOriginalSHA is the commit SHA before rebase started
 	rebaseOriginalSHA string
-	
+
 	// pendingMergePRs stores the PRs to merge after PR selector closes
 	pendingMergePRs []*git.PullRequest
 	// pendingMergeInstance stores the instance to use for merging
@@ -1389,7 +1389,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Store the instance for later use in the callback
 		selectedInstance := selected
-		
+
 		// Create PR selector overlay
 		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
 			// Handle PR selection
@@ -2241,12 +2241,12 @@ func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Update the overlay with the key message
 	updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
-	
+
 	// Check if overlay wants to close (returns nil)
 	if updatedOverlay == nil {
 		m.state = stateDefault
 		m.prSelectorOverlay = nil
-		
+
 		// Check if we have pending PRs to merge
 		if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
 			// Start the merge process
@@ -2256,15 +2256,15 @@ func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingMergeInstance = nil
 			return m, tea.Batch(cmd, mergeCmd)
 		}
-		
+
 		return m, cmd
 	}
-	
+
 	// Update the overlay pointer
 	if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
 		m.prSelectorOverlay = overlayPtr
 	}
-	
+
 	return m, cmd
 }
 
