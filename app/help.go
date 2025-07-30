@@ -64,6 +64,7 @@ func (h helpTypeGeneral) toContent() string {
 		keyStyle.Render("x")+descStyle.Render("         - Open in external diff tool"),
 		keyStyle.Render("t")+descStyle.Render("         - Run tests"),
 		keyStyle.Render("R")+descStyle.Render("         - Review PR comments"),
+		keyStyle.Render("ctrl+r")+descStyle.Render("    - Resolve all PR conversations"),
 		"",
 		headerStyle.Render("Navigation:"),
 		keyStyle.Render("tab")+descStyle.Render("       - Switch between AI, diff, and terminal tabs"),
