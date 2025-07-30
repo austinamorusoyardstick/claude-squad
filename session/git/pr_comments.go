@@ -849,9 +849,10 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 	// Execute GraphQL query
 	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
 	cmd.Dir = workingDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch review threads: %w", err)
+		// Include the output in the error for debugging
+		return nil, fmt.Errorf("failed to fetch review threads: %w (output: %s)", err, string(output))
 	}
 
 	var response struct {
