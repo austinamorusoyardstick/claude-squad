@@ -802,6 +802,7 @@ func matchesNumberedList(line string) bool {
 
 // GetUnresolvedThreads returns all unresolved review thread IDs
 func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error) {
+	fmt.Printf("Getting unresolved threads for PR #%d\n", pr.Number)
 	// Get repository info first
 	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
 	repoCmd.Dir = workingDir
