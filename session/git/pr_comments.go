@@ -799,3 +799,147 @@ func matchesNumberedList(line string) bool {
 
 	return false
 }
+
+// GetUnresolvedThreads returns all unresolved review thread IDs
+func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error) {
+	// Get repository info first
+	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
+	repoCmd.Dir = workingDir
+	repoOutput, err := repoCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	var repoInfo struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+
+	if err := json.Unmarshal(repoOutput, &repoInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	// Use GraphQL to get unresolved review threads
+	query := fmt.Sprintf(`
+{
+  repository(owner: "%s", name: "%s") {
+    pullRequest(number: %d) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+        }
+      }
+    }
+  }
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number)
+
+	// Execute GraphQL query
+	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch review threads: %w", err)
+	}
+
+	var response struct {
+		Data struct {
+			Repository struct {
+				PullRequest struct {
+					ReviewThreads struct {
+						Nodes []struct {
+							ID         string `json:"id"`
+							IsResolved bool   `json:"isResolved"`
+						} `json:"nodes"`
+					} `json:"reviewThreads"`
+				} `json:"pullRequest"`
+			} `json:"repository"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(output, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse review threads response: %w", err)
+	}
+
+	// Collect unresolved thread IDs
+	var unresolvedThreads []string
+	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+		if !thread.IsResolved {
+			unresolvedThreads = append(unresolvedThreads, thread.ID)
+		}
+	}
+
+	return unresolvedThreads, nil
+}
+
+// ResolveThread resolves a specific review thread
+func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
+	// Get repository info first
+	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
+	repoCmd.Dir = workingDir
+	repoOutput, err := repoCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	var repoInfo struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+
+	if err := json.Unmarshal(repoOutput, &repoInfo); err != nil {
+		return fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	// Use GraphQL mutation to resolve the thread
+	mutation := fmt.Sprintf(`
+mutation {
+  resolveReviewThread(input: {threadId: "%s"}) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}`, threadID)
+
+	// Execute GraphQL mutation
+	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", mutation))
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to resolve thread %s: %w", threadID, err)
+	}
+
+	// Check if mutation was successful
+	var response struct {
+		Data struct {
+			ResolveReviewThread struct {
+				Thread struct {
+					ID         string `json:"id"`
+					IsResolved bool   `json:"isResolved"`
+				} `json:"thread"`
+			} `json:"resolveReviewThread"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(output, &response); err != nil {
+		return fmt.Errorf("failed to parse resolve thread response: %w", err)
+	}
+
+	if len(response.Errors) > 0 {
+		return fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+	}
+
+	if !response.Data.ResolveReviewThread.Thread.IsResolved {
+		return fmt.Errorf("thread %s was not resolved successfully", threadID)
+	}
+
+	return nil
+}
