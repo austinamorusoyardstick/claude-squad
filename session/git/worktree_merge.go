@@ -49,8 +49,8 @@ func (g *GitWorktree) CherryPickBranch(branchName string) error {
 	return nil
 }
 
-// CommitChanges creates a commit with the given message
-func (g *GitWorktree) CommitChanges(message string) error {
+// CommitMergedChanges creates a commit with the given message for merged changes
+func (g *GitWorktree) CommitMergedChanges(message string) error {
 	// Stage all changes
 	if _, err := g.runGitCommand(g.worktreePath, "add", "-A"); err != nil {
 		return fmt.Errorf("failed to stage changes: %w", err)
