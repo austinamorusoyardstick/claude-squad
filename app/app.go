@@ -1966,6 +1966,9 @@ func (m *home) View() string {
 	} else if m.state == stateConfirm {
 		if m.confirmationOverlay == nil {
 			log.ErrorLog.Printf("confirmation overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
 	} else if m.state == stateBranchSelect {
