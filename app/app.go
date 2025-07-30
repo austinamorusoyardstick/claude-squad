@@ -688,6 +688,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.errBox.SetError(fmt.Errorf(status))
 		return m, nil
+	case mergePRsCompletedMsg:
+		// Handle merge completion
+		m.state = stateDefault
+		if msg.err != nil {
+			return m, m.handleError(msg.err)
+		}
+		// Success message is already shown in the overlay
+		return m, nil
 	case testResultsMsg:
 		// Handle test results
 		if msg.err != nil {
