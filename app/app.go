@@ -966,6 +966,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				return m.Update(result)
 			}
 			m.pendingCmd = nil
+			
+			// Set appropriate state after handling confirmation
+			if returnToPRReview {
+				m.state = statePRReview
+			} else {
+				m.state = stateDefault
+			}
+			
 			return m, nil
 		}
 		return m, nil
