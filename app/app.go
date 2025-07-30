@@ -616,7 +616,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		timestamp := time.Now().Format("15:04:05")
-		
+
 		if msg.err != nil {
 			// Log the error
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Failed to resolve conversations: %v", timestamp, msg.err))
@@ -634,11 +634,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
 				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
 			}
-			
+
 			successErr := fmt.Errorf(message)
 			m.errBox.SetError(successErr)
 		}
-		
+
 		// Keep log size manageable
 		if len(m.errorLog) > 100 {
 			m.errorLog = m.errorLog[len(m.errorLog)-100:]
@@ -658,11 +658,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prReviewOverlay = nil
 		m.confirmationOverlay = nil
 		m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
-		
+
 		// Log the start of resolution
 		timestamp := time.Now().Format("15:04:05")
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Starting to resolve all PR conversations...", timestamp))
-		
+
 		return m, m.resolveAllPRConversations()
 	case testStartedMsg:
 		// Show non-obtrusive message that tests are running
@@ -1350,6 +1350,35 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, initCmd
 	case keys.KeyPRResolveConversations:
 		return m.requestResolveAllConversationsConfirmation()
+	case keys.KeyMergePRs:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+
+		// Create PR selector overlay
+		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
+			// Handle PR selection
+			m.state = stateDefault
+			m.prSelectorOverlay = nil
+			// Start the merge process
+			if len(selectedPRs) > 0 {
+				m.mergePRs(selected, selectedPRs)
+			}
+		})
+		m.state = statePRSelector
+
+		// Initialize the overlay
+		return m, m.prSelectorOverlay.Init()
 	case keys.KeyBookmark:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -1750,12 +1779,12 @@ func (m *home) requestResolveAllConversationsConfirmation() (tea.Model, tea.Cmd)
 
 	var message string
 	timestamp := time.Now().Format("15:04:05")
-	
+
 	if fetchError == nil {
 		if len(threads) == 0 {
 			// No unresolved conversations
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
-			
+
 			// For PR review state, just show error
 			if m.state == statePRReview {
 				m.errBox.SetError(fmt.Errorf("No unresolved review threads found on this PR"))
@@ -1771,11 +1800,11 @@ func (m *home) requestResolveAllConversationsConfirmation() (tea.Model, tea.Cmd)
 	} else {
 		// Log the error
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Error fetching thread count: %v", timestamp, fetchError))
-		
-		if strings.Contains(fetchError.Error(), "no pull request found") || 
+
+		if strings.Contains(fetchError.Error(), "no pull request found") ||
 		   strings.Contains(fetchError.Error(), "no open pull requests") {
 			message = fmt.Sprintf("Error: %v\n\nThis feature requires an open GitHub pull request for the current branch.\n\nMake sure you:\n1. Have an open PR for this branch\n2. Are authenticated with 'gh auth login'\n3. Are in a git repository", fetchError)
-			
+
 			// For main menu, return error immediately
 			if m.state != statePRReview {
 				return m, m.handleError(fetchError)
@@ -2219,7 +2248,7 @@ func (m *home) showTestResults(output string) {
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
-	
+
 	// Create content for error log
 	var content string
 	if len(m.errorLog) == 0 {
