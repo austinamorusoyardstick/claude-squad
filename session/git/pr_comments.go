@@ -878,6 +878,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 
 // ResolveThread resolves a specific review thread
 func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
+	fmt.Printf("Attempting to resolve thread: %s\n", threadID)
 	// Get repository info first
 	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
 	repoCmd.Dir = workingDir
