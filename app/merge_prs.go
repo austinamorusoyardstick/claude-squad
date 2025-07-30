@@ -66,7 +66,8 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to setup merge worktree: %w", err)
 	}
 
-	mergeWorktreePath := mergeWorktree.GetWorktreePath()
+	// Note: mergeWorktreePath not used yet but kept for potential future use
+	_ = mergeWorktree.GetWorktreePath()
 
 	// Cherry-pick or merge each PR's changes
 	var successfulMerges []int
