@@ -348,7 +348,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 									return hideErrMsg{}
 								}
 							}
-							message = fmt.Sprintf("Are you sure you want to resolve all %d unresolved review threads on this PR?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone.", len(threads))
+							message = fmt.Sprintf("Found %d unresolved review threads on this PR.\n\nAre you sure you want to resolve all %d threads?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone.", len(threads), len(threads))
 						}
 					}
 				}
