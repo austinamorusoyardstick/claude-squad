@@ -932,25 +932,23 @@ func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
 	}
 
 	// Use GraphQL mutation to resolve the thread
-	// Note: GitHub requires the clientMutationId field in the input
-	mutation := fmt.Sprintf(`
-mutation {
-  resolveReviewThread(input: {threadId: "%s", clientMutationId: "claude-squad"}) {
+	mutation := `
+mutation($threadId: ID!) {
+  resolveReviewThread(input: {threadId: $threadId}) {
     thread {
       id
       isResolved
     }
   }
-}`, threadID)
+}`
 
-	// Execute GraphQL mutation
-	// Use --field instead of -f query= for proper escaping
-	cmd := exec.Command("gh", "api", "graphql", "--field", fmt.Sprintf("query=%s", mutation))
+	// Execute GraphQL mutation using proper parameter passing
+	cmd := exec.Command("gh", "api", "graphql", "-f", "query="+mutation, "-f", "threadId="+threadID)
 	cmd.Dir = workingDir
 	output, err := cmd.CombinedOutput() // Use CombinedOutput to get stderr as well
 	if err != nil {
 		fmt.Printf("Failed to resolve thread. Output: %s\n", string(output))
-		fmt.Printf("Mutation was: %s\n", mutation)
+		fmt.Printf("Thread ID was: %s\n", threadID)
 		return fmt.Errorf("failed to resolve thread %s: %w (output: %s)", threadID, err, string(output))
 	}
 	
