@@ -939,12 +939,15 @@ mutation {
 	}
 
 	if len(response.Errors) > 0 {
+		fmt.Printf("GraphQL error: %s\n", response.Errors[0].Message)
 		return fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
 	}
 
 	if !response.Data.ResolveReviewThread.Thread.IsResolved {
+		fmt.Printf("Thread %s was not resolved successfully\n", threadID)
 		return fmt.Errorf("thread %s was not resolved successfully", threadID)
 	}
 
+	fmt.Printf("Successfully resolved thread: %s\n", threadID)
 	return nil
 }
