@@ -297,6 +297,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 		key.WithKeys("h"),
 		key.WithHelp("h", "git reset --hard"),
 	),
+	KeyMergePRs: key.NewBinding(
+		key.WithKeys("M"),
+		key.WithHelp("M", "merge PRs"),
+	),
 
 	// -- Special keybindings --
 
