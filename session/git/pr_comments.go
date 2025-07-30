@@ -883,15 +883,29 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		return nil, fmt.Errorf("failed to parse review threads response: %w", err)
 	}
 
+	// Log total count
+	totalThreads := response.Data.Repository.PullRequest.ReviewThreads.TotalCount
+	fmt.Printf("Total review threads: %d\n", totalThreads)
+	
 	// Collect unresolved thread IDs
 	var unresolvedThreads []string
 	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
 		if !thread.IsResolved {
 			unresolvedThreads = append(unresolvedThreads, thread.ID)
+			if len(thread.Comments.Nodes) > 0 {
+				comment := thread.Comments.Nodes[0]
+				fmt.Printf("  - Unresolved thread by @%s: %.50s...\n", comment.Author.Login, strings.ReplaceAll(comment.Body, "\n", " "))
+			}
 		}
 	}
 
-	fmt.Printf("Found %d unresolved threads\n", len(unresolvedThreads))
+	fmt.Printf("Found %d unresolved threads out of %d total\n", len(unresolvedThreads), totalThreads)
+	
+	// Warn if we might have hit the pagination limit
+	if totalThreads > 100 {
+		fmt.Printf("WARNING: PR has %d threads but we only fetched 100. Some threads may be missed.\n", totalThreads)
+	}
+	
 	return unresolvedThreads, nil
 }
 
