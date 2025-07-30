@@ -872,6 +872,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		}
 	}
 
+	fmt.Printf("Found %d unresolved threads\n", len(unresolvedThreads))
 	return unresolvedThreads, nil
 }
 
