@@ -829,7 +829,7 @@ func (m PRReviewModel) simpleView() string {
 		Foreground(lipgloss.Color("241"))
 
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • c/C:toggle/only comments • r/R:toggle/only reviews • l/L:toggle/only line comments • Enter:process • q:cancel"))
+	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • c/C:toggle/only comments • r/R:toggle/only reviews • l/L:toggle/only line comments • Ctrl+r:resolve all • Enter:process • q:cancel"))
 
 	return b.String()
 }
