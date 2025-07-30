@@ -2155,6 +2155,12 @@ func (m *home) showTestResults(output string) {
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
+	// Add a test entry to verify logging works
+	if len(m.errorLog) == 0 {
+		timestamp := time.Now().Format("15:04:05")
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Log opened - no previous entries", timestamp))
+	}
+	
 	// Create content for error log
 	var content string
 	if len(m.errorLog) == 0 {
