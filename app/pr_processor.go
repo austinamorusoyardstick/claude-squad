@@ -213,18 +213,11 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 			return resolveConversationsMsg{err: fmt.Errorf("no instance selected")}
 		}
 
-		// Log the start of the operation
-		timestamp := time.Now().Format("15:04:05")
-		log.InfoLog.Printf("[%s] Starting to resolve all PR conversations", timestamp)
-
 		// Get the current PR
 		pr, err := git.GetCurrentPR(selected.Path)
 		if err != nil {
-			log.ErrorLog.Printf("[%s] Failed to get current PR: %v", timestamp, err)
 			return resolveConversationsMsg{err: fmt.Errorf("failed to get current PR: %w", err)}
 		}
-		
-		log.InfoLog.Printf("[%s] Found PR #%d: %s", timestamp, pr.Number, pr.Title)
 
 		// Fetch all comments to get thread IDs
 		if err := pr.FetchComments(selected.Path); err != nil {
