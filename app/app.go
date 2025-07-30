@@ -1300,14 +1300,19 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Get the worktree path
 		worktreePath := worktree.GetWorktreePath()
 
+		// Store the instance for later use in the callback
+		selectedInstance := selected
+		
 		// Create PR selector overlay
 		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
 			// Handle PR selection
 			m.state = stateDefault
 			m.prSelectorOverlay = nil
-			// Start the merge process
+			// Start the merge process will be handled via a message
 			if len(selectedPRs) > 0 {
-				m.mergePRs(selected, selectedPRs)
+				// Send a message to trigger the merge
+				m.pendingMergePRs = selectedPRs
+				m.pendingMergeInstance = selectedInstance
 			}
 		})
 		m.state = statePRSelector
