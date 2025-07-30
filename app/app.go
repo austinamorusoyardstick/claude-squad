@@ -651,26 +651,33 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateDefault
 		m.textOverlay = nil
 
+		// Add all logs from the operation
+		if len(msg.logs) > 0 {
+			m.errorLog = append(m.errorLog, msg.logs...)
+		}
+
 		timestamp := time.Now().Format("15:04:05")
 		
 		if msg.err != nil {
 			// Log the error
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Failed to resolve conversations: %v", timestamp, msg.err))
 			m.errBox.SetError(msg.err)
-			return m, nil
-		}
-
-		// Show success message
-		var message string
-		if msg.total == 0 {
-			message = "✓ No unresolved review threads found"
-			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
-		} else if msg.resolved == msg.total {
-			message = fmt.Sprintf("✓ Successfully resolved all %d review threads", msg.total)
-			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Successfully resolved all %d review threads", timestamp, msg.total))
 		} else {
-			message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
-			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
+			// Show success message
+			var message string
+			if msg.total == 0 {
+				message = "✓ No unresolved review threads found"
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
+			} else if msg.resolved == msg.total {
+				message = fmt.Sprintf("✓ Successfully resolved all %d review threads", msg.total)
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Successfully resolved all %d review threads", timestamp, msg.total))
+			} else {
+				message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
+			}
+			
+			successErr := fmt.Errorf(message)
+			m.errBox.SetError(successErr)
 		}
 		
 		// Keep log size manageable
@@ -678,12 +685,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errorLog = m.errorLog[len(m.errorLog)-100:]
 		}
 
-		successErr := fmt.Errorf(message)
-		m.errBox.SetError(successErr)
-		return m, func() tea.Msg {
-			time.Sleep(3 * time.Second)
-			return hideErrMsg{}
+		// Return command to hide error after delay only if no error
+		if msg.err == nil {
+			return m, func() tea.Msg {
+				time.Sleep(3 * time.Second)
+				return hideErrMsg{}
+			}
 		}
+		return m, nil
 	case testStartedMsg:
 		// Show non-obtrusive message that tests are running
 		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
