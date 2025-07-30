@@ -178,13 +178,9 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m = m.resetViewAfterFilterChange()
 			return m, nil
 
-		case "R":
-			// Show only reviews
-			m.showComments = false
-			m.showReviews = true
-			m.showOnlyLineComments = false
-			m = m.resetViewAfterFilterChange()
-			return m, nil
+		case "ctrl+r":
+			// Resolve all conversations
+			return m, func() tea.Msg { return PRResolveAllConversationsMsg{} }
 
 		case "C":
 			// Show only comments (not reviews)
