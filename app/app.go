@@ -64,6 +64,8 @@ const (
 	stateGitStatus
 	// stateCommentDetail is the state when displaying full PR comment content.
 	stateCommentDetail
+	// statePRSelector is the state when selecting PRs to merge.
+	statePRSelector
 )
 
 type home struct {
