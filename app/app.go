@@ -2034,6 +2034,30 @@ func (m *home) handleCommentDetailState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.prSelectorOverlay == nil {
+		m.state = stateDefault
+		return m, nil
+	}
+
+	// Update the overlay with the key message
+	updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
+	
+	// Check if overlay wants to close (returns nil)
+	if updatedOverlay == nil {
+		m.state = stateDefault
+		m.prSelectorOverlay = nil
+		return m, cmd
+	}
+	
+	// Update the overlay pointer
+	if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
+		m.prSelectorOverlay = overlayPtr
+	}
+	
+	return m, cmd
+}
+
 func (m *home) handleKeybindingEditorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.keybindingEditorOverlay == nil {
 		m.state = stateDefault
