@@ -1736,9 +1736,6 @@ type previewTickMsg struct{}
 
 type tickUpdateMetadataMessage struct{}
 
-// returnToPRReviewMsg implements tea.Msg and returns to PR review state
-type returnToPRReviewMsg struct{}
-
 type instanceChangedMsg struct{}
 
 // startRebaseMsg is sent to trigger the actual rebase after confirmation
