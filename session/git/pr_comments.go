@@ -882,9 +882,6 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		return nil, fmt.Errorf("failed to parse review threads response: %w", err)
 	}
 
-	// Get total count
-	totalThreads := response.Data.Repository.PullRequest.ReviewThreads.TotalCount
-	
 	// Collect unresolved thread IDs
 	var unresolvedThreads []string
 	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
