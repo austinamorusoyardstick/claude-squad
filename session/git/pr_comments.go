@@ -913,9 +913,10 @@ mutation {
 	// Execute GraphQL mutation
 	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", mutation))
 	cmd.Dir = workingDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput() // Use CombinedOutput to get stderr as well
 	if err != nil {
-		return fmt.Errorf("failed to resolve thread %s: %w", threadID, err)
+		fmt.Printf("Failed to resolve thread. Output: %s\n", string(output))
+		return fmt.Errorf("failed to resolve thread %s: %w (output: %s)", threadID, err, string(output))
 	}
 
 	// Check if mutation was successful
