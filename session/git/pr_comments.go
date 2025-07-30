@@ -799,3 +799,42 @@ func matchesNumberedList(line string) bool {
 
 	return false
 }
+
+// ListOpenPRs lists all open PRs for the current repository
+func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
+	cmd := exec.Command("gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
+	cmd.Dir = workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list PRs: %w", err)
+	}
+
+	var prs []struct {
+		Number      int    `json:"number"`
+		Title       string `json:"title"`
+		State       string `json:"state"`
+		HeadRefName string `json:"headRefName"`
+		BaseRefName string `json:"baseRefName"`
+		URL         string `json:"url"`
+		HeadRefOid  string `json:"headRefOid"`
+	}
+
+	if err := json.Unmarshal(output, &prs); err != nil {
+		return nil, fmt.Errorf("failed to parse PR list: %w", err)
+	}
+
+	result := make([]*PullRequest, len(prs))
+	for i, pr := range prs {
+		result[i] = &PullRequest{
+			Number:  pr.Number,
+			Title:   pr.Title,
+			State:   pr.State,
+			HeadRef: pr.HeadRefName,
+			BaseRef: pr.BaseRefName,
+			URL:     pr.URL,
+			HeadSHA: pr.HeadRefOid,
+		}
+	}
+
+	return result, nil
+}
