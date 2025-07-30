@@ -21,6 +21,7 @@ const (
 	KeyPush
 	KeySubmit
 	KeyPRReview
+	KeyPRResolveConversations
 
 	KeyTab        // Tab is a special keybinding for switching between panes.
 	KeyShiftTab   // ShiftTab is a special keybinding for switching between panes in reverse.
@@ -109,6 +110,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"b":          KeyRebase,
 	"B":          KeyBookmark,
 	"R":          KeyPRReview,
+	"ctrl+r":     KeyPRResolveConversations,
 	"ctrl+h":     KeyHistory,
 	"K":          KeyEditKeybindings,
 	"t":          KeyTest,
@@ -252,6 +254,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyPRReview: key.NewBinding(
 		key.WithKeys("R"),
 		key.WithHelp("R", "review PR comments"),
+	),
+	KeyPRResolveConversations: key.NewBinding(
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("ctrl+r", "resolve all PR conversations"),
 	),
 	KeyBookmark: key.NewBinding(
 		key.WithKeys("B"),
