@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type PRSelectorOverlay struct {
-	BaseOverlay
 	prs            []*git.PullRequest
 	selectedPRs    map[int]bool
 	cursor         int
@@ -19,19 +19,23 @@ type PRSelectorOverlay struct {
 	onComplete     func([]*git.PullRequest)
 	fetchingPRs    bool
 	errorMessage   string
+	width          int
+	height         int
+	title          string
+	borderColor    string
 }
 
 func NewPRSelectorOverlay(workingDir string, onComplete func([]*git.PullRequest)) *PRSelectorOverlay {
 	return &PRSelectorOverlay{
-		BaseOverlay: BaseOverlay{
-			title:       "Select PRs to Merge",
-			borderColor: "#04B575",
-		},
+		title:       "Select PRs to Merge",
+		borderColor: "#04B575",
 		prs:         []*git.PullRequest{},
 		selectedPRs: make(map[int]bool),
 		workingDir:  workingDir,
 		onComplete:  onComplete,
 		fetchingPRs: true,
+		width:       80,
+		height:      20,
 	}
 }
 
