@@ -217,8 +217,21 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 			return resolveConversationsMsg{err: fmt.Errorf("no instance selected")}
 		}
 
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			logs = append(logs, fmt.Sprintf("[%s] Failed to get git worktree: %v", timestamp, err))
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get git worktree: %w", err),
+				logs: logs,
+			}
+		}
+
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+
 		// Get the current PR
-		pr, err := git.GetCurrentPR(selected.Path)
+		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
 			logs = append(logs, fmt.Sprintf("[%s] Failed to get current PR: %v", timestamp, err))
 			return resolveConversationsMsg{
