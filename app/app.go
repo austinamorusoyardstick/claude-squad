@@ -946,7 +946,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if shouldClose {
 			// Capture confirmation state before clearing overlay
 			wasConfirmed := m.confirmationOverlay.IsConfirmed()
-			m.state = stateDefault
+			
+			// Check if we should return to PR review state
+			returnToPRReview := m.prReviewOverlay != nil
+			
 			m.confirmationOverlay = nil
 
 			// Execute pending command if confirmed
