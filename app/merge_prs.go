@@ -58,7 +58,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 
 	// Get the repo path from the current worktree
 	repoPath := worktree.GetRepoPath()
-	
+
 	// Create a new worktree for the merge
 	mergeWorktree, _, err := git.NewGitWorktree(repoPath, newBranchName)
 	if err != nil {
@@ -76,7 +76,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	// Cherry-pick or merge each PR's changes
 	var successfulMerges []int
 	var failedMerges []string
-	
+
 	for i, pr := range selectedPRs {
 		// Send progress update
 		// Note: We can't update UI directly from goroutine, would need to send messages
@@ -99,7 +99,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 			}
 			continue
 		}
-		
+
 		successfulMerges = append(successfulMerges, pr.Number)
 	}
 
@@ -152,7 +152,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	if len(successfulMerges) == 0 {
 		return fmt.Errorf("failed to merge any PRs")
 	}
-	
+
 	// Note: In actual implementation, we'd send a message to update the UI
 	// For now, we just return success
 	fmt.Printf("Successfully merged %d PRs into branch %s\n", len(successfulMerges), newBranchName)
@@ -180,7 +180,7 @@ func (m *home) createMergePRCmd(instance *session.Instance, selectedPRs []*git.P
 	return func() tea.Msg {
 		// Perform the merge operation
 		err := m.performMergePRs(instance, selectedPRs)
-		
+
 		// Return completion message
 		return mergePRsCompletedMsg{
 			prs: selectedPRs,

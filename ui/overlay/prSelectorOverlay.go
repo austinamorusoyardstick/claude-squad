@@ -12,17 +12,17 @@ import (
 )
 
 type PRSelectorOverlay struct {
-	prs            []*git.PullRequest
-	selectedPRs    map[int]bool
-	cursor         int
-	workingDir     string
-	onComplete     func([]*git.PullRequest)
-	fetchingPRs    bool
-	errorMessage   string
-	width          int
-	height         int
-	title          string
-	borderColor    string
+	prs          []*git.PullRequest
+	selectedPRs  map[int]bool
+	cursor       int
+	workingDir   string
+	onComplete   func([]*git.PullRequest)
+	fetchingPRs  bool
+	errorMessage string
+	width        int
+	height       int
+	title        string
+	borderColor  string
 }
 
 func NewPRSelectorOverlay(workingDir string, onComplete func([]*git.PullRequest)) *PRSelectorOverlay {

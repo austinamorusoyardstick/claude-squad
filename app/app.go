@@ -143,13 +143,13 @@ type home struct {
 
 	// errorLog stores all error messages for display
 	errorLog []string
-	
+
 	// pendingRebaseInstance stores the instance to rebase after confirmation
 	pendingRebaseInstance *session.Instance
-	
+
 	// pendingResetInstance stores the instance to reset after confirmation
 	pendingResetInstance *session.Instance
-	
+
 	// rebaseInProgress indicates if a rebase is currently in progress
 	rebaseInProgress bool
 	// rebaseInstance is the instance being rebased
@@ -158,7 +158,7 @@ type home struct {
 	rebaseBranchName string
 	// rebaseOriginalSHA is the commit SHA before rebase started
 	rebaseOriginalSHA string
-	
+
 	// pendingMergePRs stores the PRs to merge after PR selector closes
 	pendingMergePRs []*git.PullRequest
 	// pendingMergeInstance stores the instance to use for merging
@@ -448,11 +448,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.pendingRebaseInstance == nil {
 			return m, nil
 		}
-		
+
 		// Clear the pending instance
 		instance := m.pendingRebaseInstance
 		m.pendingRebaseInstance = nil
-		
+
 		// Execute rebase synchronously here to handle the result immediately
 		worktree, err := instance.GetGitWorktree()
 		if err != nil {
@@ -468,7 +468,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if isDirty {
 			return m, m.handleError(fmt.Errorf(cannotRebaseUncommittedChangesError))
 		}
-		
+
 		// Get current commit SHA before rebase
 		currentSHA, err := worktree.GetCurrentCommitSHA()
 		if err != nil {
@@ -480,19 +480,19 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Check if this is a rebase conflict error that needs polling
 			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
 				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
-				
+
 				// Display the error with instructions
 				errorCmd := m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
-				
+
 				// Set rebase in progress state
 				m.rebaseInProgress = true
 				m.rebaseInstance = instance
 				m.rebaseBranchName = worktree.GetBranchName()
 				m.rebaseOriginalSHA = currentSHA
-				
+
 				// Start polling the remote for changes
 				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
-				
+
 				// Return both commands so error displays AND polling starts
 				return m, tea.Batch(errorCmd, pollingCmd)
 			}
@@ -506,33 +506,33 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.pendingResetInstance == nil {
 			return m, nil
 		}
-		
+
 		// Clear the pending instance
 		instance := m.pendingResetInstance
 		m.pendingResetInstance = nil
-		
+
 		// Execute reset synchronously here to handle the result immediately
 		worktree, err := instance.GetGitWorktree()
 		if err != nil {
 			return m, m.handleError(err)
 		}
-		
+
 		// Get branch name before reset
 		branchName := worktree.GetBranchName()
-		
+
 		// Perform the reset
 		if err := worktree.ResetToOrigin(); err != nil {
 			return m, m.handleError(err)
 		}
-		
+
 		// Show success message in the status bar
 		successMsg := fmt.Sprintf("✓ Git reset for branch %s completed successfully", branchName)
 		m.errBox.SetError(fmt.Errorf(successMsg))
-		
+
 		// Also add to log for history
 		timestamp := time.Now().Format("15:04:05")
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] %s", timestamp, successMsg))
-		
+
 		// Refresh instances and hide message after a delay
 		return m, tea.Batch(
 			m.instanceChanged(),
@@ -541,59 +541,59 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return hideErrMsg{}
 			},
 		)
-		
+
 	case remotePollingMsg:
 		// Check if rebase is still in progress
 		if !m.rebaseInProgress || m.rebaseInstance == nil {
 			return m, nil
 		}
-		
+
 		// Get the worktree to check remote
 		worktree, err := m.rebaseInstance.GetGitWorktree()
 		if err != nil {
 			log.ErrorLog.Printf("Failed to get worktree for polling: %v", err)
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		// Fetch latest from remote
 		if _, err := worktree.FetchBranch(msg.branchName); err != nil {
 			log.WarningLog.Printf("Failed to fetch branch %s: %v", msg.branchName, err)
 			// Continue polling even if fetch fails
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		// Check if remote SHA has changed
 		remoteSHA, err := worktree.GetRemoteBranchSHA(msg.branchName)
 		if err != nil {
 			log.ErrorLog.Printf("Failed to get remote SHA: %v", err)
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		log.InfoLog.Printf("Polling rebase: original=%s, remote=%s", msg.originalSHA, remoteSHA)
-		
+
 		if remoteSHA != msg.originalSHA {
 			// Remote has changed, pull the changes
 			log.InfoLog.Printf("Remote branch updated, pulling changes")
-			
+
 			// Reset to the remote branch
 			if err := worktree.ResetToRemote(msg.branchName); err != nil {
 				m.rebaseInProgress = false
 				return m, m.handleError(fmt.Errorf("failed to sync rebased changes: %w", err))
 			}
-			
+
 			// Clear rebase state
 			m.rebaseInProgress = false
 			m.rebaseInstance = nil
 			m.rebaseBranchName = ""
 			m.rebaseOriginalSHA = ""
-			
+
 			// Show success
 			timestamp := time.Now().Format("15:04:05")
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Rebase completed successfully", timestamp))
-			
+
 			return m, m.instanceChanged()
 		}
-		
+
 		// Continue polling
 		return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 	case spinner.TickMsg:
@@ -1241,15 +1241,15 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
-		
+
 		// Store the selected instance for the rebase
 		m.pendingRebaseInstance = selected
-		
+
 		// Create a simple action that just returns a message to trigger the actual rebase
 		rebaseAction := func() tea.Msg {
 			return startRebaseMsg{}
 		}
-		
+
 		return m, m.confirmAction(message, rebaseAction)
 	case keys.KeyPRReview:
 		selected := m.list.GetSelectedInstance()
@@ -1315,7 +1315,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Store the instance for later use in the callback
 		selectedInstance := selected
-		
+
 		// Create PR selector overlay
 		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
 			// Handle PR selection
@@ -1388,18 +1388,18 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
 		}
-		
+
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, worktree.GetBranchName())
-		
+
 		// Store the selected instance for the reset
 		m.pendingResetInstance = selected
-		
+
 		// Create a simple action that just returns a message to trigger the actual reset
 		resetAction := func() tea.Msg {
 			return startGitResetMsg{}
 		}
-		
+
 		return m, m.confirmAction(message, resetAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
@@ -1872,14 +1872,12 @@ func (m *home) handleError(err error) tea.Cmd {
 	}
 }
 
-
-
 // createRemotePollingCmd creates a command that polls the remote for branch changes
 func (m *home) createRemotePollingCmd(branchName string, originalSHA string) tea.Cmd {
 	return func() tea.Msg {
 		// Wait a bit before polling
 		time.Sleep(3 * time.Second)
-		
+
 		return remotePollingMsg{
 			branchName:  branchName,
 			originalSHA: originalSHA,
@@ -2072,12 +2070,12 @@ func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Update the overlay with the key message
 	updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
-	
+
 	// Check if overlay wants to close (returns nil)
 	if updatedOverlay == nil {
 		m.state = stateDefault
 		m.prSelectorOverlay = nil
-		
+
 		// Check if we have pending PRs to merge
 		if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
 			// Start the merge process
@@ -2087,15 +2085,15 @@ func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.pendingMergeInstance = nil
 			return m, tea.Batch(cmd, mergeCmd)
 		}
-		
+
 		return m, cmd
 	}
-	
+
 	// Update the overlay pointer
 	if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
 		m.prSelectorOverlay = overlayPtr
 	}
-	
+
 	return m, cmd
 }
 

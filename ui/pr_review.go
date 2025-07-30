@@ -11,21 +11,21 @@ import (
 )
 
 type PRReviewModel struct {
-	pr                *git.PullRequest
-	currentIndex      int
-	width             int
-	height            int
-	showHelp          bool
-	filterEnabled     bool
-	showComments      bool
-	showReviews       bool
-	showLineComments  bool
+	pr                   *git.PullRequest
+	currentIndex         int
+	width                int
+	height               int
+	showHelp             bool
+	filterEnabled        bool
+	showComments         bool
+	showReviews          bool
+	showLineComments     bool
 	showOnlyLineComments bool
-	err               error
-	viewport          viewport.Model
-	ready             bool
-	splitMode         bool
-	splitModel        *CommentSplitModel
+	err                  error
+	viewport             viewport.Model
+	ready                bool
+	splitMode            bool
+	splitModel           *CommentSplitModel
 }
 
 type PRReviewCompleteMsg struct {
@@ -40,17 +40,17 @@ type PRReviewShowCommentMsg struct {
 
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
-		pr:                  pr,
-		currentIndex:        0,
-		showHelp:            true,
-		filterEnabled:       true, // Default to filter enabled
-		showComments:        true,  // Default to show comments
-		showReviews:         true,  // Default to show reviews
-		showLineComments:    true,  // Default to show line comments
+		pr:                   pr,
+		currentIndex:         0,
+		showHelp:             true,
+		filterEnabled:        true,  // Default to filter enabled
+		showComments:         true,  // Default to show comments
+		showReviews:          true,  // Default to show reviews
+		showLineComments:     true,  // Default to show line comments
 		showOnlyLineComments: false, // Default to not showing only line comments
-		ready:               false,
-		width:               80, // Default width
-		height:              24, // Default height
+		ready:                false,
+		width:                80, // Default width
+		height:               24, // Default height
 	}
 }
 
