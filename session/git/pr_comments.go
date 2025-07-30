@@ -914,12 +914,8 @@ mutation($threadId: ID!) {
 	cmd.Dir = workingDir
 	output, err := cmd.CombinedOutput() // Use CombinedOutput to get stderr as well
 	if err != nil {
-		fmt.Printf("Failed to resolve thread. Output: %s\n", string(output))
-		fmt.Printf("Thread ID was: %s\n", threadID)
 		return fmt.Errorf("failed to resolve thread %s: %w (output: %s)", threadID, err, string(output))
 	}
-	
-	fmt.Printf("GraphQL response: %s\n", string(output))
 
 	// Check if mutation was successful
 	var response struct {
