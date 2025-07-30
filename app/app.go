@@ -333,8 +333,9 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.WindowSize()
 		case ui.PRResolveAllConversationsMsg:
 			// Resolve all conversations on the PR
-			m.state = stateDefault
+			m.state = stateHelp
 			m.prReviewOverlay = nil
+			m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
 			return m, m.resolveAllPRConversations()
 		}
 
