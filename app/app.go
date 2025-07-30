@@ -412,6 +412,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.commentDetailOverlay.SetSize(msg.Width, msg.Height)
 		}
 
+		// Also update PR selector overlay if it's active
+		if m.state == statePRSelector && m.prSelectorOverlay != nil {
+			m.prSelectorOverlay.Update(msg)
+		}
+
 		return m, nil
 	case error:
 		// Handle errors from confirmation actions
