@@ -651,7 +651,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateDefault
 		m.textOverlay = nil
 
+		timestamp := time.Now().Format("15:04:05")
+		
 		if msg.err != nil {
+			// Log the error
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Failed to resolve conversations: %v", timestamp, msg.err))
 			m.errBox.SetError(msg.err)
 			return m, nil
 		}
@@ -660,10 +664,18 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var message string
 		if msg.total == 0 {
 			message = "✓ No unresolved review threads found"
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
 		} else if msg.resolved == msg.total {
 			message = fmt.Sprintf("✓ Successfully resolved all %d review threads", msg.total)
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Successfully resolved all %d review threads", timestamp, msg.total))
 		} else {
 			message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
+		}
+		
+		// Keep log size manageable
+		if len(m.errorLog) > 100 {
+			m.errorLog = m.errorLog[len(m.errorLog)-100:]
 		}
 
 		successErr := fmt.Errorf(message)
