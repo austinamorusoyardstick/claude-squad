@@ -823,14 +823,24 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 	}
 
 	// Use GraphQL to get unresolved review threads
+	// Note: Using a higher limit to get all threads
 	query := fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
       reviewThreads(first: 100) {
+        totalCount
         nodes {
           id
           isResolved
+          comments(first: 1) {
+            nodes {
+              body
+              author {
+                login
+              }
+            }
+          }
         }
       }
     }
