@@ -187,8 +187,8 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			return m, nil
 
 		case "ctrl+r":
-			// Resolve all conversations
-			return m, func() tea.Msg { return PRResolveAllConversationsMsg{} }
+			// Request confirmation before resolving all conversations
+			return m, func() tea.Msg { return PRRequestResolveConfirmationMsg{} }
 
 		case "C":
 			// Show only comments (not reviews)
