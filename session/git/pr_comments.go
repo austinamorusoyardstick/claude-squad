@@ -74,9 +74,21 @@ type PullRequest struct {
 func GetCurrentPR(workingDir string) (*PullRequest, error) {
 	cmd := exec.Command("gh", "pr", "view", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid")
 	cmd.Dir = workingDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current PR from %s: %w", workingDir, err)
+		// Check for common error cases
+		outputStr := string(output)
+		if strings.Contains(outputStr, "no pull requests found") || strings.Contains(outputStr, "no open pull requests") {
+			return nil, fmt.Errorf("no pull request found for the current branch in %s", workingDir)
+		}
+		if strings.Contains(outputStr, "authentication") || strings.Contains(outputStr, "gh auth login") {
+			return nil, fmt.Errorf("GitHub CLI not authenticated. Run 'gh auth login' first")
+		}
+		if strings.Contains(outputStr, "not a git repository") {
+			return nil, fmt.Errorf("not in a git repository: %s", workingDir)
+		}
+		// Generic error with output for debugging
+		return nil, fmt.Errorf("failed to get current PR from %s: %w (output: %s)", workingDir, err, strings.TrimSpace(outputStr))
 	}
 
 	var prData struct {
