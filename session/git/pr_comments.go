@@ -896,9 +896,10 @@ func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
 	}
 
 	// Use GraphQL mutation to resolve the thread
+	// Note: GitHub requires the clientMutationId field in the input
 	mutation := fmt.Sprintf(`
 mutation {
-  resolveReviewThread(input: {threadId: "%s"}) {
+  resolveReviewThread(input: {threadId: "%s", clientMutationId: "claude-squad"}) {
     thread {
       id
       isResolved
