@@ -237,6 +237,14 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		for _, threadID := range unresolvedThreads {
 			if err := pr.ResolveThread(selected.Path, threadID); err != nil {
 				log.ErrorLog.Printf("Failed to resolve thread %s: %v", threadID, err)
+				// Check if it's a permission error
+				if strings.Contains(err.Error(), "must have push access") || 
+				   strings.Contains(err.Error(), "resource not accessible") ||
+				   strings.Contains(err.Error(), "permission") {
+					return resolveConversationsMsg{
+						err: fmt.Errorf("permission denied: you need write access to the repository to resolve conversations"),
+					}
+				}
 				continue
 			}
 			resolved++
