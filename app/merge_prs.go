@@ -88,13 +88,14 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		if err := mergeWorktree.CherryPickBranch(pr.HeadRef); err != nil {
 			// Check if it's a merge conflict
 			if strings.Contains(err.Error(), "conflict") {
-				progressMsg += fmt.Sprintf("\nConflict in PR #%d - manual resolution required", pr.Number)
-				m.textOverlay.SetContent(progressMsg)
-				// Continue with other PRs
-				continue
+				failedMerges = append(failedMerges, fmt.Sprintf("PR #%d: Merge conflict", pr.Number))
+			} else {
+				failedMerges = append(failedMerges, fmt.Sprintf("PR #%d: %v", pr.Number, err))
 			}
-			return fmt.Errorf("failed to cherry-pick PR #%d: %w", pr.Number, err)
+			continue
 		}
+		
+		successfulMerges = append(successfulMerges, pr.Number)
 	}
 
 	// Create a commit message summarizing the merged PRs
