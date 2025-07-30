@@ -3,6 +3,7 @@ package app
 import (
 	"claude-squad/session"
 	"claude-squad/session/git"
+	"claude-squad/ui/overlay"
 	"fmt"
 	"strings"
 	"time"
