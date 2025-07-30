@@ -375,7 +375,12 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// If we couldn't get PR info or there are conversations to resolve, show confirmation
 			if message == "" {
-				message = "Unable to fetch thread count.\n\nAre you sure you want to resolve all review threads on this PR?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone."
+				if fetchError != nil {
+					// Show the specific error to the user
+					message = fmt.Sprintf("Error: %v\n\nThis feature requires an open GitHub pull request for the current branch.\n\nMake sure you:\n1. Have an open PR for this branch\n2. Are authenticated with 'gh auth login'\n3. Are in a git repository", fetchError)
+				} else {
+					message = "Unable to fetch thread count.\n\nAre you sure you want to resolve all review threads on this PR?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone."
+				}
 			}
 
 			m.state = stateConfirm
