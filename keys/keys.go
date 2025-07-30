@@ -66,6 +66,7 @@ const (
 	KeyGitStatusBookmark // Key for showing git status overlay in bookmark mode
 	KeyCheckUpdate       // Key for checking for updates
 	KeyGitReset          // Key for git reset --hard origin/branch
+	KeyMergePRs          // Key for merging multiple PRs
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
