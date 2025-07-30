@@ -45,7 +45,8 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to get git worktree: %w", err)
 	}
 
-	worktreePath := worktree.GetWorktreePath()
+	// Note: Not used but may be needed for future enhancements
+	_ = worktree.GetWorktreePath()
 
 	// Create a new branch name based on the PRs being merged
 	timestamp := time.Now().Format("20060102-150405")
