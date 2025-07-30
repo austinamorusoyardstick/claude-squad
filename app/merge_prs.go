@@ -56,8 +56,11 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	}
 	newBranchName := fmt.Sprintf("merge-prs-%s-%s", strings.Join(prNumbers, "-"), timestamp)
 
+	// Get the repo path from the current worktree
+	repoPath := worktree.GetRepoPath()
+	
 	// Create a new worktree for the merge
-	mergeWorktree, err := git.NewGitWorktree(newBranchName)
+	mergeWorktree, _, err := git.NewGitWorktree(repoPath, newBranchName)
 	if err != nil {
 		return fmt.Errorf("failed to create merge worktree: %w", err)
 	}
