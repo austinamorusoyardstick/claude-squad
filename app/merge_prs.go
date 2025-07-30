@@ -69,10 +69,13 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	mergeWorktreePath := mergeWorktree.GetWorktreePath()
 
 	// Cherry-pick or merge each PR's changes
+	var successfulMerges []int
+	var failedMerges []string
+	
 	for i, pr := range selectedPRs {
 		// Send progress update
 		progressMsg := fmt.Sprintf("Merging PR #%d (%d/%d): %s", pr.Number, i+1, len(selectedPRs), pr.Title)
-		m.textOverlay.SetContent(progressMsg)
+		// Note: We can't update UI directly from goroutine, would need to send messages
 
 		// Fetch the PR branch
 		if err := mergeWorktree.FetchBranch(pr.HeadRef); err != nil {
