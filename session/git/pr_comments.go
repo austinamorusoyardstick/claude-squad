@@ -912,25 +912,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 // ResolveThread resolves a specific review thread
 func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
 	fmt.Printf("Attempting to resolve thread: %s\n", threadID)
-	// Get repository info first
-	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
-	repoCmd.Dir = workingDir
-	repoOutput, err := repoCmd.Output()
-	if err != nil {
-		return fmt.Errorf("failed to get repository info: %w", err)
-	}
-
-	var repoInfo struct {
-		Owner struct {
-			Login string `json:"login"`
-		} `json:"owner"`
-		Name string `json:"name"`
-	}
-
-	if err := json.Unmarshal(repoOutput, &repoInfo); err != nil {
-		return fmt.Errorf("failed to parse repository info: %w", err)
-	}
-
+	
 	// Use GraphQL mutation to resolve the thread
 	mutation := `
 mutation($threadId: ID!) {
