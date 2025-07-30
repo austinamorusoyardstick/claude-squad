@@ -331,10 +331,27 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// We'll set the size in the next WindowSizeMsg
 			m.state = stateCommentDetail
 			return m, tea.WindowSize()
+		case ui.PRRequestResolveConfirmationMsg:
+			// Show confirmation dialog for resolving all conversations
+			m.state = stateConfirm
+			m.confirmationOverlay = overlay.NewConfirmationOverlay(
+				"Resolve All Conversations",
+				"Are you sure you want to resolve all conversations on this PR?\n\nThis action cannot be undone.",
+				func() tea.Msg {
+					// User confirmed - proceed with resolving
+					return ui.PRResolveAllConversationsMsg{}
+				},
+				func() tea.Msg {
+					// User cancelled - go back to PR review
+					return ui.PRReviewCancelMsg{}
+				},
+			)
+			return m, nil
 		case ui.PRResolveAllConversationsMsg:
 			// Resolve all conversations on the PR
 			m.state = stateHelp
 			m.prReviewOverlay = nil
+			m.confirmationOverlay = nil
 			m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
 			return m, m.resolveAllPRConversations()
 		}
