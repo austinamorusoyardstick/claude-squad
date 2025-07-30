@@ -155,6 +155,8 @@ func (m *Menu) addInstanceOptions() {
 	} else {
 		actionGroup = append(actionGroup, keys.KeyCheckout)
 	}
+	// Add merge PRs option
+	actionGroup = append(actionGroup, keys.KeyMergePRs)
 
 	// Navigation group (when in diff tab)
 	if m.isInDiffTab {
