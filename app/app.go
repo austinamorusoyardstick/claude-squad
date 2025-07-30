@@ -158,6 +158,11 @@ type home struct {
 	rebaseBranchName string
 	// rebaseOriginalSHA is the commit SHA before rebase started
 	rebaseOriginalSHA string
+	
+	// pendingMergePRs stores the PRs to merge after PR selector closes
+	pendingMergePRs []*git.PullRequest
+	// pendingMergeInstance stores the instance to use for merging
+	pendingMergeInstance *session.Instance
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
