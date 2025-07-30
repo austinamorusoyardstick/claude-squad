@@ -654,11 +654,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Show success message
 		var message string
 		if msg.total == 0 {
-			message = "✓ No unresolved conversations found"
+			message = "✓ No unresolved review threads found"
 		} else if msg.resolved == msg.total {
-			message = fmt.Sprintf("✓ Successfully resolved all %d conversations", msg.total)
+			message = fmt.Sprintf("✓ Successfully resolved all %d review threads", msg.total)
 		} else {
-			message = fmt.Sprintf("✓ Resolved %d of %d conversations", msg.resolved, msg.total)
+			message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
 		}
 
 		successErr := fmt.Errorf(message)
