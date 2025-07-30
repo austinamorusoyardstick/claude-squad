@@ -2069,6 +2069,17 @@ func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if updatedOverlay == nil {
 		m.state = stateDefault
 		m.prSelectorOverlay = nil
+		
+		// Check if we have pending PRs to merge
+		if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
+			// Start the merge process
+			mergeCmd := m.mergePRs(m.pendingMergeInstance, m.pendingMergePRs)
+			// Clear the pending fields
+			m.pendingMergePRs = nil
+			m.pendingMergeInstance = nil
+			return m, tea.Batch(cmd, mergeCmd)
+		}
+		
 		return m, cmd
 	}
 	
