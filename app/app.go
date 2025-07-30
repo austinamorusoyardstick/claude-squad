@@ -604,6 +604,32 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			time.Sleep(3 * time.Second)
 			return hideErrMsg{}
 		}
+	case resolveConversationsMsg:
+		// Show result of resolving conversations
+		m.state = stateDefault
+		m.textOverlay = nil
+
+		if msg.err != nil {
+			m.errBox.SetError(msg.err)
+			return m, nil
+		}
+
+		// Show success message
+		var message string
+		if msg.total == 0 {
+			message = "✓ No unresolved conversations found"
+		} else if msg.resolved == msg.total {
+			message = fmt.Sprintf("✓ Successfully resolved all %d conversations", msg.total)
+		} else {
+			message = fmt.Sprintf("✓ Resolved %d of %d conversations", msg.resolved, msg.total)
+		}
+		
+		successErr := fmt.Errorf(message)
+		m.errBox.SetError(successErr)
+		return m, func() tea.Msg {
+			time.Sleep(3 * time.Second)
+			return hideErrMsg{}
+		}
 	case testStartedMsg:
 		// Show non-obtrusive message that tests are running
 		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
