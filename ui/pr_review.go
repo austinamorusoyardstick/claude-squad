@@ -40,6 +40,8 @@ type PRReviewShowCommentMsg struct {
 
 type PRResolveAllConversationsMsg struct{}
 
+type PRRequestResolveConfirmationMsg struct{}
+
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
 		pr:                  pr,
