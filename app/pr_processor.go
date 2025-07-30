@@ -214,18 +214,18 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		}
 
 		// Get the current PR
-		pr, err := git.GetCurrentPR(selected.Worktree.Path)
+		pr, err := git.GetCurrentPR(selected.Path)
 		if err != nil {
 			return resolveConversationsMsg{err: fmt.Errorf("failed to get current PR: %w", err)}
 		}
 
 		// Fetch all comments to get thread IDs
-		if err := pr.FetchComments(selected.Worktree.Path); err != nil {
+		if err := pr.FetchComments(selected.Path); err != nil {
 			return resolveConversationsMsg{err: fmt.Errorf("failed to fetch PR comments: %w", err)}
 		}
 
 		// Get all unresolved conversations
-		unresolvedThreads, err := pr.GetUnresolvedThreads(selected.Worktree.Path)
+		unresolvedThreads, err := pr.GetUnresolvedThreads(selected.Path)
 		if err != nil {
 			return resolveConversationsMsg{err: fmt.Errorf("failed to get unresolved threads: %w", err)}
 		}
@@ -235,7 +235,7 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 
 		// Resolve each thread
 		for _, threadID := range unresolvedThreads {
-			if err := pr.ResolveThread(selected.Worktree.Path, threadID); err != nil {
+			if err := pr.ResolveThread(selected.Path, threadID); err != nil {
 				log.ErrorLog.Printf("Failed to resolve thread %s: %v", threadID, err)
 				continue
 			}
