@@ -26,7 +26,7 @@ type mergePRsCompletedMsg struct {
 	err       error
 }
 
-func (m *home) mergePRs(instance *session.Instance, selectedPRs []*git.PullRequest) {
+func (m *home) mergePRs(instance *session.Instance, selectedPRs []*git.PullRequest) tea.Cmd {
 	// Show progress overlay
 	progressText := fmt.Sprintf("Merging %d PRs...\n\n", len(selectedPRs))
 	for i, pr := range selectedPRs {
@@ -35,12 +35,8 @@ func (m *home) mergePRs(instance *session.Instance, selectedPRs []*git.PullReque
 	m.textOverlay = overlay.NewTextOverlay(progressText)
 	m.state = stateHelp
 
-	// Start the merge process asynchronously
-	go func() {
-		if err := m.performMergePRs(instance, selectedPRs); err != nil {
-			m.handleError(err)
-		}
-	}()
+	// Return a command that performs the merge
+	return m.createMergePRCmd(instance, selectedPRs)
 }
 
 func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.PullRequest) error {
