@@ -122,7 +122,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	}
 
 	// Commit the merged changes
-	if err := mergeWorktree.CommitChanges(commitMessage); err != nil {
+	if err := mergeWorktree.CommitMergedChanges(commitMessage); err != nil {
 		return fmt.Errorf("failed to commit merged changes: %w", err)
 	}
 
