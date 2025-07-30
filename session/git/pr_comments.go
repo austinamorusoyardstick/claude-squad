@@ -898,8 +898,6 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 
 // ResolveThread resolves a specific review thread
 func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
-	fmt.Printf("Attempting to resolve thread: %s\n", threadID)
-	
 	// Use GraphQL mutation to resolve the thread
 	mutation := `
 mutation($threadId: ID!) {
