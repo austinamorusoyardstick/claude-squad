@@ -1276,6 +1276,35 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Initialize the PR review model
 		initCmd := prReviewModel.Init()
 		return m, initCmd
+	case keys.KeyMergePRs:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+
+		// Create PR selector overlay
+		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
+			// Handle PR selection
+			m.state = stateDefault
+			m.prSelectorOverlay = nil
+			// Start the merge process
+			if len(selectedPRs) > 0 {
+				m.mergePRs(selected, selectedPRs)
+			}
+		})
+		m.state = statePRSelector
+
+		// Initialize the overlay
+		return m, m.prSelectorOverlay.Init()
 	case keys.KeyBookmark:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
