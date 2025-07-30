@@ -1987,6 +1987,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.commentDetailOverlay.Render(), mainView, true, true)
+	} else if m.state == statePRSelector {
+		if m.prSelectorOverlay == nil {
+			log.ErrorLog.Printf("PR selector overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.prSelectorOverlay.View(), mainView, true, true)
 	}
 
 	return mainView
