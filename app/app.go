@@ -138,6 +138,8 @@ type home struct {
 	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 	// gitStatusOverlay displays git status information
 	gitStatusOverlay *overlay.GitStatusOverlay
+	// prSelectorOverlay displays PR selection interface
+	prSelectorOverlay *overlay.PRSelectorOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
