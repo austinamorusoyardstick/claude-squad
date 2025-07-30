@@ -128,12 +128,23 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
 
-	// Success! Update the overlay
-	successMsg := fmt.Sprintf("Successfully merged %d PRs!\n\n", len(selectedPRs))
-	successMsg += fmt.Sprintf("New branch: %s\n", newBranchName)
-	successMsg += fmt.Sprintf("New PR: #%d\n\n", newPRNumber)
-	successMsg += "Press any key to continue..."
-	m.textOverlay.SetContent(successMsg)
+	// Return appropriate status
+	if len(successfulMerges) == 0 {
+		return fmt.Errorf("failed to merge any PRs")
+	}
+	
+	// Note: In actual implementation, we'd send a message to update the UI
+	// For now, we just return success
+	fmt.Printf("Successfully merged %d PRs into branch %s\n", len(successfulMerges), newBranchName)
+	if newPRNumber > 0 {
+		fmt.Printf("Created PR #%d\n", newPRNumber)
+	}
+	if len(failedMerges) > 0 {
+		fmt.Printf("Failed to merge %d PRs:\n", len(failedMerges))
+		for _, failure := range failedMerges {
+			fmt.Printf("  - %s\n", failure)
+		}
+	}
 
 	// Clean up the merge worktree
 	if err := mergeWorktree.Cleanup(); err != nil {
