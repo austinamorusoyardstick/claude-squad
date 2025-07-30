@@ -360,8 +360,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			
 			m.state = stateConfirm
 			m.confirmationOverlay = overlay.NewConfirmationOverlay(message)
-			// Store what action to take after confirmation
-			m.pendingConfirmAction = "resolve_pr_conversations"
+			// Store the pending command to resolve conversations
+			m.pendingCmd = func() tea.Msg {
+				// When confirmed, send the message to resolve all conversations
+				return ui.PRResolveAllConversationsMsg{}
+			}
 			return m, nil
 		case ui.PRResolveAllConversationsMsg:
 			// Resolve all conversations on the PR
