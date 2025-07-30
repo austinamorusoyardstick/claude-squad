@@ -336,13 +336,27 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// But first, get the PR to check how many conversations there are
 			selected := m.list.GetSelectedInstance()
 			var message string
+			var fetchError error
+			
 			if selected != nil {
-				if pr, err := git.GetCurrentPR(selected.Path); err == nil {
-					if err := pr.FetchComments(selected.Path); err == nil {
-						if threads, err := pr.GetUnresolvedThreads(selected.Path); err == nil {
+				pr, err := git.GetCurrentPR(selected.Path)
+				if err != nil {
+					fetchError = fmt.Errorf("failed to get current PR: %w", err)
+				} else {
+					err = pr.FetchComments(selected.Path)
+					if err != nil {
+						fetchError = fmt.Errorf("failed to fetch comments: %w", err)
+					} else {
+						threads, err := pr.GetUnresolvedThreads(selected.Path)
+						if err != nil {
+							fetchError = fmt.Errorf("failed to get unresolved threads: %w", err)
+						} else {
 							if len(threads) == 0 {
 								// No unresolved conversations
-								m.errBox.SetError(fmt.Errorf("No unresolved conversations found on this PR"))
+								m.errBox.SetError(fmt.Errorf("No unresolved review threads found on this PR"))
+								// Also log this
+								timestamp := time.Now().Format("15:04:05")
+								m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
 								return m, func() tea.Msg {
 									time.Sleep(2 * time.Second)
 									return hideErrMsg{}
@@ -351,6 +365,12 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							message = fmt.Sprintf("Found %d unresolved review threads on this PR.\n\nAre you sure you want to resolve all %d threads?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone.", len(threads), len(threads))
 						}
 					}
+				}
+				
+				// Log the error if we had one
+				if fetchError != nil {
+					timestamp := time.Now().Format("15:04:05")
+					m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Error fetching thread count: %v", timestamp, fetchError))
 				}
 			}
 			// If we couldn't get PR info or there are conversations to resolve, show confirmation
