@@ -209,6 +209,9 @@ type resolveConversationsMsg struct {
 
 func (m *home) resolveAllPRConversations() tea.Cmd {
 	return func() tea.Msg {
+		var logs []string
+		timestamp := time.Now().Format("15:04:05")
+		
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
 			return resolveConversationsMsg{err: fmt.Errorf("no instance selected")}
@@ -217,44 +220,63 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		// Get the current PR
 		pr, err := git.GetCurrentPR(selected.Path)
 		if err != nil {
-			return resolveConversationsMsg{err: fmt.Errorf("failed to get current PR: %w", err)}
+			logs = append(logs, fmt.Sprintf("[%s] Failed to get current PR: %v", timestamp, err))
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get current PR: %w", err),
+				logs: logs,
+			}
 		}
+		
+		logs = append(logs, fmt.Sprintf("[%s] Found PR #%d: %s", timestamp, pr.Number, pr.Title))
 
 		// Fetch all comments to get thread IDs
 		if err := pr.FetchComments(selected.Path); err != nil {
-			return resolveConversationsMsg{err: fmt.Errorf("failed to fetch PR comments: %w", err)}
+			logs = append(logs, fmt.Sprintf("[%s] Failed to fetch PR comments: %v", timestamp, err))
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to fetch PR comments: %w", err),
+				logs: logs,
+			}
 		}
 
 		// Get all unresolved conversations
 		unresolvedThreads, err := pr.GetUnresolvedThreads(selected.Path)
 		if err != nil {
-			return resolveConversationsMsg{err: fmt.Errorf("failed to get unresolved threads: %w", err)}
+			logs = append(logs, fmt.Sprintf("[%s] Failed to get unresolved threads: %v", timestamp, err))
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get unresolved threads: %w", err),
+				logs: logs,
+			}
 		}
 
 		total := len(unresolvedThreads)
 		resolved := 0
+		
+		logs = append(logs, fmt.Sprintf("[%s] Found %d unresolved review threads", timestamp, total))
 
 		// Resolve each thread
-		for _, threadID := range unresolvedThreads {
+		for i, threadID := range unresolvedThreads {
 			if err := pr.ResolveThread(selected.Path, threadID); err != nil {
-				log.ErrorLog.Printf("Failed to resolve thread %s: %v", threadID, err)
+				logs = append(logs, fmt.Sprintf("[%s] Failed to resolve thread %d/%d: %v", timestamp, i+1, total, err))
 				// Check if it's a permission error
 				if strings.Contains(err.Error(), "must have push access") || 
 				   strings.Contains(err.Error(), "resource not accessible") ||
 				   strings.Contains(err.Error(), "permission") {
 					return resolveConversationsMsg{
 						err: fmt.Errorf("permission denied: you need write access to the repository to resolve conversations"),
+						logs: logs,
 					}
 				}
 				continue
 			}
 			resolved++
+			logs = append(logs, fmt.Sprintf("[%s] Resolved thread %d/%d", timestamp, i+1, total))
 		}
 
 		return resolveConversationsMsg{
 			resolved: resolved,
 			total:    total,
 			err:      nil,
+			logs:     logs,
 		}
 	}
 }
