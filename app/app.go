@@ -333,6 +333,39 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.WindowSize()
 		case ui.PRRequestResolveConfirmationMsg:
 			// Show confirmation dialog for resolving all conversations
+			// But first, get the PR to check how many conversations there are
+			selected := m.list.GetSelectedInstance()
+			if selected != nil {
+				if pr, err := git.GetCurrentPR(selected.Path); err == nil {
+					if err := pr.FetchComments(selected.Path); err == nil {
+						if threads, err := pr.GetUnresolvedThreads(selected.Path); err == nil && len(threads) > 0 {
+							m.state = stateConfirm
+							message := fmt.Sprintf("Are you sure you want to resolve all %d unresolved conversations on this PR?\n\nThis action cannot be undone.", len(threads))
+							m.confirmationOverlay = overlay.NewConfirmationOverlay(
+								"Resolve All Conversations",
+								message,
+								func() tea.Msg {
+									// User confirmed - proceed with resolving
+									return ui.PRResolveAllConversationsMsg{}
+								},
+								func() tea.Msg {
+									// User cancelled - return to PR review state
+									return returnToPRReviewMsg{}
+								},
+							)
+							return m, nil
+						} else if len(threads) == 0 {
+							// No unresolved conversations
+							m.errBox.SetError(fmt.Errorf("No unresolved conversations found on this PR"))
+							return m, func() tea.Msg {
+								time.Sleep(2 * time.Second)
+								return hideErrMsg{}
+							}
+						}
+					}
+				}
+			}
+			// If we couldn't get PR info, just show generic message
 			m.state = stateConfirm
 			m.confirmationOverlay = overlay.NewConfirmationOverlay(
 				"Resolve All Conversations",
@@ -342,8 +375,8 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return ui.PRResolveAllConversationsMsg{}
 				},
 				func() tea.Msg {
-					// User cancelled - go back to PR review
-					return ui.PRReviewCancelMsg{}
+					// User cancelled - return to PR review state
+					return returnToPRReviewMsg{}
 				},
 			)
 			return m, nil
