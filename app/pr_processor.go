@@ -199,3 +199,53 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 
 	return prompt.String()
 }
+
+type resolveConversationsMsg struct {
+	resolved int
+	total    int
+	err      error
+}
+
+func (m *home) resolveAllPRConversations() tea.Cmd {
+	return func() tea.Msg {
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return resolveConversationsMsg{err: fmt.Errorf("no instance selected")}
+		}
+
+		// Get the current PR
+		pr, err := git.GetCurrentPR(selected.Worktree.Path)
+		if err != nil {
+			return resolveConversationsMsg{err: fmt.Errorf("failed to get current PR: %w", err)}
+		}
+
+		// Fetch all comments to get thread IDs
+		if err := pr.FetchComments(selected.Worktree.Path); err != nil {
+			return resolveConversationsMsg{err: fmt.Errorf("failed to fetch PR comments: %w", err)}
+		}
+
+		// Get all unresolved conversations
+		unresolvedThreads, err := pr.GetUnresolvedThreads(selected.Worktree.Path)
+		if err != nil {
+			return resolveConversationsMsg{err: fmt.Errorf("failed to get unresolved threads: %w", err)}
+		}
+
+		total := len(unresolvedThreads)
+		resolved := 0
+
+		// Resolve each thread
+		for _, threadID := range unresolvedThreads {
+			if err := pr.ResolveThread(selected.Worktree.Path, threadID); err != nil {
+				log.ErrorLog.Printf("Failed to resolve thread %s: %v", threadID, err)
+				continue
+			}
+			resolved++
+		}
+
+		return resolveConversationsMsg{
+			resolved: resolved,
+			total:    total,
+			err:      nil,
+		}
+	}
+}
