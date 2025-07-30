@@ -860,9 +860,18 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 			Repository struct {
 				PullRequest struct {
 					ReviewThreads struct {
+						TotalCount int `json:"totalCount"`
 						Nodes []struct {
 							ID         string `json:"id"`
 							IsResolved bool   `json:"isResolved"`
+							Comments struct {
+								Nodes []struct {
+									Body string `json:"body"`
+									Author struct {
+										Login string `json:"login"`
+									} `json:"author"`
+								} `json:"nodes"`
+							} `json:"comments"`
 						} `json:"nodes"`
 					} `json:"reviewThreads"`
 				} `json:"pullRequest"`
