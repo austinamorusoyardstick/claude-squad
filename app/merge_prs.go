@@ -78,10 +78,9 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		// Note: We can't update UI directly from goroutine, would need to send messages
 
 		// Fetch the PR branch
-		if err := mergeWorktree.FetchBranch(pr.HeadRef); err != nil {
+		if _, err := mergeWorktree.FetchBranch(pr.HeadRef); err != nil {
 			// Try to continue with other PRs
-			progressMsg += fmt.Sprintf("\nWarning: Failed to fetch PR #%d: %v", pr.Number, err)
-			m.textOverlay.SetContent(progressMsg)
+			failedMerges = append(failedMerges, fmt.Sprintf("PR #%d: Failed to fetch - %v", pr.Number, err))
 			continue
 		}
 
