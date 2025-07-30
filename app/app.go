@@ -331,6 +331,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// We'll set the size in the next WindowSizeMsg
 			m.state = stateCommentDetail
 			return m, tea.WindowSize()
+		case ui.PRResolveAllConversationsMsg:
+			// Resolve all conversations on the PR
+			m.state = stateDefault
+			m.prReviewOverlay = nil
+			return m, m.resolveAllPRConversations()
 		}
 
 		return m, cmd
