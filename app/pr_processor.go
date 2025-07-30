@@ -204,6 +204,7 @@ type resolveConversationsMsg struct {
 	resolved int
 	total    int
 	err      error
+	logs     []string  // Log messages to add to errorLog
 }
 
 func (m *home) resolveAllPRConversations() tea.Cmd {
