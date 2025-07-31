@@ -105,7 +105,7 @@ func (m *home) sendCommentToClaude(comment *git.PRComment) error {
 	}
 
 	// Format the comment as a prompt for Claude
-	prompt := m.formatCommentAsPrompt(comment)
+	prompt := m.formatCommentAsPrompt(comment, 1, 1)
 
 	// Send prompt to the instance
 	return selected.SendPrompt(prompt)
