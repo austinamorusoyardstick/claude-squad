@@ -58,7 +58,7 @@ func (g *GitWorktree) CherryPickBranch(branchName string) error {
 			if strings.Contains(string(status), "UU") {
 				// Abort the cherry-pick
 				g.runGitCommand(g.worktreePath, "cherry-pick", "--abort")
-				return fmt.Errorf("merge conflict while cherry-picking commit %s", sha)
+				return &MergeConflictError{CommitSHA: sha, Branch: branchName}
 			}
 			return fmt.Errorf("failed to cherry-pick commit %s: %w", sha, err)
 		}
