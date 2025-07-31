@@ -160,6 +160,40 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	return nil
 }
 
+// paginatedGraphQLQuery executes a GraphQL query with pagination support
+func paginatedGraphQLQuery(workingDir string, buildQuery func(cursor *string) string, processResponse func([]byte) (hasNextPage bool, endCursor string, err error)) error {
+	var cursor *string
+	hasNextPage := true
+	
+	for hasNextPage {
+		query := buildQuery(cursor)
+		
+		// Execute GraphQL query
+		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+		cmd.Dir = workingDir
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to execute GraphQL query (output: %s): %w", string(output), err)
+		}
+		
+		// Process the response
+		nextPage, endCursor, err := processResponse(output)
+		if err != nil {
+			return err
+		}
+		
+		// Update pagination state
+		hasNextPage = nextPage
+		if hasNextPage && endCursor != "" {
+			cursor = &endCursor
+		} else {
+			hasNextPage = false
+		}
+	}
+	
+	return nil
+}
+
 func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, error) {
 	// Get repository info first
 	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
