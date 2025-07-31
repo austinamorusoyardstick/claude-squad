@@ -88,7 +88,7 @@ func GetCurrentPR(workingDir string) (*PullRequest, error) {
 			return nil, fmt.Errorf("not in a git repository: %s", workingDir)
 		}
 		// Generic error with output for debugging
-		return nil, fmt.Errorf("failed to get current PR from %s: %w (output: %s)", workingDir, err, strings.TrimSpace(outputStr))
+		return nil, fmt.Errorf("failed to get current PR from %s (output: %s): %w", workingDir, strings.TrimSpace(outputStr), err)
 	}
 
 	var prData struct {
