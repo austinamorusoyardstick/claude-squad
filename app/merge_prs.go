@@ -88,7 +88,8 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		// Cherry-pick the PR's commits
 		if err := mergeWorktree.CherryPickBranch(pr.HeadRef); err != nil {
 			// Check if it's a merge conflict
-			if strings.Contains(err.Error(), "conflict") {
+			var mergeConflictErr *git.MergeConflictError
+			if errors.As(err, &mergeConflictErr) {
 				failedMerges = append(failedMerges, fmt.Sprintf("PR #%d: Merge conflict", pr.Number))
 			} else {
 				failedMerges = append(failedMerges, fmt.Sprintf("PR #%d: %v", pr.Number, err))
