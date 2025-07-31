@@ -979,7 +979,7 @@ mutation($threadId: ID!) {
 	cmd.Dir = workingDir
 	output, err := cmd.CombinedOutput() // Use CombinedOutput to get stderr as well
 	if err != nil {
-		return fmt.Errorf("failed to resolve thread %s: %w (output: %s)", threadID, err, string(output))
+		return fmt.Errorf("failed to resolve thread %s (output: %s): %w", threadID, string(output), err)
 	}
 
 	// Check if mutation was successful
