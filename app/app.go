@@ -1403,65 +1403,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		initCmd := prReviewModel.Init()
 		return m, initCmd
 	case keys.KeyPRResolveConversations:
-		selected := m.list.GetSelectedInstance()
-		if selected == nil {
-			return m, nil
-		}
-
-		// Check if instance is started
-		if !selected.Started() {
-			return m, m.handleError(fmt.Errorf("instance '%s' is not started", selected.Title))
-		}
-
-		// Check if instance is paused
-		if selected.Paused() {
-			return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
-		}
-
-		// Get the worktree for the selected instance
-		worktree, err := selected.GetGitWorktree()
-		if err != nil {
-			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
-		}
-
-		// Get the worktree path
-		worktreePath := worktree.GetWorktreePath()
-
-		// Try to get PR and check for unresolved threads
-		var threads []string
-		var fetchError error
-		pr, err := git.GetCurrentPR(worktreePath)
-		if err == nil {
-			// We have a PR, try to get unresolved threads
-			threads, fetchError = pr.GetUnresolvedThreads(worktreePath)
-		} else {
-			fetchError = err
-		}
-
-		var message string
-		if fetchError == nil {
-			if len(threads) == 0 {
-				// No unresolved conversations
-				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", time.Now().Format("15:04:05")))
-				return m, m.handleError(fmt.Errorf("no unresolved review threads found on this PR"))
-			}
-			message = fmt.Sprintf("Found %d unresolved review threads on this PR.\n\nAre you sure you want to resolve all %d threads?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone.", len(threads), len(threads))
-		} else if strings.Contains(fetchError.Error(), "no pull request found") || 
-		          strings.Contains(fetchError.Error(), "no open pull requests") {
-			message = fmt.Sprintf("Error: %v\n\nThis feature requires an open GitHub pull request for the current branch.\n\nMake sure you:\n1. Have an open PR for this branch\n2. Are authenticated with 'gh auth login'\n3. Are in a git repository", fetchError)
-			return m, m.handleError(fetchError)
-		} else {
-			// Some other error occurred, but we'll still allow the user to try
-			message = "Unable to fetch thread count.\n\nAre you sure you want to resolve all review threads on this PR?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone."
-		}
-
-		// Store the pending command to resolve conversations
-		m.pendingCmd = func() tea.Msg {
-			// When confirmed, send the message to resolve all conversations
-			return ui.PRResolveAllConversationsMsg{}
-		}
-
-		return m, m.confirmAction(message, m.pendingCmd)
+		return m.requestResolveAllConversationsConfirmation()
 	case keys.KeyBookmark:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
