@@ -258,15 +258,28 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		for i, threadID := range unresolvedThreads {
 			if err := pr.ResolveThread(worktreePath, threadID); err != nil {
 				logs = append(logs, fmt.Sprintf("[%s] Failed to resolve thread %d/%d", timestamp, i+1, total))
-				// Check if it's a permission error
-				if strings.Contains(err.Error(), "must have push access") || 
-				   strings.Contains(err.Error(), "resource not accessible") ||
-				   strings.Contains(err.Error(), "permission") {
+				errStr := err.Error()
+				
+				// Check for permission errors
+				if strings.Contains(errStr, "must have push access") || 
+				   strings.Contains(errStr, "resource not accessible") ||
+				   strings.Contains(errStr, "permission") {
 					return resolveConversationsMsg{
 						err: fmt.Errorf("permission denied: you need write access to the repository to resolve conversations"),
 						logs: logs,
 					}
 				}
+				
+				// Check for authentication errors to avoid repeated failures
+				if strings.Contains(errStr, "authentication") || 
+				   strings.Contains(errStr, "gh auth login") ||
+				   strings.Contains(errStr, "not authenticated") {
+					return resolveConversationsMsg{
+						err: fmt.Errorf("GitHub CLI not authenticated. Run 'gh auth login' first"),
+						logs: logs,
+					}
+				}
+				
 				continue
 			}
 			resolved++
