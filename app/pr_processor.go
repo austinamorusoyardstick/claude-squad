@@ -68,7 +68,7 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 
 			// Skip empty prompts (e.g., split comments with no accepted pieces)
 			if prompt == "" {
-				log.DebugLog.Printf("Skipping comment %d (empty prompt)", i+1)
+				log.InfoLog.Printf("Skipping comment %d (empty prompt)", i+1)
 				continue
 			}
 
