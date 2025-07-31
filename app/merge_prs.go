@@ -140,7 +140,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	}
 	prBody += fmt.Sprintf("\n\nCreated by claude-squad merge-prs feature")
 
-	newPRNumber, err := mergeWorktree.CreatePullRequest(prTitle, prBody)
+	_, err = mergeWorktree.CreatePullRequest(prTitle, prBody)
 	if err != nil {
 		return fmt.Errorf("failed to create pull request: %w", err)
 	}
