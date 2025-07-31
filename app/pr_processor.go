@@ -68,17 +68,17 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 
 			// Skip empty prompts (e.g., split comments with no accepted pieces)
 			if prompt == "" {
-				log.WarningLog.Printf("Skipping comment %d (empty prompt)", i+1)
+				log.DebugLog.Printf("Skipping comment %d (empty prompt)", i+1)
 				continue
 			}
 
 			// Debug: log the prompt being sent
-			log.WarningLog.Printf("Sending PR comment %d/%d to Claude", i+1, len(comments))
+			log.InfoLog.Printf("Sending PR comment %d/%d to Claude", i+1, len(comments))
 			promptPreview := prompt
 			if len(promptPreview) > 100 {
 				promptPreview = promptPreview[:100] + "..."
 			}
-			log.WarningLog.Printf("Prompt preview: %s", promptPreview)
+			log.InfoLog.Printf("Prompt preview: %s", promptPreview)
 
 			// Send the comment to Claude
 			if err := selected.SendPromptToAI(prompt); err != nil {
@@ -86,7 +86,7 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 				return fmt.Errorf("failed to send comment %d to Claude: %w", i+1, err)
 			}
 
-			log.WarningLog.Printf("Successfully sent comment %d to Claude", i+1)
+			log.InfoLog.Printf("Successfully sent comment %d to Claude", i+1)
 
 			// Delay between comments to give Claude time to process
 			if i < len(comments)-1 {
