@@ -180,12 +180,28 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 		return nil, fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	// Use GraphQL to get review thread resolution status
-	query := fmt.Sprintf(`
+	// Build map of comment ID to resolved status
+	resolvedMap := make(map[int]bool)
+	var cursor *string // Use pointer to handle null cursor
+	hasNextPage := true
+	pageSize := 100
+
+	for hasNextPage {
+		// Build GraphQL query with pagination
+		var afterClause string
+		if cursor != nil {
+			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
+		}
+		
+		query := fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: %d%s) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           id
           isResolved
@@ -198,46 +214,58 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
       }
     }
   }
-}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number)
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
 
-	// Execute GraphQL query
-	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
-	cmd.Dir = workingDir
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
-	}
+		// Execute GraphQL query
+		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+		cmd.Dir = workingDir
+		output, err := cmd.Output()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
+		}
 
-	var response struct {
-		Data struct {
-			Repository struct {
-				PullRequest struct {
-					ReviewThreads struct {
-						Nodes []struct {
-							ID         string `json:"id"`
-							IsResolved bool   `json:"isResolved"`
-							Comments   struct {
-								Nodes []struct {
-									DatabaseID int `json:"databaseId"`
-								} `json:"nodes"`
-							} `json:"comments"`
-						} `json:"nodes"`
-					} `json:"reviewThreads"`
-				} `json:"pullRequest"`
-			} `json:"repository"`
-		} `json:"data"`
-	}
+		var response struct {
+			Data struct {
+				Repository struct {
+					PullRequest struct {
+						ReviewThreads struct {
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								ID         string `json:"id"`
+								IsResolved bool   `json:"isResolved"`
+								Comments   struct {
+									Nodes []struct {
+										DatabaseID int `json:"databaseId"`
+									} `json:"nodes"`
+								} `json:"comments"`
+							} `json:"nodes"`
+						} `json:"reviewThreads"`
+					} `json:"pullRequest"`
+				} `json:"repository"`
+			} `json:"data"`
+		}
 
-	if err := json.Unmarshal(output, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse resolved status response: %w", err)
-	}
+		if err := json.Unmarshal(output, &response); err != nil {
+			return nil, fmt.Errorf("failed to parse resolved status response: %w", err)
+		}
 
-	// Build map of comment ID to resolved status
-	resolvedMap := make(map[int]bool)
-	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
-		if len(thread.Comments.Nodes) > 0 {
-			commentID := thread.Comments.Nodes[0].DatabaseID
-			resolvedMap[commentID] = thread.IsResolved
+		// Add comment IDs from this page to the map
+		for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+			if len(thread.Comments.Nodes) > 0 {
+				commentID := thread.Comments.Nodes[0].DatabaseID
+				resolvedMap[commentID] = thread.IsResolved
+			}
+		}
+
+		// Check if there are more pages
+		hasNextPage = response.Data.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage
+		if hasNextPage && response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor != "" {
+			cursor = &response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		} else {
+			hasNextPage = false
 		}
 	}
 
