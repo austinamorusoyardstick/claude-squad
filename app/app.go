@@ -64,6 +64,10 @@ const (
 	stateGitStatus
 	// stateCommentDetail is the state when displaying full PR comment content.
 	stateCommentDetail
+	// statePRSelector is the state when selecting PRs to merge.
+	statePRSelector
+	// stateMergeProgress is the state when displaying merge progress.
+	stateMergeProgress
 )
 
 type home struct {
@@ -136,6 +140,8 @@ type home struct {
 	keybindingEditorOverlay *overlay.KeybindingEditorOverlay
 	// gitStatusOverlay displays git status information
 	gitStatusOverlay *overlay.GitStatusOverlay
+	// prSelectorOverlay displays PR selection interface
+	prSelectorOverlay *overlay.PRSelectorOverlay
 
 	// errorLog stores all error messages for display
 	errorLog []string
@@ -154,6 +160,11 @@ type home struct {
 	rebaseBranchName string
 	// rebaseOriginalSHA is the commit SHA before rebase started
 	rebaseOriginalSHA string
+
+	// pendingMergePRs stores the PRs to merge after PR selector closes
+	pendingMergePRs []*git.PullRequest
+	// pendingMergeInstance stores the instance to use for merging
+	pendingMergeInstance *session.Instance
 }
 
 func newHome(ctx context.Context, program string, autoYes bool) *home {
@@ -269,6 +280,37 @@ func (m *home) Init() tea.Cmd {
 }
 
 func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle PR selector updates when in that state
+	if m.state == statePRSelector && m.prSelectorOverlay != nil {
+		// Pass all messages to the overlay, not just key messages
+		updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
+		
+		// Check if overlay wants to close (returns nil)
+		if updatedOverlay == nil {
+			m.state = stateDefault
+			m.prSelectorOverlay = nil
+			
+			// Check if we have pending PRs to merge
+			if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
+				// Start the merge process
+				mergeCmd := m.mergePRs(m.pendingMergeInstance, m.pendingMergePRs)
+				// Clear the pending fields
+				m.pendingMergePRs = nil
+				m.pendingMergeInstance = nil
+				return m, tea.Batch(cmd, mergeCmd)
+			}
+			
+			return m, cmd
+		}
+		
+		// Update the overlay pointer
+		if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
+			m.prSelectorOverlay = overlayPtr
+		}
+		
+		return m, cmd
+	}
+	
 	// Handle branch selector updates when in that state
 	if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
 		if _, ok := msg.(tea.KeyMsg); ok {
@@ -406,6 +448,12 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Also update comment detail overlay if it's active
 		if m.state == stateCommentDetail && m.commentDetailOverlay != nil {
 			m.commentDetailOverlay.SetSize(msg.Width, msg.Height)
+		}
+
+		// Also update PR selector overlay if it's active
+		if m.state == statePRSelector && m.prSelectorOverlay != nil {
+			_, cmd := m.prSelectorOverlay.Update(msg)
+			return m, cmd
 		}
 
 		return m, nil
@@ -612,7 +660,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		timestamp := time.Now().Format("15:04:05")
-		
+
 		if msg.err != nil {
 			// Log the error
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Failed to resolve conversations: %v", timestamp, msg.err))
@@ -630,11 +678,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
 				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
 			}
-			
+
 			successErr := fmt.Errorf(message)
 			m.errBox.SetError(successErr)
 		}
-		
+
 		// Keep log size manageable
 		if len(m.errorLog) > 100 {
 			m.errorLog = m.errorLog[len(m.errorLog)-100:]
@@ -654,11 +702,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.prReviewOverlay = nil
 		m.confirmationOverlay = nil
 		m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
-		
+
 		// Log the start of resolution
 		timestamp := time.Now().Format("15:04:05")
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Starting to resolve all PR conversations...", timestamp))
-		
+
 		return m, m.resolveAllPRConversations()
 	case testStartedMsg:
 		// Show non-obtrusive message that tests are running
@@ -673,6 +721,14 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			status = fmt.Sprintf("Tests complete: %d/%d passed, %d failed", msg.passed, msg.total, msg.failed)
 		}
 		m.errBox.SetError(fmt.Errorf(status))
+		return m, nil
+	case mergePRsCompletedMsg:
+		// Handle merge completion
+		m.state = stateDefault
+		if msg.err != nil {
+			return m, m.handleError(msg.err)
+		}
+		// Success message is already shown in the overlay
 		return m, nil
 	case testResultsMsg:
 		// Handle test results
@@ -784,6 +840,11 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 	if m.state == stateCommentDetail {
 		return m.handleCommentDetailState(msg)
 	}
+
+	// PR selector state is now handled in the main Update method
+	// if m.state == statePRSelector {
+	// 	return m.handlePRSelectorState(msg)
+	// }
 
 	if m.state == stateNew {
 		// Handle quit commands first. Don't handle q because the user might want to type that.
@@ -1346,6 +1407,40 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		return m, initCmd
 	case keys.KeyPRResolveConversations:
 		return m.requestResolveAllConversationsConfirmation()
+	case keys.KeyMergePRs:
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return m, nil
+		}
+
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+		}
+
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+
+		// Store the instance for later use in the callback
+		selectedInstance := selected
+
+		// Create PR selector overlay
+		m.prSelectorOverlay = overlay.NewPRSelectorOverlay(worktreePath, func(selectedPRs []*git.PullRequest) {
+			// Handle PR selection
+			m.state = stateDefault
+			m.prSelectorOverlay = nil
+			// Start the merge process will be handled via a message
+			if len(selectedPRs) > 0 {
+				// Send a message to trigger the merge
+				m.pendingMergePRs = selectedPRs
+				m.pendingMergeInstance = selectedInstance
+			}
+		})
+		m.state = statePRSelector
+
+		// Initialize the overlay
+		return m, m.prSelectorOverlay.Init()
 	case keys.KeyBookmark:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -1746,12 +1841,12 @@ func (m *home) requestResolveAllConversationsConfirmation() (tea.Model, tea.Cmd)
 
 	var message string
 	timestamp := time.Now().Format("15:04:05")
-	
+
 	if fetchError == nil {
 		if len(threads) == 0 {
 			// No unresolved conversations
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
-			
+
 			// For PR review state, just show error
 			if m.state == statePRReview {
 				m.errBox.SetError(fmt.Errorf("No unresolved review threads found on this PR"))
@@ -1767,11 +1862,11 @@ func (m *home) requestResolveAllConversationsConfirmation() (tea.Model, tea.Cmd)
 	} else {
 		// Log the error
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Error fetching thread count: %v", timestamp, fetchError))
-		
-		if strings.Contains(fetchError.Error(), "no pull request found") || 
+
+		if strings.Contains(fetchError.Error(), "no pull request found") ||
 		   strings.Contains(fetchError.Error(), "no open pull requests") {
 			message = fmt.Sprintf("Error: %v\n\nThis feature requires an open GitHub pull request for the current branch.\n\nMake sure you:\n1. Have an open PR for this branch\n2. Are authenticated with 'gh auth login'\n3. Are in a git repository", fetchError)
-			
+
 			// For main menu, return error immediately
 			if m.state != statePRReview {
 				return m, m.handleError(fetchError)
@@ -2119,6 +2214,13 @@ func (m *home) View() string {
 			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.commentDetailOverlay.Render(), mainView, true, true)
+	} else if m.state == statePRSelector {
+		if m.prSelectorOverlay == nil {
+			log.ErrorLog.Printf("PR selector overlay is nil")
+			m.state = stateDefault
+			return mainView
+		}
+		return overlay.PlaceOverlay(0, 0, m.prSelectorOverlay.View(), mainView, true, true)
 	}
 
 	return mainView
@@ -2163,6 +2265,41 @@ func (m *home) handleCommentDetailState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Update the viewport
 	_, cmd := m.commentDetailOverlay.Update(msg)
+	return m, cmd
+}
+
+func (m *home) handlePRSelectorState(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.prSelectorOverlay == nil {
+		m.state = stateDefault
+		return m, nil
+	}
+
+	// Update the overlay with the key message
+	updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
+
+	// Check if overlay wants to close (returns nil)
+	if updatedOverlay == nil {
+		m.state = stateDefault
+		m.prSelectorOverlay = nil
+
+		// Check if we have pending PRs to merge
+		if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
+			// Start the merge process
+			mergeCmd := m.mergePRs(m.pendingMergeInstance, m.pendingMergePRs)
+			// Clear the pending fields
+			m.pendingMergePRs = nil
+			m.pendingMergeInstance = nil
+			return m, tea.Batch(cmd, mergeCmd)
+		}
+
+		return m, cmd
+	}
+
+	// Update the overlay pointer
+	if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
+		m.prSelectorOverlay = overlayPtr
+	}
+
 	return m, cmd
 }
 
@@ -2215,7 +2352,7 @@ func (m *home) showTestResults(output string) {
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
-	
+
 	// Create content for error log
 	var content string
 	if len(m.errorLog) == 0 {

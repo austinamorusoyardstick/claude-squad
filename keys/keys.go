@@ -66,6 +66,7 @@ const (
 	KeyGitStatusBookmark // Key for showing git status overlay in bookmark mode
 	KeyCheckUpdate       // Key for checking for updates
 	KeyGitReset          // Key for git reset --hard origin/branch
+	KeyMergePRs          // Key for merging multiple PRs
 )
 
 // GlobalKeyStringsMap is a global, immutable map string to keybinding.
@@ -119,6 +120,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"G":          KeyGitStatusBookmark,
 	"U":          KeyCheckUpdate,
 	"h":          KeyGitReset,
+	"M":          KeyMergePRs,
 
 	// Jest navigation - these are only active in Jest tab
 	// "n" and "p" are already taken globally, so we'll handle them contextually
@@ -294,6 +296,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyGitReset: key.NewBinding(
 		key.WithKeys("h"),
 		key.WithHelp("h", "git reset --hard"),
+	),
+	KeyMergePRs: key.NewBinding(
+		key.WithKeys("M"),
+		key.WithHelp("M", "merge PRs"),
 	),
 
 	// -- Special keybindings --
