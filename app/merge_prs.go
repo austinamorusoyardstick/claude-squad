@@ -59,8 +59,8 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	// Get the repo path from the current worktree
 	repoPath := worktree.GetRepoPath()
 
-	// Create a new worktree for the merge
-	mergeWorktree, _, err := git.NewGitWorktree(repoPath, newBranchName)
+	// Create a new worktree for the merge with the specific branch name
+	mergeWorktree, _, err := git.NewGitWorktreeForBranch(repoPath, "merge-prs", newBranchName)
 	if err != nil {
 		return fmt.Errorf("failed to create merge worktree: %w", err)
 	}
