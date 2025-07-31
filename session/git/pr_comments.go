@@ -833,14 +833,29 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		return nil, fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	// Use GraphQL to get unresolved review threads
-	// Note: Using a higher limit to get all threads
-	query := fmt.Sprintf(`
+	// Collect all unresolved thread IDs with pagination
+	var unresolvedThreads []string
+	var cursor *string // Use pointer to handle null cursor
+	hasNextPage := true
+	pageSize := 100
+
+	for hasNextPage {
+		// Build GraphQL query with pagination
+		var afterClause string
+		if cursor != nil {
+			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
+		}
+		
+		query := fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: %d%s) {
         totalCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           id
           isResolved
@@ -856,50 +871,62 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
       }
     }
   }
-}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number)
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
 
-	// Execute GraphQL query
-	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
-	cmd.Dir = workingDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Include the output in the error for debugging
-		return nil, fmt.Errorf("failed to fetch review threads: %w (output: %s)", err, string(output))
-	}
+		// Execute GraphQL query
+		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+		cmd.Dir = workingDir
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			// Include the output in the error for debugging
+			return nil, fmt.Errorf("failed to fetch review threads: %w (output: %s)", err, string(output))
+		}
 
-	var response struct {
-		Data struct {
-			Repository struct {
-				PullRequest struct {
-					ReviewThreads struct {
-						TotalCount int `json:"totalCount"`
-						Nodes []struct {
-							ID         string `json:"id"`
-							IsResolved bool   `json:"isResolved"`
-							Comments struct {
-								Nodes []struct {
-									Body string `json:"body"`
-									Author struct {
-										Login string `json:"login"`
-									} `json:"author"`
-								} `json:"nodes"`
-							} `json:"comments"`
-						} `json:"nodes"`
-					} `json:"reviewThreads"`
-				} `json:"pullRequest"`
-			} `json:"repository"`
-		} `json:"data"`
-	}
+		var response struct {
+			Data struct {
+				Repository struct {
+					PullRequest struct {
+						ReviewThreads struct {
+							TotalCount int `json:"totalCount"`
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								ID         string `json:"id"`
+								IsResolved bool   `json:"isResolved"`
+								Comments struct {
+									Nodes []struct {
+										Body string `json:"body"`
+										Author struct {
+											Login string `json:"login"`
+										} `json:"author"`
+									} `json:"nodes"`
+								} `json:"comments"`
+							} `json:"nodes"`
+						} `json:"reviewThreads"`
+					} `json:"pullRequest"`
+				} `json:"repository"`
+			} `json:"data"`
+		}
 
-	if err := json.Unmarshal(output, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse review threads response: %w", err)
-	}
+		if err := json.Unmarshal(output, &response); err != nil {
+			return nil, fmt.Errorf("failed to parse review threads response: %w", err)
+		}
 
-	// Collect unresolved thread IDs
-	var unresolvedThreads []string
-	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
-		if !thread.IsResolved {
-			unresolvedThreads = append(unresolvedThreads, thread.ID)
+		// Collect unresolved thread IDs from this page
+		for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+			if !thread.IsResolved {
+				unresolvedThreads = append(unresolvedThreads, thread.ID)
+			}
+		}
+
+		// Check if there are more pages
+		hasNextPage = response.Data.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage
+		if hasNextPage && response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor != "" {
+			cursor = &response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		} else {
+			hasNextPage = false
 		}
 	}
 	
