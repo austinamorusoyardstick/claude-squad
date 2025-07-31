@@ -240,14 +240,6 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		
 		logs = append(logs, fmt.Sprintf("[%s] Found PR #%d: %s", timestamp, pr.Number, pr.Title))
 
-		// Fetch all comments to get thread IDs
-		if err := pr.FetchComments(worktreePath); err != nil {
-			return resolveConversationsMsg{
-				err: fmt.Errorf("failed to fetch PR comments: %w", err),
-				logs: logs,
-			}
-		}
-
 		// Get all unresolved conversations
 		unresolvedThreads, err := pr.GetUnresolvedThreads(worktreePath)
 		if err != nil {
