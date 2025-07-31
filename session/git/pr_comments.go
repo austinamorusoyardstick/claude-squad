@@ -216,18 +216,16 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 
 	// Build map of comment ID to resolved status
 	resolvedMap := make(map[int]bool)
-	var cursor *string // Use pointer to handle null cursor
-	hasNextPage := true
 	pageSize := 100
 
-	for hasNextPage {
-		// Build GraphQL query with pagination
+	// Build query function
+	buildQuery := func(cursor *string) string {
 		var afterClause string
 		if cursor != nil {
 			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
 		}
 		
-		query := fmt.Sprintf(`
+		return fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
@@ -249,15 +247,10 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
     }
   }
 }`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
+	}
 
-		// Execute GraphQL query
-		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
-		cmd.Dir = workingDir
-		output, err := cmd.Output()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
-		}
-
+	// Process response function
+	processResponse := func(output []byte) (bool, string, error) {
 		var response struct {
 			Data struct {
 				Repository struct {
@@ -283,7 +276,7 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 		}
 
 		if err := json.Unmarshal(output, &response); err != nil {
-			return nil, fmt.Errorf("failed to parse resolved status response: %w", err)
+			return false, "", fmt.Errorf("failed to parse resolved status response: %w", err)
 		}
 
 		// Add comment IDs from this page to the map
@@ -294,13 +287,13 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 			}
 		}
 
-		// Check if there are more pages
-		hasNextPage = response.Data.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage
-		if hasNextPage && response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor != "" {
-			cursor = &response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
-		} else {
-			hasNextPage = false
-		}
+		pageInfo := response.Data.Repository.PullRequest.ReviewThreads.PageInfo
+		return pageInfo.HasNextPage, pageInfo.EndCursor, nil
+	}
+
+	// Execute paginated query
+	if err := paginatedGraphQLQuery(workingDir, buildQuery, processResponse); err != nil {
+		return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
 	}
 
 	return resolvedMap, nil
