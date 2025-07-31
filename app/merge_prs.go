@@ -159,8 +159,8 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 
 	// Clean up the merge worktree
 	if err := mergeWorktree.Cleanup(); err != nil {
-		// Log but don't fail
-		fmt.Printf("Warning: failed to cleanup merge worktree: %v\n", err)
+		// Log error but don't fail the operation
+		// The error is logged internally, no need to print to stdout
 	}
 
 	return nil
