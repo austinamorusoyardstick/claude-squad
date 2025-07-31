@@ -45,8 +45,6 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to get git worktree: %w", err)
 	}
 
-	// Note: Not used but may be needed for future enhancements
-	_ = worktree.GetWorktreePath()
 
 	// Create a new branch name based on the PRs being merged
 	timestamp := time.Now().Format("20060102-150405")
@@ -70,8 +68,6 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to setup merge worktree: %w", err)
 	}
 
-	// Note: mergeWorktreePath not used yet but kept for potential future use
-	_ = mergeWorktree.GetWorktreePath()
 
 	// Cherry-pick or merge each PR's changes
 	var successfulMerges []int
@@ -80,7 +76,6 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	for i, pr := range selectedPRs {
 		// Send progress update
 		// Note: We can't update UI directly from goroutine, would need to send messages
-		_ = fmt.Sprintf("Merging PR #%d (%d/%d): %s", pr.Number, i+1, len(selectedPRs), pr.Title)
 
 		// Fetch the PR branch
 		if _, err := mergeWorktree.FetchBranch(pr.HeadRef); err != nil {
