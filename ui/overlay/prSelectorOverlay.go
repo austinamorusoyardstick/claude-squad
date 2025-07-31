@@ -145,8 +145,15 @@ func (o *PRSelectorOverlay) View() string {
 				cursor = "> "
 			}
 
+			// Truncate title if it's too long
+			title := pr.Title
+			maxTitleLen := 50
+			if len(title) > maxTitleLen {
+				title = title[:maxTitleLen-3] + "..."
+			}
+			
 			line := fmt.Sprintf("%s%s #%d: %s (%s -> %s)",
-				cursor, checkbox, pr.Number, pr.Title, pr.HeadRef, pr.BaseRef)
+				cursor, checkbox, pr.Number, title, pr.HeadRef, pr.BaseRef)
 
 			if i == o.cursor {
 				content.WriteString(lipgloss.NewStyle().Bold(true).Render(line))
