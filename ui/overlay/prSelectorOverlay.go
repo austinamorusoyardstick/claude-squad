@@ -69,16 +69,12 @@ func (o *PRSelectorOverlay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		o.fetchingPRs = false
 		if msg.err != nil {
 			o.errorMessage = fmt.Sprintf("Error fetching PRs: %v", msg.err)
-			// Log the error for debugging
-			fmt.Printf("PR fetch error: %v\n", msg.err)
 			return o, nil
 		}
 		o.prs = msg.prs
 		if len(o.prs) == 0 {
 			o.errorMessage = "No open PRs found"
 		}
-		// Log success
-		fmt.Printf("Successfully fetched %d PRs\n", len(o.prs))
 		return o, nil
 
 	case tea.KeyMsg:
