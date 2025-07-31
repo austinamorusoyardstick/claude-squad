@@ -815,9 +815,6 @@ func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
 	cmd := exec.CommandContext(ctx, "gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
 	cmd.Dir = workingDir
 	
-	// Log the command being executed
-	fmt.Printf("Fetching open PRs from: %s\n", workingDir)
-	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
