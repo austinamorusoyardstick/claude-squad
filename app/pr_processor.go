@@ -242,7 +242,6 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 
 		// Fetch all comments to get thread IDs
 		if err := pr.FetchComments(worktreePath); err != nil {
-			logs = append(logs, fmt.Sprintf("[%s] Failed to fetch PR comments: %v", timestamp, err))
 			return resolveConversationsMsg{
 				err: fmt.Errorf("failed to fetch PR comments: %w", err),
 				logs: logs,
