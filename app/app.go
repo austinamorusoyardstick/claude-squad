@@ -419,7 +419,8 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Also update PR selector overlay if it's active
 		if m.state == statePRSelector && m.prSelectorOverlay != nil {
-			m.prSelectorOverlay.Update(msg)
+			_, cmd := m.prSelectorOverlay.Update(msg)
+			return m, cmd
 		}
 
 		return m, nil
