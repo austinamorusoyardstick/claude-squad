@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+// MergeConflictError represents an error that occurred due to a merge conflict
+type MergeConflictError struct {
+	CommitSHA string
+	Branch    string
+}
+
+func (e *MergeConflictError) Error() string {
+	if e.CommitSHA != "" {
+		return fmt.Sprintf("merge conflict while cherry-picking commit %s", e.CommitSHA)
+	}
+	return fmt.Sprintf("merge conflict while merging branch %s", e.Branch)
+}
+
 // CherryPickBranch cherry-picks all commits from a branch
 func (g *GitWorktree) CherryPickBranch(branchName string) error {
 	// Get the merge base between current branch and the target branch
