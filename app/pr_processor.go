@@ -64,35 +64,23 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 
 		// Process each comment
 		for i, comment := range comments {
-			prompt := m.formatCommentAsPrompt(comment)
+			prompt := m.formatCommentAsPrompt(comment, i+1, len(comments))
 
 			// Skip empty prompts (e.g., split comments with no accepted pieces)
 			if prompt == "" {
+				log.WarningLog.Printf("Skipping comment %d (empty prompt)", i+1)
 				continue
 			}
 
 			// Debug: log the prompt being sent
-			log.WarningLog.Printf("Sending PR comment %d to Claude AI pane", i+1)
+			log.WarningLog.Printf("Sending PR comment %d/%d to Claude", i+1, len(comments))
 			promptPreview := prompt
 			if len(promptPreview) > 100 {
 				promptPreview = promptPreview[:100] + "..."
 			}
-			log.WarningLog.Printf("Prompt content: %s", promptPreview)
+			log.WarningLog.Printf("Prompt preview: %s", promptPreview)
 
-			// First try sending a simple test message
-			testMsg := fmt.Sprintf("Processing PR comment %d from @%s", i+1, comment.Author)
-			if comment.IsSplit {
-				acceptedCount := len(comment.GetAcceptedPieces())
-				testMsg += fmt.Sprintf(" (%d pieces selected)", acceptedCount)
-			}
-			if err := selected.SendPromptToAI(testMsg); err != nil {
-				log.ErrorLog.Printf("Failed to send test message to Claude: %v", err)
-				return fmt.Errorf("failed to send test message to Claude: %w", err)
-			}
-
-			// Short pause before sending the actual prompt
-			time.Sleep(500 * time.Millisecond)
-
+			// Send the comment to Claude
 			if err := selected.SendPromptToAI(prompt); err != nil {
 				log.ErrorLog.Printf("Failed to send comment %d to Claude: %v", i+1, err)
 				return fmt.Errorf("failed to send comment %d to Claude: %w", i+1, err)
@@ -100,8 +88,10 @@ func (m *home) processCommentsSequentially(comments []*git.PRComment) tea.Cmd {
 
 			log.WarningLog.Printf("Successfully sent comment %d to Claude", i+1)
 
-			// Longer delay between comments to give Claude time to process
-			time.Sleep(3 * time.Second)
+			// Delay between comments to give Claude time to process
+			if i < len(comments)-1 {
+				time.Sleep(2 * time.Second)
+			}
 		}
 
 		return allCommentsProcessedMsg{}
