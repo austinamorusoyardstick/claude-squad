@@ -111,8 +111,16 @@ func (m *home) sendCommentToClaude(comment *git.PRComment) error {
 	return selected.SendPrompt(prompt)
 }
 
-func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
+func (m *home) formatCommentAsPrompt(comment *git.PRComment, index int, total int) string {
 	var prompt strings.Builder
+
+	// Add processing header with comment number
+	prompt.WriteString(fmt.Sprintf("Processing PR comment %d of %d from @%s", index, total, comment.Author))
+	if comment.IsSplit {
+		acceptedCount := len(comment.GetAcceptedPieces())
+		prompt.WriteString(fmt.Sprintf(" (%d pieces selected)", acceptedCount))
+	}
+	prompt.WriteString("\n\n")
 
 	// Format header based on comment type
 	switch comment.Type {
