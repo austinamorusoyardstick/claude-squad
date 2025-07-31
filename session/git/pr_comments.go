@@ -1035,9 +1035,13 @@ mutation($threadId: ID!) {
 func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
 	cmd := exec.Command("gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
 	cmd.Dir = workingDir
-	output, err := cmd.Output()
+	
+	// Log the command being executed
+	fmt.Printf("Fetching open PRs from: %s\n", workingDir)
+	
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list PRs: %w", err)
+		return nil, fmt.Errorf("failed to list PRs: %w (output: %s)", err, string(output))
 	}
 
 	var prs []struct {
