@@ -153,18 +153,9 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 		return fmt.Errorf("failed to merge any PRs")
 	}
 
-	// Note: In actual implementation, we'd send a message to update the UI
-	// For now, we just return success
-	fmt.Printf("Successfully merged %d PRs into branch %s\n", len(successfulMerges), newBranchName)
-	if newPRNumber > 0 {
-		fmt.Printf("Created PR #%d\n", newPRNumber)
-	}
-	if len(failedMerges) > 0 {
-		fmt.Printf("Failed to merge %d PRs:\n", len(failedMerges))
-		for _, failure := range failedMerges {
-			fmt.Printf("  - %s\n", failure)
-		}
-	}
+	// The success/failure information is available in the variables
+	// but we don't print to stdout in a TUI application
+	// The calling code can use this information to update the UI appropriately
 
 	// Clean up the merge worktree
 	if err := mergeWorktree.Cleanup(); err != nil {
