@@ -265,7 +265,7 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		// Resolve each thread
 		for i, threadID := range unresolvedThreads {
 			if err := pr.ResolveThread(worktreePath, threadID); err != nil {
-				logs = append(logs, fmt.Sprintf("[%s] Failed to resolve thread %d/%d: %v", timestamp, i+1, total, err))
+				logs = append(logs, fmt.Sprintf("[%s] Failed to resolve thread %d/%d", timestamp, i+1, total))
 				// Check if it's a permission error
 				if strings.Contains(err.Error(), "must have push access") || 
 				   strings.Contains(err.Error(), "resource not accessible") ||
