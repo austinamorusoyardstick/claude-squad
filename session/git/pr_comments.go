@@ -1034,7 +1034,11 @@ mutation($threadId: ID!) {
 
 // ListOpenPRs lists all open PRs for the current repository
 func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
-	cmd := exec.Command("gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
+	// Create a context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	cmd := exec.CommandContext(ctx, "gh", "pr", "list", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid", "--state", "open")
 	cmd.Dir = workingDir
 	
 	// Log the command being executed
@@ -1042,6 +1046,9 @@ func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
 	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while fetching PRs (took more than 30s)")
+		}
 		return nil, fmt.Errorf("failed to list PRs: %w (output: %s)", err, string(output))
 	}
 
