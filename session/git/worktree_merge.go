@@ -36,7 +36,12 @@ func (g *GitWorktree) CherryPickBranch(branchName string) error {
 		_, err := g.runGitCommand(g.worktreePath, "cherry-pick", sha)
 		if err != nil {
 			// Check if it's a conflict
-			status, _ := g.runGitCommand(g.worktreePath, "status", "--porcelain")
+			status, statusErr := g.runGitCommand(g.worktreePath, "status", "--porcelain")
+			if statusErr != nil {
+				// Even if status fails, we should abort and return the original error
+				g.runGitCommand(g.worktreePath, "cherry-pick", "--abort")
+				return fmt.Errorf("failed to cherry-pick commit %s: %w", sha, err)
+			}
 			if strings.Contains(string(status), "UU") {
 				// Abort the cherry-pick
 				g.runGitCommand(g.worktreePath, "cherry-pick", "--abort")
