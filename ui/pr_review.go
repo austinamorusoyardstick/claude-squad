@@ -188,7 +188,7 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m = m.resetViewAfterFilterChange()
 			return m, nil
 
-		case "ctrl+c":
+		case "ctrl+r":
 			// Request confirmation before resolving all conversations
 			return m, func() tea.Msg { return PRRequestResolveConfirmationMsg{} }
 
