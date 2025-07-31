@@ -74,7 +74,7 @@ func (m *home) performMergePRs(instance *session.Instance, selectedPRs []*git.Pu
 	var successfulMerges []int
 	var failedMerges []string
 
-	for i, pr := range selectedPRs {
+	for _, pr := range selectedPRs {
 		// Send progress update
 		// Note: We can't update UI directly from goroutine, would need to send messages
 
