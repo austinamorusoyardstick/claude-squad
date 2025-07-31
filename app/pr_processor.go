@@ -199,3 +199,98 @@ func (m *home) formatCommentAsPrompt(comment *git.PRComment) string {
 
 	return prompt.String()
 }
+
+type resolveConversationsMsg struct {
+	resolved int
+	total    int
+	err      error
+	logs     []string  // Log messages to add to errorLog
+}
+
+func (m *home) resolveAllPRConversations() tea.Cmd {
+	return func() tea.Msg {
+		var logs []string
+		timestamp := time.Now().Format("15:04:05")
+		
+		selected := m.list.GetSelectedInstance()
+		if selected == nil {
+			return resolveConversationsMsg{err: fmt.Errorf("no instance selected")}
+		}
+
+		// Get the worktree for the selected instance
+		worktree, err := selected.GetGitWorktree()
+		if err != nil {
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get git worktree: %w", err),
+				logs: logs,
+			}
+		}
+
+		// Get the worktree path
+		worktreePath := worktree.GetWorktreePath()
+
+		// Get the current PR
+		pr, err := git.GetCurrentPR(worktreePath)
+		if err != nil {
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get current PR: %w", err),
+				logs: logs,
+			}
+		}
+		
+		logs = append(logs, fmt.Sprintf("[%s] Found PR #%d: %s", timestamp, pr.Number, pr.Title))
+
+		// Get all unresolved conversations
+		unresolvedThreads, err := pr.GetUnresolvedThreads(worktreePath)
+		if err != nil {
+			return resolveConversationsMsg{
+				err: fmt.Errorf("failed to get unresolved threads: %w", err),
+				logs: logs,
+			}
+		}
+
+		total := len(unresolvedThreads)
+		resolved := 0
+		
+		logs = append(logs, fmt.Sprintf("[%s] Found %d unresolved review threads", timestamp, total))
+
+		// Resolve each thread
+		for i, threadID := range unresolvedThreads {
+			if err := pr.ResolveThread(worktreePath, threadID); err != nil {
+				logs = append(logs, fmt.Sprintf("[%s] Failed to resolve thread %d/%d", timestamp, i+1, total))
+				errStr := err.Error()
+				
+				// Check for permission errors
+				if strings.Contains(errStr, "must have push access") || 
+				   strings.Contains(errStr, "resource not accessible") ||
+				   strings.Contains(errStr, "permission") {
+					return resolveConversationsMsg{
+						err: fmt.Errorf("permission denied: you need write access to the repository to resolve conversations"),
+						logs: logs,
+					}
+				}
+				
+				// Check for authentication errors to avoid repeated failures
+				if strings.Contains(errStr, "authentication") || 
+				   strings.Contains(errStr, "gh auth login") ||
+				   strings.Contains(errStr, "not authenticated") {
+					return resolveConversationsMsg{
+						err: fmt.Errorf("GitHub CLI not authenticated. Run 'gh auth login' first"),
+						logs: logs,
+					}
+				}
+				
+				continue
+			}
+			resolved++
+			logs = append(logs, fmt.Sprintf("[%s] Resolved thread %d/%d", timestamp, i+1, total))
+		}
+
+		return resolveConversationsMsg{
+			resolved: resolved,
+			total:    total,
+			err:      nil,
+			logs:     logs,
+		}
+	}
+}

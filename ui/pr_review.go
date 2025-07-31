@@ -11,21 +11,21 @@ import (
 )
 
 type PRReviewModel struct {
-	pr                *git.PullRequest
-	currentIndex      int
-	width             int
-	height            int
-	showHelp          bool
-	filterEnabled     bool
-	showComments      bool
-	showReviews       bool
-	showLineComments  bool
+	pr                   *git.PullRequest
+	currentIndex         int
+	width                int
+	height               int
+	showHelp             bool
+	filterEnabled        bool
+	showComments         bool
+	showReviews          bool
+	showLineComments     bool
 	showOnlyLineComments bool
-	err               error
-	viewport          viewport.Model
-	ready             bool
-	splitMode         bool
-	splitModel        *CommentSplitModel
+	err                  error
+	viewport             viewport.Model
+	ready                bool
+	splitMode            bool
+	splitModel           *CommentSplitModel
 }
 
 type PRReviewCompleteMsg struct {
@@ -38,19 +38,23 @@ type PRReviewShowCommentMsg struct {
 	Comment *git.PRComment
 }
 
+type PRResolveAllConversationsMsg struct{}
+
+type PRRequestResolveConfirmationMsg struct{}
+
 func NewPRReviewModel(pr *git.PullRequest) PRReviewModel {
 	return PRReviewModel{
-		pr:                  pr,
-		currentIndex:        0,
-		showHelp:            true,
-		filterEnabled:       true, // Default to filter enabled
-		showComments:        true,  // Default to show comments
-		showReviews:         true,  // Default to show reviews
-		showLineComments:    true,  // Default to show line comments
+		pr:                   pr,
+		currentIndex:         0,
+		showHelp:             true,
+		filterEnabled:        true,  // Default to filter enabled
+		showComments:         true,  // Default to show comments
+		showReviews:          true,  // Default to show reviews
+		showLineComments:     true,  // Default to show line comments
 		showOnlyLineComments: false, // Default to not showing only line comments
-		ready:               false,
-		width:               80, // Default width
-		height:              24, // Default height
+		ready:                false,
+		width:                80, // Default width
+		height:               24, // Default height
 	}
 }
 
@@ -183,6 +187,10 @@ func (m PRReviewModel) Update(msg tea.Msg) (PRReviewModel, tea.Cmd) {
 			m.showOnlyLineComments = false
 			m = m.resetViewAfterFilterChange()
 			return m, nil
+
+		case "ctrl+r":
+			// Request confirmation before resolving all conversations
+			return m, func() tea.Msg { return PRRequestResolveConfirmationMsg{} }
 
 		case "C":
 			// Show only comments (not reviews)
@@ -493,6 +501,7 @@ func (m PRReviewModel) View() string {
 			"c/C:toggle/only comments",
 			"r/R:toggle/only reviews",
 			"l/L:toggle/only line comments",
+			"Ctrl+r:resolve all",
 			"Enter:process",
 			"q:cancel",
 			"PgUp/PgDn:scroll",
@@ -822,7 +831,7 @@ func (m PRReviewModel) simpleView() string {
 		Foreground(lipgloss.Color("241"))
 
 	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • c/C:toggle/only comments • r/R:toggle/only reviews • l/L:toggle/only line comments • Enter:process • q:cancel"))
+	b.WriteString(helpStyle.Render("Keys: j/k:nav • a/d:accept/deny • e:expand • s:split • f:toggle filter • c/C:toggle/only comments • r/R:toggle/only reviews • l/L:toggle/only line comments • Ctrl+r:resolve all • Enter:process • q:cancel"))
 
 	return b.String()
 }

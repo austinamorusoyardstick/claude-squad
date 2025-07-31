@@ -139,13 +139,13 @@ type home struct {
 
 	// errorLog stores all error messages for display
 	errorLog []string
-	
+
 	// pendingRebaseInstance stores the instance to rebase after confirmation
 	pendingRebaseInstance *session.Instance
-	
+
 	// pendingResetInstance stores the instance to reset after confirmation
 	pendingResetInstance *session.Instance
-	
+
 	// rebaseInProgress indicates if a rebase is currently in progress
 	rebaseInProgress bool
 	// rebaseInstance is the instance being rebased
@@ -331,6 +331,8 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// We'll set the size in the next WindowSizeMsg
 			m.state = stateCommentDetail
 			return m, tea.WindowSize()
+		case ui.PRRequestResolveConfirmationMsg:
+			return m.requestResolveAllConversationsConfirmation()
 		}
 
 		return m, cmd
@@ -434,11 +436,11 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.pendingRebaseInstance == nil {
 			return m, nil
 		}
-		
+
 		// Clear the pending instance
 		instance := m.pendingRebaseInstance
 		m.pendingRebaseInstance = nil
-		
+
 		// Execute rebase synchronously here to handle the result immediately
 		worktree, err := instance.GetGitWorktree()
 		if err != nil {
@@ -454,7 +456,7 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if isDirty {
 			return m, m.handleError(fmt.Errorf(cannotRebaseUncommittedChangesError))
 		}
-		
+
 		// Get current commit SHA before rebase
 		currentSHA, err := worktree.GetCurrentCommitSHA()
 		if err != nil {
@@ -466,19 +468,19 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Check if this is a rebase conflict error that needs polling
 			if rebaseErr, ok := err.(*git.RebaseConflictError); ok {
 				log.InfoLog.Printf("Rebase conflict detected for branch %s", worktree.GetBranchName())
-				
+
 				// Display the error with instructions
 				errorCmd := m.handleError(fmt.Errorf("Rebase conflicts detected. IDE opened at %s\nResolve conflicts, complete rebase, and push to remote", rebaseErr.TempDir))
-				
+
 				// Set rebase in progress state
 				m.rebaseInProgress = true
 				m.rebaseInstance = instance
 				m.rebaseBranchName = worktree.GetBranchName()
 				m.rebaseOriginalSHA = currentSHA
-				
+
 				// Start polling the remote for changes
 				pollingCmd := m.createRemotePollingCmd(worktree.GetBranchName(), currentSHA)
-				
+
 				// Return both commands so error displays AND polling starts
 				return m, tea.Batch(errorCmd, pollingCmd)
 			}
@@ -492,33 +494,33 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.pendingResetInstance == nil {
 			return m, nil
 		}
-		
+
 		// Clear the pending instance
 		instance := m.pendingResetInstance
 		m.pendingResetInstance = nil
-		
+
 		// Execute reset synchronously here to handle the result immediately
 		worktree, err := instance.GetGitWorktree()
 		if err != nil {
 			return m, m.handleError(err)
 		}
-		
+
 		// Get branch name before reset
 		branchName := worktree.GetBranchName()
-		
+
 		// Perform the reset
 		if err := worktree.ResetToOrigin(); err != nil {
 			return m, m.handleError(err)
 		}
-		
+
 		// Show success message in the status bar
 		successMsg := fmt.Sprintf("✓ Git reset for branch %s completed successfully", branchName)
 		m.errBox.SetError(fmt.Errorf(successMsg))
-		
+
 		// Also add to log for history
 		timestamp := time.Now().Format("15:04:05")
 		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] %s", timestamp, successMsg))
-		
+
 		// Refresh instances and hide message after a delay
 		return m, tea.Batch(
 			m.instanceChanged(),
@@ -527,59 +529,59 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return hideErrMsg{}
 			},
 		)
-		
+
 	case remotePollingMsg:
 		// Check if rebase is still in progress
 		if !m.rebaseInProgress || m.rebaseInstance == nil {
 			return m, nil
 		}
-		
+
 		// Get the worktree to check remote
 		worktree, err := m.rebaseInstance.GetGitWorktree()
 		if err != nil {
 			log.ErrorLog.Printf("Failed to get worktree for polling: %v", err)
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		// Fetch latest from remote
 		if _, err := worktree.FetchBranch(msg.branchName); err != nil {
 			log.WarningLog.Printf("Failed to fetch branch %s: %v", msg.branchName, err)
 			// Continue polling even if fetch fails
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		// Check if remote SHA has changed
 		remoteSHA, err := worktree.GetRemoteBranchSHA(msg.branchName)
 		if err != nil {
 			log.ErrorLog.Printf("Failed to get remote SHA: %v", err)
 			return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 		}
-		
+
 		log.InfoLog.Printf("Polling rebase: original=%s, remote=%s", msg.originalSHA, remoteSHA)
-		
+
 		if remoteSHA != msg.originalSHA {
 			// Remote has changed, pull the changes
 			log.InfoLog.Printf("Remote branch updated, pulling changes")
-			
+
 			// Reset to the remote branch
 			if err := worktree.ResetToRemote(msg.branchName); err != nil {
 				m.rebaseInProgress = false
 				return m, m.handleError(fmt.Errorf("failed to sync rebased changes: %w", err))
 			}
-			
+
 			// Clear rebase state
 			m.rebaseInProgress = false
 			m.rebaseInstance = nil
 			m.rebaseBranchName = ""
 			m.rebaseOriginalSHA = ""
-			
+
 			// Show success
 			timestamp := time.Now().Format("15:04:05")
 			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Rebase completed successfully", timestamp))
-			
+
 			return m, m.instanceChanged()
 		}
-		
+
 		// Continue polling
 		return m, m.createRemotePollingCmd(msg.branchName, msg.originalSHA)
 	case spinner.TickMsg:
@@ -599,6 +601,65 @@ func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			time.Sleep(3 * time.Second)
 			return hideErrMsg{}
 		}
+	case resolveConversationsMsg:
+		// Show result of resolving conversations
+		m.state = stateDefault
+		m.textOverlay = nil
+
+		// Add all logs from the operation
+		if len(msg.logs) > 0 {
+			m.errorLog = append(m.errorLog, msg.logs...)
+		}
+
+		timestamp := time.Now().Format("15:04:05")
+		
+		if msg.err != nil {
+			// Log the error
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Failed to resolve conversations: %v", timestamp, msg.err))
+			m.errBox.SetError(msg.err)
+		} else {
+			// Show success message
+			var message string
+			if msg.total == 0 {
+				message = "✓ No unresolved review threads found"
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
+			} else if msg.resolved == msg.total {
+				message = fmt.Sprintf("✓ Successfully resolved all %d review threads", msg.total)
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Successfully resolved all %d review threads", timestamp, msg.total))
+			} else {
+				message = fmt.Sprintf("✓ Resolved %d of %d review threads", msg.resolved, msg.total)
+				m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Resolved %d of %d review threads (some failed)", timestamp, msg.resolved, msg.total))
+			}
+			
+			successErr := fmt.Errorf(message)
+			m.errBox.SetError(successErr)
+		}
+		
+		// Keep log size manageable
+		if len(m.errorLog) > 100 {
+			m.errorLog = m.errorLog[len(m.errorLog)-100:]
+		}
+
+		// Return command to hide error after delay only if no error
+		if msg.err == nil {
+			return m, func() tea.Msg {
+				time.Sleep(3 * time.Second)
+				return hideErrMsg{}
+			}
+		}
+		return m, nil
+	case ui.PRResolveAllConversationsMsg:
+		// Resolve all conversations on the PR
+		m.state = stateHelp
+		m.prReviewOverlay = nil
+		m.confirmationOverlay = nil
+		m.textOverlay = overlay.NewTextOverlay("Resolving all PR conversations...\n\nThis may take a moment...")
+		
+		// Log the start of resolution
+		timestamp := time.Now().Format("15:04:05")
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Starting to resolve all PR conversations...", timestamp))
+		
+		return m, m.resolveAllPRConversations()
 	case testStartedMsg:
 		// Show non-obtrusive message that tests are running
 		m.errBox.SetError(fmt.Errorf("Running Jest tests..."))
@@ -873,7 +934,10 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if shouldClose {
 			// Capture confirmation state before clearing overlay
 			wasConfirmed := m.confirmationOverlay.IsConfirmed()
-			m.state = stateDefault
+
+			// Check if we should return to PR review state
+			returnToPRReview := m.prReviewOverlay != nil
+
 			m.confirmationOverlay = nil
 
 			// Execute pending command if confirmed
@@ -890,6 +954,14 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 				return m.Update(result)
 			}
 			m.pendingCmd = nil
+
+			// Set appropriate state after handling confirmation
+			if returnToPRReview {
+				m.state = statePRReview
+			} else {
+				m.state = stateDefault
+			}
+
 			return m, nil
 		}
 		return m, nil
@@ -1215,15 +1287,15 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Rebase session '%s' with main branch?", selected.Title)
-		
+
 		// Store the selected instance for the rebase
 		m.pendingRebaseInstance = selected
-		
+
 		// Create a simple action that just returns a message to trigger the actual rebase
 		rebaseAction := func() tea.Msg {
 			return startRebaseMsg{}
 		}
-		
+
 		return m, m.confirmAction(message, rebaseAction)
 	case keys.KeyPRReview:
 		selected := m.list.GetSelectedInstance()
@@ -1272,6 +1344,8 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Initialize the PR review model
 		initCmd := prReviewModel.Init()
 		return m, initCmd
+	case keys.KeyPRResolveConversations:
+		return m.requestResolveAllConversationsConfirmation()
 	case keys.KeyBookmark:
 		selected := m.list.GetSelectedInstance()
 		if selected == nil {
@@ -1328,18 +1402,18 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		if err != nil {
 			return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
 		}
-		
+
 		// Show confirmation modal
 		message := fmt.Sprintf("[!] Reset session '%s' to origin/%s?", selected.Title, worktree.GetBranchName())
-		
+
 		// Store the selected instance for the reset
 		m.pendingResetInstance = selected
-		
+
 		// Create a simple action that just returns a message to trigger the actual reset
 		resetAction := func() tea.Msg {
 			return startGitResetMsg{}
 		}
-		
+
 		return m, m.confirmAction(message, resetAction)
 	case keys.KeyEnter:
 		if m.list.NumInstances() == 0 {
@@ -1634,6 +1708,97 @@ func (m *home) instanceChanged() tea.Cmd {
 	return nil
 }
 
+func (m *home) requestResolveAllConversationsConfirmation() (tea.Model, tea.Cmd) {
+	selected := m.list.GetSelectedInstance()
+	if selected == nil {
+		return m, m.handleError(fmt.Errorf("no instance selected"))
+	}
+
+	// Check if instance is started
+	if !selected.Started() {
+		return m, m.handleError(fmt.Errorf("instance '%s' is not started", selected.Title))
+	}
+
+	// Check if instance is paused
+	if selected.Paused() {
+		return m, m.handleError(fmt.Errorf(instancePausedError, selected.Title))
+	}
+
+	// Get the worktree for the selected instance
+	worktree, err := selected.GetGitWorktree()
+	if err != nil {
+		return m, m.handleError(fmt.Errorf("failed to get git worktree: %w", err))
+	}
+
+	// Get the worktree path
+	worktreePath := worktree.GetWorktreePath()
+
+	// Try to get PR and check for unresolved threads
+	var threads []string
+	var fetchError error
+	pr, err := git.GetCurrentPR(worktreePath)
+	if err == nil {
+		// We have a PR, try to get unresolved threads
+		threads, fetchError = pr.GetUnresolvedThreads(worktreePath)
+	} else {
+		fetchError = err
+	}
+
+	var message string
+	timestamp := time.Now().Format("15:04:05")
+	
+	if fetchError == nil {
+		if len(threads) == 0 {
+			// No unresolved conversations
+			m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] No unresolved review threads found on PR", timestamp))
+			
+			// For PR review state, just show error
+			if m.state == statePRReview {
+				m.errBox.SetError(fmt.Errorf("No unresolved review threads found on this PR"))
+				return m, func() tea.Msg {
+					time.Sleep(2 * time.Second)
+					return hideErrMsg{}
+				}
+			}
+			// For main menu, return error
+			return m, m.handleError(fmt.Errorf("no unresolved review threads found on this PR"))
+		}
+		message = fmt.Sprintf("Found %d unresolved review threads on this PR.\n\nAre you sure you want to resolve all %d threads?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone.", len(threads), len(threads))
+	} else {
+		// Log the error
+		m.errorLog = append(m.errorLog, fmt.Sprintf("[%s] Error fetching thread count: %v", timestamp, fetchError))
+		
+		if strings.Contains(fetchError.Error(), "no pull request found") || 
+		   strings.Contains(fetchError.Error(), "no open pull requests") {
+			message = fmt.Sprintf("Error: %v\n\nThis feature requires an open GitHub pull request for the current branch.\n\nMake sure you:\n1. Have an open PR for this branch\n2. Are authenticated with 'gh auth login'\n3. Are in a git repository", fetchError)
+			
+			// For main menu, return error immediately
+			if m.state != statePRReview {
+				return m, m.handleError(fetchError)
+			}
+		} else {
+			// Some other error occurred, but we'll still allow the user to try
+			message = "Unable to fetch thread count.\n\nAre you sure you want to resolve all review threads on this PR?\n\nNote: Only review threads (line comments) can be resolved.\nGeneral PR comments cannot be resolved.\n\nThis action cannot be undone."
+		}
+	}
+
+	// Store the pending command to resolve conversations
+	m.pendingCmd = func() tea.Msg {
+		// When confirmed, send the message to resolve all conversations
+		return ui.PRResolveAllConversationsMsg{}
+	}
+
+	// For PR review state, set confirmation state differently
+	if m.state == statePRReview {
+		m.state = stateConfirm
+		m.confirmationOverlay = overlay.NewConfirmationOverlay(message)
+		return m, nil
+	}
+
+	// For main menu, use confirmAction
+	return m, m.confirmAction(message, m.pendingCmd)
+}
+
 type keyupMsg struct{}
 
 // keydownCallback clears the menu option highlighting after 500ms.
@@ -1812,14 +1977,12 @@ func (m *home) handleError(err error) tea.Cmd {
 	}
 }
 
-
-
 // createRemotePollingCmd creates a command that polls the remote for branch changes
 func (m *home) createRemotePollingCmd(branchName string, originalSHA string) tea.Cmd {
 	return func() tea.Msg {
 		// Wait a bit before polling
 		time.Sleep(3 * time.Second)
-		
+
 		return remotePollingMsg{
 			branchName:  branchName,
 			originalSHA: originalSHA,
@@ -1884,11 +2047,17 @@ func (m *home) View() string {
 	} else if m.state == stateHelp {
 		if m.textOverlay == nil {
 			log.ErrorLog.Printf("text overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.textOverlay.Render(), mainView, true, true)
 	} else if m.state == stateConfirm {
 		if m.confirmationOverlay == nil {
 			log.ErrorLog.Printf("confirmation overlay is nil")
+			// Return to default state if overlay is nil
+			m.state = stateDefault
+			return mainView
 		}
 		return overlay.PlaceOverlay(0, 0, m.confirmationOverlay.Render(), mainView, true, true)
 	} else if m.state == stateBranchSelect {
@@ -2046,6 +2215,7 @@ func (m *home) showTestResults(output string) {
 }
 
 func (m *home) showErrorLog() (tea.Model, tea.Cmd) {
+	
 	// Create content for error log
 	var content string
 	if len(m.errorLog) == 0 {

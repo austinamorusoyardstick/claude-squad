@@ -21,6 +21,7 @@ const (
 	KeyPush
 	KeySubmit
 	KeyPRReview
+	KeyPRResolveConversations
 
 	KeyTab        // Tab is a special keybinding for switching between panes.
 	KeyShiftTab   // ShiftTab is a special keybinding for switching between panes in reverse.
@@ -109,6 +110,7 @@ var GlobalKeyStringsMap = map[string]KeyName{
 	"b":          KeyRebase,
 	"B":          KeyBookmark,
 	"R":          KeyPRReview,
+	"ctrl+r":     KeyPRResolveConversations,
 	"ctrl+h":     KeyHistory,
 	"K":          KeyEditKeybindings,
 	"t":          KeyTest,
@@ -252,6 +254,10 @@ var GlobalkeyBindings = map[KeyName]key.Binding{
 	KeyPRReview: key.NewBinding(
 		key.WithKeys("R"),
 		key.WithHelp("R", "review PR comments"),
+	),
+	KeyPRResolveConversations: key.NewBinding(
+		key.WithKeys("ctrl+r"),
+		key.WithHelp("ctrl+r", "resolve all PR conversations"),
 	),
 	KeyBookmark: key.NewBinding(
 		key.WithKeys("B"),
@@ -535,7 +541,7 @@ func getCommandToKeyNameMap() map[string]KeyName {
 		"open_ide":            KeyOpenIDE,
 		"rebase":              KeyRebase,
 		"tab":                 KeyTab,
-		"shift_tab":        KeyShiftTab,
+		"shift_tab":           KeyShiftTab,
 		"scroll_up":           KeyShiftUp,
 		"scroll_down":         KeyShiftDown,
 		"home":                KeyHome,
@@ -595,7 +601,7 @@ func getHelpText(command string) string {
 		"open_ide":            "open IDE",
 		"rebase":              "rebase",
 		"tab":                 "switch tab",
-		"shift_tab":        "switch tab (reverse)",
+		"shift_tab":           "switch tab (reverse)",
 		"scroll_up":           "scroll",
 		"scroll_down":         "scroll",
 		"home":                "scroll to top",

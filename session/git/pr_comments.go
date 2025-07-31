@@ -74,9 +74,21 @@ type PullRequest struct {
 func GetCurrentPR(workingDir string) (*PullRequest, error) {
 	cmd := exec.Command("gh", "pr", "view", "--json", "number,title,state,headRefName,baseRefName,url,headRefOid")
 	cmd.Dir = workingDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current PR from %s: %w", workingDir, err)
+		// Check for common error cases
+		outputStr := string(output)
+		if strings.Contains(outputStr, "no pull requests found") || strings.Contains(outputStr, "no open pull requests") {
+			return nil, fmt.Errorf("no pull request found for the current branch in %s", workingDir)
+		}
+		if strings.Contains(outputStr, "authentication") || strings.Contains(outputStr, "gh auth login") {
+			return nil, fmt.Errorf("GitHub CLI not authenticated. Run 'gh auth login' first")
+		}
+		if strings.Contains(outputStr, "not a git repository") {
+			return nil, fmt.Errorf("not in a git repository: %s", workingDir)
+		}
+		// Generic error with output for debugging
+		return nil, fmt.Errorf("failed to get current PR from %s (output: %s): %w", workingDir, strings.TrimSpace(outputStr), err)
 	}
 
 	var prData struct {
@@ -148,6 +160,40 @@ func (pr *PullRequest) FetchComments(workingDir string) error {
 	return nil
 }
 
+// paginatedGraphQLQuery executes a GraphQL query with pagination support
+func paginatedGraphQLQuery(workingDir string, buildQuery func(cursor *string) string, processResponse func([]byte) (hasNextPage bool, endCursor string, err error)) error {
+	var cursor *string
+	hasNextPage := true
+	
+	for hasNextPage {
+		query := buildQuery(cursor)
+		
+		// Execute GraphQL query
+		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
+		cmd.Dir = workingDir
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to execute GraphQL query (output: %s): %w", string(output), err)
+		}
+		
+		// Process the response
+		nextPage, endCursor, err := processResponse(output)
+		if err != nil {
+			return err
+		}
+		
+		// Update pagination state
+		hasNextPage = nextPage
+		if hasNextPage && endCursor != "" {
+			cursor = &endCursor
+		} else {
+			hasNextPage = false
+		}
+	}
+	
+	return nil
+}
+
 func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, error) {
 	// Get repository info first
 	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
@@ -168,12 +214,26 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
 		return nil, fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	// Use GraphQL to get review thread resolution status
-	query := fmt.Sprintf(`
+	// Build map of comment ID to resolved status
+	resolvedMap := make(map[int]bool)
+	pageSize := 100
+
+	// Build query function
+	buildQuery := func(cursor *string) string {
+		var afterClause string
+		if cursor != nil {
+			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
+		}
+		
+		return fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: %d%s) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           id
           isResolved
@@ -186,47 +246,54 @@ func (pr *PullRequest) fetchResolvedStatus(workingDir string) (map[int]bool, err
       }
     }
   }
-}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number)
-
-	// Execute GraphQL query
-	cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
-	cmd.Dir = workingDir
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
 	}
 
-	var response struct {
-		Data struct {
-			Repository struct {
-				PullRequest struct {
-					ReviewThreads struct {
-						Nodes []struct {
-							ID         string `json:"id"`
-							IsResolved bool   `json:"isResolved"`
-							Comments   struct {
-								Nodes []struct {
-									DatabaseID int `json:"databaseId"`
-								} `json:"nodes"`
-							} `json:"comments"`
-						} `json:"nodes"`
-					} `json:"reviewThreads"`
-				} `json:"pullRequest"`
-			} `json:"repository"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(output, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse resolved status response: %w", err)
-	}
-
-	// Build map of comment ID to resolved status
-	resolvedMap := make(map[int]bool)
-	for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
-		if len(thread.Comments.Nodes) > 0 {
-			commentID := thread.Comments.Nodes[0].DatabaseID
-			resolvedMap[commentID] = thread.IsResolved
+	// Process response function
+	processResponse := func(output []byte) (bool, string, error) {
+		var response struct {
+			Data struct {
+				Repository struct {
+					PullRequest struct {
+						ReviewThreads struct {
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								ID         string `json:"id"`
+								IsResolved bool   `json:"isResolved"`
+								Comments   struct {
+									Nodes []struct {
+										DatabaseID int `json:"databaseId"`
+									} `json:"nodes"`
+								} `json:"comments"`
+							} `json:"nodes"`
+						} `json:"reviewThreads"`
+					} `json:"pullRequest"`
+				} `json:"repository"`
+			} `json:"data"`
 		}
+
+		if err := json.Unmarshal(output, &response); err != nil {
+			return false, "", fmt.Errorf("failed to parse resolved status response: %w", err)
+		}
+
+		// Add comment IDs from this page to the map
+		for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+			if len(thread.Comments.Nodes) > 0 {
+				commentID := thread.Comments.Nodes[0].DatabaseID
+				resolvedMap[commentID] = thread.IsResolved
+			}
+		}
+
+		pageInfo := response.Data.Repository.PullRequest.ReviewThreads.PageInfo
+		return pageInfo.HasNextPage, pageInfo.EndCursor, nil
+	}
+
+	// Execute paginated query
+	if err := paginatedGraphQLQuery(workingDir, buildQuery, processResponse); err != nil {
+		return nil, fmt.Errorf("failed to fetch resolved status: %w", err)
 	}
 
 	return resolvedMap, nil
@@ -798,4 +865,168 @@ func matchesNumberedList(line string) bool {
 	}
 
 	return false
+}
+
+// GetUnresolvedThreads returns all unresolved review thread IDs
+func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error) {
+	// Get repository info first
+	repoCmd := exec.Command("gh", "repo", "view", "--json", "owner,name")
+	repoCmd.Dir = workingDir
+	repoOutput, err := repoCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	var repoInfo struct {
+		Owner struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	}
+
+	if err := json.Unmarshal(repoOutput, &repoInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	// Collect all unresolved thread IDs
+	var unresolvedThreads []string
+	pageSize := 100
+
+	// Build query function
+	buildQuery := func(cursor *string) string {
+		var afterClause string
+		if cursor != nil {
+			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
+		}
+		
+		return fmt.Sprintf(`
+{
+  repository(owner: "%s", name: "%s") {
+    pullRequest(number: %d) {
+      reviewThreads(first: %d%s) {
+        totalCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes {
+              body
+              author {
+                login
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
+	}
+
+	// Process response function
+	processResponse := func(output []byte) (bool, string, error) {
+		var response struct {
+			Data struct {
+				Repository struct {
+					PullRequest struct {
+						ReviewThreads struct {
+							TotalCount int `json:"totalCount"`
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								ID         string `json:"id"`
+								IsResolved bool   `json:"isResolved"`
+								Comments struct {
+									Nodes []struct {
+										Body string `json:"body"`
+										Author struct {
+											Login string `json:"login"`
+										} `json:"author"`
+									} `json:"nodes"`
+								} `json:"comments"`
+							} `json:"nodes"`
+						} `json:"reviewThreads"`
+					} `json:"pullRequest"`
+				} `json:"repository"`
+			} `json:"data"`
+		}
+
+		if err := json.Unmarshal(output, &response); err != nil {
+			return false, "", fmt.Errorf("failed to parse review threads response: %w", err)
+		}
+
+		// Collect unresolved thread IDs from this page
+		for _, thread := range response.Data.Repository.PullRequest.ReviewThreads.Nodes {
+			if !thread.IsResolved {
+				unresolvedThreads = append(unresolvedThreads, thread.ID)
+			}
+		}
+
+		pageInfo := response.Data.Repository.PullRequest.ReviewThreads.PageInfo
+		return pageInfo.HasNextPage, pageInfo.EndCursor, nil
+	}
+
+	// Execute paginated query
+	if err := paginatedGraphQLQuery(workingDir, buildQuery, processResponse); err != nil {
+		return nil, fmt.Errorf("failed to fetch review threads: %w", err)
+	}
+	
+	return unresolvedThreads, nil
+}
+
+// ResolveThread resolves a specific review thread
+func (pr *PullRequest) ResolveThread(workingDir string, threadID string) error {
+	// Use GraphQL mutation to resolve the thread
+	mutation := `
+mutation($threadId: ID!) {
+  resolveReviewThread(input: {threadId: $threadId}) {
+    thread {
+      id
+      isResolved
+    }
+  }
+}`
+
+	// Execute GraphQL mutation using proper parameter passing
+	cmd := exec.Command("gh", "api", "graphql", "-f", "query="+mutation, "-f", "threadId="+threadID)
+	cmd.Dir = workingDir
+	output, err := cmd.CombinedOutput() // Use CombinedOutput to get stderr as well
+	if err != nil {
+		return fmt.Errorf("failed to resolve thread %s (output: %s): %w", threadID, string(output), err)
+	}
+
+	// Check if mutation was successful
+	var response struct {
+		Data struct {
+			ResolveReviewThread struct {
+				Thread struct {
+					ID         string `json:"id"`
+					IsResolved bool   `json:"isResolved"`
+				} `json:"thread"`
+			} `json:"resolveReviewThread"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	if err := json.Unmarshal(output, &response); err != nil {
+		return fmt.Errorf("failed to parse resolve thread response: %w", err)
+	}
+
+	if len(response.Errors) > 0 {
+		return fmt.Errorf("GraphQL error: %s", response.Errors[0].Message)
+	}
+
+	if !response.Data.ResolveReviewThread.Thread.IsResolved {
+		return fmt.Errorf("thread %s was not resolved successfully", threadID)
+	}
+
+	return nil
 }
