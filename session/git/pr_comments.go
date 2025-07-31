@@ -907,7 +907,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			// Include the output in the error for debugging
-			return nil, fmt.Errorf("failed to fetch review threads: %w (output: %s)", err, string(output))
+			return nil, fmt.Errorf("failed to fetch review threads (output: %s): %w", string(output), err)
 		}
 
 		var response struct {
