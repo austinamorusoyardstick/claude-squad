@@ -4,6 +4,7 @@ import (
 	"claude-squad/session"
 	"claude-squad/session/git"
 	"claude-squad/ui/overlay"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
