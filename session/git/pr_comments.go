@@ -888,20 +888,18 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		return nil, fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	// Collect all unresolved thread IDs with pagination
+	// Collect all unresolved thread IDs
 	var unresolvedThreads []string
-	var cursor *string // Use pointer to handle null cursor
-	hasNextPage := true
 	pageSize := 100
 
-	for hasNextPage {
-		// Build GraphQL query with pagination
+	// Build query function
+	buildQuery := func(cursor *string) string {
 		var afterClause string
 		if cursor != nil {
 			afterClause = fmt.Sprintf(`, after: "%s"`, *cursor)
 		}
 		
-		query := fmt.Sprintf(`
+		return fmt.Sprintf(`
 {
   repository(owner: "%s", name: "%s") {
     pullRequest(number: %d) {
@@ -927,16 +925,10 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
     }
   }
 }`, repoInfo.Owner.Login, repoInfo.Name, pr.Number, pageSize, afterClause)
+	}
 
-		// Execute GraphQL query
-		cmd := exec.Command("gh", "api", "graphql", "-f", fmt.Sprintf("query=%s", query))
-		cmd.Dir = workingDir
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			// Include the output in the error for debugging
-			return nil, fmt.Errorf("failed to fetch review threads (output: %s): %w", string(output), err)
-		}
-
+	// Process response function
+	processResponse := func(output []byte) (bool, string, error) {
 		var response struct {
 			Data struct {
 				Repository struct {
@@ -966,7 +958,7 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 		}
 
 		if err := json.Unmarshal(output, &response); err != nil {
-			return nil, fmt.Errorf("failed to parse review threads response: %w", err)
+			return false, "", fmt.Errorf("failed to parse review threads response: %w", err)
 		}
 
 		// Collect unresolved thread IDs from this page
@@ -976,13 +968,13 @@ func (pr *PullRequest) GetUnresolvedThreads(workingDir string) ([]string, error)
 			}
 		}
 
-		// Check if there are more pages
-		hasNextPage = response.Data.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage
-		if hasNextPage && response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor != "" {
-			cursor = &response.Data.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
-		} else {
-			hasNextPage = false
-		}
+		pageInfo := response.Data.Repository.PullRequest.ReviewThreads.PageInfo
+		return pageInfo.HasNextPage, pageInfo.EndCursor, nil
+	}
+
+	// Execute paginated query
+	if err := paginatedGraphQLQuery(workingDir, buildQuery, processResponse); err != nil {
+		return nil, fmt.Errorf("failed to fetch review threads: %w", err)
 	}
 	
 	return unresolvedThreads, nil
