@@ -220,7 +220,6 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		// Get the worktree for the selected instance
 		worktree, err := selected.GetGitWorktree()
 		if err != nil {
-			logs = append(logs, fmt.Sprintf("[%s] Failed to get git worktree: %v", timestamp, err))
 			return resolveConversationsMsg{
 				err: fmt.Errorf("failed to get git worktree: %w", err),
 				logs: logs,
