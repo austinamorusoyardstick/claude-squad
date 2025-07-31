@@ -174,27 +174,9 @@ func (o *PRSelectorOverlay) View() string {
 		content.WriteString("\n\nSpace: Toggle selection | Enter: Confirm | q: Cancel")
 	}
 
-	// Calculate fixed width based on the longest PR we might display
-	// This prevents the dialog from resizing when selecting different lines
-	maxWidth := 80 // Default width
-	
-	// If we have PRs, calculate based on the longest one
-	if len(o.prs) > 0 {
-		for _, pr := range o.prs {
-			// Format: "> [x] #999: Title here (branch -> base)"
-			lineLen := 2 + 4 + len(fmt.Sprintf("#%d: %s (%s -> %s)", pr.Number, pr.Title, pr.HeadRef, pr.BaseRef))
-			if lineLen > maxWidth {
-				maxWidth = lineLen
-			}
-		}
-		// Add some padding
-		maxWidth += 5
-	}
-	
-	// Cap the maximum width
-	if maxWidth > 120 {
-		maxWidth = 120
-	}
+	// Use a fixed width to prevent dialog resizing
+	// This is wide enough for most PR information
+	maxWidth := 100
 
 	// Add padding and render with border
 	contentStr := content.String()
