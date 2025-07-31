@@ -66,6 +66,8 @@ const (
 	stateCommentDetail
 	// statePRSelector is the state when selecting PRs to merge.
 	statePRSelector
+	// stateMergeProgress is the state when displaying merge progress.
+	stateMergeProgress
 )
 
 type home struct {
