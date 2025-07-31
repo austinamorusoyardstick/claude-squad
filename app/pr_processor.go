@@ -232,7 +232,6 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		// Get the current PR
 		pr, err := git.GetCurrentPR(worktreePath)
 		if err != nil {
-			logs = append(logs, fmt.Sprintf("[%s] Failed to get current PR: %v", timestamp, err))
 			return resolveConversationsMsg{
 				err: fmt.Errorf("failed to get current PR: %w", err),
 				logs: logs,
