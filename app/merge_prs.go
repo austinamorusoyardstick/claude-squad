@@ -33,7 +33,7 @@ func (m *home) mergePRs(instance *session.Instance, selectedPRs []*git.PullReque
 		progressText += fmt.Sprintf("%d. PR #%d: %s\n", i+1, pr.Number, pr.Title)
 	}
 	m.textOverlay = overlay.NewTextOverlay(progressText)
-	m.state = stateHelp
+	m.state = stateMergeProgress
 
 	// Return a command that performs the merge
 	return m.createMergePRCmd(instance, selectedPRs)
