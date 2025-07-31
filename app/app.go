@@ -278,6 +278,37 @@ func (m *home) Init() tea.Cmd {
 }
 
 func (m *home) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle PR selector updates when in that state
+	if m.state == statePRSelector && m.prSelectorOverlay != nil {
+		// Pass all messages to the overlay, not just key messages
+		updatedOverlay, cmd := m.prSelectorOverlay.Update(msg)
+		
+		// Check if overlay wants to close (returns nil)
+		if updatedOverlay == nil {
+			m.state = stateDefault
+			m.prSelectorOverlay = nil
+			
+			// Check if we have pending PRs to merge
+			if len(m.pendingMergePRs) > 0 && m.pendingMergeInstance != nil {
+				// Start the merge process
+				mergeCmd := m.mergePRs(m.pendingMergeInstance, m.pendingMergePRs)
+				// Clear the pending fields
+				m.pendingMergePRs = nil
+				m.pendingMergeInstance = nil
+				return m, tea.Batch(cmd, mergeCmd)
+			}
+			
+			return m, cmd
+		}
+		
+		// Update the overlay pointer
+		if overlayPtr, ok := updatedOverlay.(*overlay.PRSelectorOverlay); ok {
+			m.prSelectorOverlay = overlayPtr
+		}
+		
+		return m, cmd
+	}
+	
 	// Handle branch selector updates when in that state
 	if m.state == stateBranchSelect && m.branchSelectorOverlay != nil {
 		if _, ok := msg.(tea.KeyMsg); ok {
