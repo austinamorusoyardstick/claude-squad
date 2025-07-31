@@ -251,7 +251,6 @@ func (m *home) resolveAllPRConversations() tea.Cmd {
 		// Get all unresolved conversations
 		unresolvedThreads, err := pr.GetUnresolvedThreads(worktreePath)
 		if err != nil {
-			logs = append(logs, fmt.Sprintf("[%s] Failed to get unresolved threads: %v", timestamp, err))
 			return resolveConversationsMsg{
 				err: fmt.Errorf("failed to get unresolved threads: %w", err),
 				logs: logs,
