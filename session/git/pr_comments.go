@@ -1034,6 +1034,11 @@ mutation($threadId: ID!) {
 
 // ListOpenPRs lists all open PRs for the current repository
 func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
+	// First check if gh is available
+	if _, err := exec.LookPath("gh"); err != nil {
+		return nil, fmt.Errorf("GitHub CLI (gh) is not installed or not in PATH")
+	}
+	
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -1049,7 +1054,12 @@ func ListOpenPRs(workingDir string) ([]*PullRequest, error) {
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("timeout while fetching PRs (took more than 30s)")
 		}
-		return nil, fmt.Errorf("failed to list PRs: %w (output: %s)", err, string(output))
+		// Check if it's an auth issue
+		outputStr := string(output)
+		if strings.Contains(outputStr, "not authenticated") || strings.Contains(outputStr, "authentication") {
+			return nil, fmt.Errorf("GitHub CLI is not authenticated. Please run 'gh auth login' first")
+		}
+		return nil, fmt.Errorf("failed to list PRs: %w (output: %s)", err, outputStr)
 	}
 
 	var prs []struct {
